@@ -15,9 +15,8 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code (this includes main.py inside app/)
 COPY app/ ./app/
-COPY main.py .
 
 # Create logs directory
 RUN mkdir -p logs
@@ -26,12 +25,11 @@ RUN mkdir -p logs
 EXPOSE 8000
 
 # Set environment variables (defaults, can be overridden at runtime)
-ENV FLASK_APP=main.py
 ENV PYTHONUNBUFFERED=1
 
 # Run the application
-# Environment variables will be passed at runtime via docker-compose or docker run -e
-CMD ["python", "main.py"]
+# Since main.py is inside app/, we run it as a module
+CMD ["python", "-m", "app.main"]
 
 #COPY .env .env
 
