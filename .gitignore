@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Environment variables (IMPORTANT - keeps secrets private)
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs (may contain sensitive data)
+logs/
+*.log
+
+# Test files (PDFs might be copyrighted)
+*.pdf
+!sample.pdf  # If you want to include one example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite3
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Docker (optional - usually you want to keep docker-compose.yml public)
+# docker-compose.override.yml  # Uncomment if you have local overrides

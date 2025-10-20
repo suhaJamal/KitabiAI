@@ -1,0 +1,23 @@
+# Core Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# PDF Processing
+PyMuPDF>=1.23.0
+
+# Azure Document Intelligence (for Arabic PDFs)
+azure-ai-documentintelligence>=1.0.0
+azure-core>=1.29.0
+
+# Configuration
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+
+# Optional: Telemetry (if you want to keep OpenTelemetry from Arabic project)
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-exporter-otlp-proto-grpc>=1.20.0
+opentelemetry-instrumentation-fastapi>=0.41b0
+opentelemetry-instrumentation>=0.41b0
