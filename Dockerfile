@@ -27,9 +27,5 @@ EXPOSE 8000
 # Set environment variables (defaults, can be overridden at runtime)
 ENV PYTHONUNBUFFERED=1
 
-# Run the application
-# Since main.py is inside app/, we run it as a module
-CMD ["python", "-m", "app.main"]
-
-#COPY .env .env
-
+# Run the application with uvicorn (FastAPI's ASGI server)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

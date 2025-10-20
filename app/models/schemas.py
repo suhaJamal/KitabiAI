@@ -5,7 +5,7 @@ Pydantic data models (request/response/domain).
 - Ensures validated, typed data passed between services and routers.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Literal, Optional
 
 class PageInfo(BaseModel):
