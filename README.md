@@ -1,10 +1,14 @@
 # KitabiAI - Intelligent Book Processing System
 
-![CI/CD](https://github.com/YOUR_USERNAME/KitabiAI/workflows/CI-CD/badge.svg)
+🔒 **Private Repository** - Access available upon request for recruiters and collaborators
+
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![Docker](https://img.shields.io/badge/docker-enabled-blue.svg)
+![CI/CD](https://img.shields.io/badge/CI/CD-enabled-success.svg)
 
 An intelligent document processing system that extracts tables of contents from PDF books in multiple languages, with specialized support for Arabic text.
+
+> **Note**: This is a private repository showcasing professional development practices including CI/CD, containerization, and clean architecture. For repository access, please contact me directly.
 
 ## 🚀 Features
 
@@ -140,8 +144,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 👤 Author
 
 **Your Name**
-- GitHub: [@YOUR_USERNAME](https://github.com/YOUR_USERNAME)
-- LinkedIn: [Your Profile](https://linkedin.com/in/your-profile)
+- GitHub: https://github.com/suhaJamal
+- LinkedIn: https://www.linkedin.com/in/suha-islaih/
 
 ## 🙏 Acknowledgments
 
