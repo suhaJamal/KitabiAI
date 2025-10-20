@@ -39,8 +39,8 @@ class BookMetadata(BaseModel):
     publication_date: Optional[str] = Field(None, description="Publication date")
     isbn: Optional[str] = Field(None, description="ISBN number")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "title": "Artificial Intelligence Ethics",
                 "author": "John Smith",
@@ -48,6 +48,7 @@ class BookMetadata(BaseModel):
                 "isbn": "978-3-16-148410-0"
             }
         }
+    )
 
 class BookInfo(BaseModel):
     """Complete book information including metadata and analysis results."""
