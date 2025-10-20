@@ -33,11 +33,11 @@ language_detector = LanguageDetector()
 
 # In-memory state of last successful analysis
 _last_report: Optional[AnalysisReport] = None
-_last_filename: str | None = None
-_last_pdf_bytes: bytes | None = None
-_last_language: str | None = None
-_last_extracted_text: str | None = None
-_last_book_metadata: BookMetadata | None = None
+_last_filename: Optional[str] = None
+_last_pdf_bytes: Optional[bytes] = None
+_last_language: Optional[str] = None
+_last_extracted_text: Optional[str] = None
+_last_book_metadata: Optional[BookMetadata] = None
 
 
 @router.get("/", response_class=HTMLResponse)
