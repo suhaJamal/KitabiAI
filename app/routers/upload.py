@@ -20,7 +20,7 @@ from ..services.export_service import ExportService
 from ..services.toc_extractor import TocExtractor
 from ..services.language_detector import LanguageDetector
 from ..models.schemas import AnalysisReport, BookMetadata, BookInfo
-
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -32,7 +32,7 @@ toc_extractor = TocExtractor()
 language_detector = LanguageDetector()
 
 # In-memory state of last successful analysis
-_last_report: AnalysisReport | None = None
+_last_report: Optional[AnalysisReport] = None
 _last_filename: str | None = None
 _last_pdf_bytes: bytes | None = None
 _last_language: str | None = None
