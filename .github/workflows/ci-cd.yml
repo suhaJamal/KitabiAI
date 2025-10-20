@@ -66,9 +66,9 @@ jobs:
         python -c "import app; print('✅ Application imports successfully')"
     
     # Uncomment when you add tests
-    # - name: Run tests
-    #   run: |
-    #     pytest tests/ -v
+    - name: Run tests
+      run: |
+        pytest tests/ -v
     #   env:
     #     AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: ${{ secrets.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT }}
     #     AZURE_DOCUMENT_INTELLIGENCE_KEY: ${{ secrets.AZURE_DOCUMENT_INTELLIGENCE_KEY }}
