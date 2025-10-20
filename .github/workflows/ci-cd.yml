@@ -1,3 +1,4 @@
+# Testing and CI/CD pipeline for the Kitabiai project
 name: CI-CD
 
 # Trigger pipeline on push to main or pull requests
