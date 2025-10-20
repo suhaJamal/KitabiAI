@@ -5,6 +5,7 @@
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![Docker](https://img.shields.io/badge/docker-enabled-blue.svg)
 ![CI/CD](https://img.shields.io/badge/CI/CD-enabled-success.svg)
+![CI/CD](https://github.com/suhaJamal/KitabiAI/workflows/CI-CD/badge.svg)
 
 An intelligent document processing system that extracts tables of contents from PDF books in multiple languages, with specialized support for Arabic text.
 
