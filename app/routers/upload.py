@@ -5,7 +5,7 @@ HTTP routes for the upload & analyze flow (unified English & Arabic support).
 - GET "/" renders the upload form (HTML shell).
 - POST "/upload" validates PDF, analyzes content, detects language, and returns JSON/HTML.
 - GET "/export/jsonl" streams page-level JSONL.
-- GET "/export/sections.jsonl" streams sections from unified TOC extraction (bookmarks or Azure).
+- GET "/export/sections.jsonl" streams sections from unified TOC extraction (bookmarks or pattern-based).
 - GET "/info" returns metadata about last uploaded PDF (language, classification, etc.).
 """
 
@@ -90,16 +90,16 @@ async def upload(
     pdf_bytes = await file.read()
     report = analyzer.analyze(pdf_bytes)
     
-    # Detect language (returns 2 values: language and extracted_text)
+    # Detect language and extract text (returns 2 values: language and extracted_text)
     detected_language, extracted_text = language_detector.detect(pdf_bytes)
     logger.info(f"Detected language: {detected_language}")
     
-    # Cache for follow-up exports
+    # Cache for follow-up exports (including extracted text for BOTH languages)
     _last_report = report
     _last_filename = file.filename
     _last_pdf_bytes = pdf_bytes
     _last_language = detected_language
-    _last_extracted_text = extracted_text
+    _last_extracted_text = extracted_text  # Cache for both English and Arabic
     _last_book_metadata = metadata
     
     # Return JSON or HTML
@@ -175,9 +175,9 @@ def export_sections_jsonl():
     First line: Book metadata object
     Following lines: Section objects
     
-    For English PDFs: Uses native bookmarks.
-    For Arabic PDFs: Uses Azure Document Intelligence + pattern-based extraction.
-    Fallback: Single 'Document' section if no TOC found.
+    For English PDFs: Uses native bookmarks, then pattern-based extraction if needed
+    For Arabic PDFs: Uses Azure Document Intelligence + pattern-based extraction
+    Fallback: Single 'Document' section if no TOC found
     """
     if _last_pdf_bytes is None or _last_filename is None or _last_book_metadata is None:
         raise HTTPException(
@@ -185,10 +185,15 @@ def export_sections_jsonl():
             detail="No PDF in memory. Upload a PDF first."
         )
     
-    # Extract TOC (language-aware)
+    # Extract TOC using unified extractor (with cached text for both languages)
     logger.info(f"Extracting TOC for {_last_language} PDF: {_last_filename}")
     
-    # For Arabic PDFs, use cached extracted text to avoid re-calling Azure
+    # The unified toc_extractor now handles both languages and uses cached text
+    # We don't need separate logic here anymore
+    if _last_extracted_text:
+        logger.info(f"Using cached extracted text ({len(_last_extracted_text)} characters)")
+    
+    # For Arabic PDFs, use the specialized extractor with cached text
     if _last_language == "arabic" and _last_extracted_text:
         from ..services.arabic_toc_extractor import ArabicTocExtractor
         arabic_extractor = ArabicTocExtractor()
@@ -205,7 +210,8 @@ def export_sections_jsonl():
                 section.page_end = doc.page_count
         doc.close()
     else:
-        # For English or if no cached text, use unified extractor
+        # For English (or if no cached text), use unified extractor
+        # The unified extractor will use cached text if available
         sections_report = toc_extractor.extract(_last_pdf_bytes)
     
     # Convert to JSONL with metadata
