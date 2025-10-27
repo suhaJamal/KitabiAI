@@ -63,3 +63,56 @@ class BookInfo(BaseModel):
     
     # Timestamps
     uploaded_at: Optional[str] = Field(None, description="Upload timestamp (ISO format)")
+
+# Chunking models
+class ChunkInfo(BaseModel):
+    """Information about a content chunk."""
+    chunk_id: str = Field(..., description="Unique chunk identifier")
+    section_id: str = Field(..., description="Parent section ID")
+    section_title: str = Field(..., description="Section title")
+    chunk_index: int = Field(..., description="Index within section (0-based)")
+    page_start: int = Field(..., description="Starting page number")
+    page_end: int = Field(..., description="Ending page number")
+    content: str = Field(..., description="Chunk text content")
+    word_count: int = Field(..., description="Number of words in chunk")
+    char_count: int = Field(..., description="Number of characters")
+
+class ChunkingReport(BaseModel):
+    """Report of chunking results."""
+    total_chunks: int
+    chunks: List[ChunkInfo]
+    strategy: str = Field(..., description="Chunking strategy used")
+    
+# Generation models
+class GenerationFormat(str):
+    """Available generation formats."""
+    MARKDOWN = "markdown"
+    HTML = "html"
+    BOTH = "both"
+
+class GenerationRequest(BaseModel):
+    """Request for content generation."""
+    format: str = Field(..., description="Output format: markdown, html, or both")
+    include_toc: bool = Field(True, description="Include table of contents")
+    include_metadata: bool = Field(True, description="Include book metadata")
+    chunk_size: Optional[int] = Field(None, description="Words per chunk (None = section-based)")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "format": "markdown",
+                "include_toc": True,
+                "include_metadata": True,
+                "chunk_size": None
+            }
+        }
+    )
+
+class GenerationResponse(BaseModel):
+    """Response from content generation."""
+    format: str
+    filename: str
+    size_bytes: int
+    sections_count: int
+    chunks_count: Optional[int] = None
+    download_url: str

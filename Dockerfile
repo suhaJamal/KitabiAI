@@ -18,8 +18,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code (this includes main.py inside app/)
 COPY app/ ./app/
 
-# Create logs directory
-RUN mkdir -p logs
+# Create necessary directories
+RUN mkdir -p logs && \
+    mkdir -p /mnt/user-data/uploads && \
+    mkdir -p /mnt/user-data/outputs
 
 # Expose port
 EXPOSE 8000

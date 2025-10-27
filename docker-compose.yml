@@ -11,10 +11,12 @@ services:
     env_file:
       - .env  # Loads environment variables at RUNTIME from .env file
     volumes:
-      - ./logs:/app/logs  # Persist logs outside container
+      - ./logs:/app/logs                          # Persist logs
+      - ./uploads:/mnt/user-data/uploads          # Persist uploaded PDFs
+      - ./outputs:/mnt/user-data/outputs          # Persist generated files (NEW)
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"] 
       interval: 30s
       timeout: 10s
       retries: 3
