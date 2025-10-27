@@ -9,7 +9,7 @@ def download_model():
 
     # Direct download link (compressed model, ~900KB)
     url = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz"
-    output_path = "/home/user/KitabiAI/lid.176.ftz"
+    output_path = "/outputs/"
 
     # Remove failed download if exists
     if os.path.exists(output_path) and os.path.getsize(output_path) < 100000:
