@@ -67,11 +67,10 @@ jobs:
     - name: Run tests with coverage
       run: |
         pytest tests/ -v --cov=app --cov-report=term-missing
-        continue-on-error: true  # ← Change false to true to not fail the job on test failures
+      continue-on-error: true  
       env:
         AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: ${{ secrets.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT }}
         AZURE_DOCUMENT_INTELLIGENCE_KEY: ${{ secrets.AZURE_DOCUMENT_INTELLIGENCE_KEY }}
-      continue-on-error: false
 
   # Job 3: Docker Build
   docker:
