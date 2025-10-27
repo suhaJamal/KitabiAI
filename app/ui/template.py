@@ -13,13 +13,15 @@ from ..models.schemas import AnalysisReport, BookMetadata
 CSS = """
 <style>
 :root {
-    --bg:#0b1020;
-    --card:#111935;
-    --ink:#e9ecf1;
-    --muted:#a8b0c5;
-    --accent:#64b5f6;
-    --success:#4caf50;
-    --warning:#ff9800;
+    --bg: #f9f7f4;
+    --card: #ffffff;
+    --ink: #2c2415;
+    --muted: #6b5d4d;
+    --accent: #c76a2d;
+    --accent-light: #e88d51;
+    --success: #4a7c59;
+    --warning: #d97706;
+    --border: #e5ddd4;
 }
 * { box-sizing: border-box; }
 html, body {
@@ -38,9 +40,10 @@ html, body {
     background: var(--card);
     border-radius: 16px;
     padding: 24px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    box-shadow: 0 2px 8px rgba(44, 36, 21, 0.08);
+    border: 1px solid var(--border);
 }
-h1 { margin: 0 0 8px; font-size: 28px;}
+h1 { margin: 0 0 8px; font-size: 28px; color: var(--ink);}
 .subtitle {
     color: var(--muted);
     margin-bottom: 20px;
@@ -73,14 +76,14 @@ label {
     margin-bottom: 6px;
 }
 label .required {
-    color: #f44336;
+    color: #dc2626;
 }
 input[type="file"],
 input[type="text"] {
     padding: 10px;
-    border: 1px solid #3a4470;
+    border: 1px solid var(--border);
     border-radius: 8px;
-    background: #0e1630;
+    background: var(--bg);
     color: var(--ink);
     font-size: 14px;
     width: 100%;
@@ -93,17 +96,17 @@ input[type="text"]:focus {
     border-color: var(--accent);
 }
 input[type="text"]::placeholder {
-    color: #5a6486;
+    color: #9ca3af;
 }
 .help-text {
     font-size: 12px;
-    color: #6a7599;
+    color: var(--muted);
     margin-top: 4px;
 }
 button {
     background: var(--accent);
     border: 0;
-    color: #07233b;
+    color: white;
     padding: 12px 16px;
     border-radius: 10px;
     font-weight: 700;
@@ -112,8 +115,16 @@ button {
     transition: all 0.2s;
 }
 button:hover {
-    background: #82c9ff;
+    background: var(--accent-light);
     transform: translateY(-1px);
+}
+button.secondary {
+    background: #f3f1ed;
+    color: var(--accent);
+    border: 1px solid var(--border);
+}
+button.secondary:hover {
+    background: #e8e4dd;
 }
 .badge {
     display: inline-block;
@@ -122,11 +133,11 @@ button:hover {
     font-size: 12px;
     font-weight: 700;
 }
-.badge.ok { background: #2e7d32; color: #c8f7c5; }
-.badge.err { background: #b71c1c; color: #ffd6d6; }
-.badge.mix { background: #7b1fa2; color: #f4d9ff; }
-.badge.arabic { background: #1976d2; color: #bbdefb; }
-.badge.english { background: #388e3c; color: #c8e6c9; }
+.badge.ok { background: #d1fae5; color: #065f46; }
+.badge.err { background: #fee2e2; color: #991b1b; }
+.badge.mix { background: #e9d5ff; color: #6b21a8; }
+.badge.arabic { background: #dbeafe; color: #1e40af; }
+.badge.english { background: #d1fae5; color: #065f46; }
 table {
     width: 100%;
     border-collapse: collapse;
@@ -135,12 +146,13 @@ table {
 th, td {
     text-align: left;
     padding: 10px;
-    border-bottom: 1px solid #2a335c;
+    border-bottom: 1px solid var(--border);
     font-size: 14px;
 }
 th {
     color: var(--muted);
     font-weight: 600;
+    background: var(--bg);
 }
 .kv {
     display: grid;
@@ -150,7 +162,7 @@ th {
 }
 .kv div {
     padding: 6px 0;
-    border-bottom: 1px solid #25305a;
+    border-bottom: 1px solid var(--border);
 }
 .footer {
     margin-top: 18px;
@@ -158,17 +170,75 @@ th {
     font-size: 13px;
 }
 .info-box {
-    background: #1a2332;
+    background: #fef3e7;
     border-left: 4px solid var(--accent);
     padding: 12px;
     margin-top: 16px;
     border-radius: 4px;
 }
 .metadata-section {
-    background: #141b2e;
-    border: 1px solid #2a335c;
+    background: var(--bg);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 16px;
+}
+.generation-section {
+    background: #fef9f3;
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 24px;
+}
+.generation-section h3 {
+    margin: 0 0 16px;
+    color: var(--accent);
+    font-size: 18px;
+}
+.button-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+.gen-button {
+    background: var(--accent);
+    color: white;
+    padding: 14px 20px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 700;
+    text-align: center;
+    transition: all 0.2s;
+    display: block;
+    border: 0;
+    cursor: pointer;
+}
+.gen-button:hover {
+    background: var(--accent-light);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(199, 106, 45, 0.3);
+}
+.gen-button.secondary {
+    background: white;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+}
+.gen-button.secondary:hover {
+    background: #fef9f3;
+}
+code {
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--accent);
+}
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
 }
 </style>
 """
@@ -213,7 +283,7 @@ def render_home() -> str:
       <!-- Book Metadata Section -->
       <div class="form-section metadata-section">
         <h3>📋 Book Metadata</h3>
-        <div class="info-box" style="margin-top: 0; margin-bottom: 16px; background: #0e1630; border-left-color: #ff9800;">
+        <div class="info-box" style="margin-top: 0; margin-bottom: 16px; background: #fef3e7;">
           <strong>ℹ️ What This Tool Does:</strong><br>
           • Automatically detects language (English/Arabic)<br>
           • Extracts Table of Contents structure<br>
@@ -268,7 +338,7 @@ def render_home() -> str:
 
 
 def render_report(filename: str, report: AnalysisReport, language: str = "unknown", metadata: BookMetadata = None) -> str:
-    """Render analysis report with language detection and book metadata."""
+    """Render analysis report with language detection, book metadata, and generation options."""
     
     # Classification badge
     badge_map = {
@@ -315,6 +385,41 @@ def render_report(filename: str, report: AnalysisReport, language: str = "unknow
         for p in report.pages
     )
     
+    # Generation section (NEW!)
+    generation_html = """
+    <div class="generation-section">
+      <h3>🎨 Generate Book Formats</h3>
+      <p style="color: var(--muted); margin: 0 0 16px;">Transform your PDF into beautiful, readable formats:</p>
+      
+      <div class="button-group">
+        <form action="/generate/markdown" method="post" style="margin: 0;">
+          <button type="submit" class="gen-button">
+            📝 Generate Markdown
+          </button>
+        </form>
+        
+        <form action="/generate/html" method="post" target="_blank" style="margin: 0;">
+          <button type="submit" class="gen-button">
+            🌐 Generate HTML
+          </button>
+        </form>
+        
+        <form action="/generate/both" method="post" style="margin: 0;">
+          <button type="submit" class="gen-button secondary">
+            📦 Generate Both
+          </button>
+        </form>
+      </div>
+      
+      <div style="margin-top: 16px; padding: 12px; background: white; border-radius: 8px; font-size: 13px; color: var(--muted);">
+        <strong>What you get:</strong><br>
+        • <strong>Markdown</strong>: Clean .md file with YAML frontmatter & TOC<br>
+        • <strong>HTML</strong>: Styled webpage with navigation & responsive design<br>
+        • Files will be ready to download after generation (check responses)
+      </div>
+    </div>
+    """
+    
     body = f"""
       {metadata_html}
       
@@ -329,11 +434,14 @@ def render_report(filename: str, report: AnalysisReport, language: str = "unknow
         <thead><tr><th>Page</th><th>Has Text</th><th>Image Count</th></tr></thead>
         <tbody>{rows}</tbody>
       </table>
+      
+      {generation_html}
+      
       <div class="info-box" style="margin-top: 20px;">
-        <strong>📥 Export Options:</strong><br>
-        • <a href="/export/jsonl" style="color: var(--accent);">Download page-level data (JSONL)</a><br>
-        • <a href="/export/sections.jsonl" style="color: var(--accent);">Download TOC/sections (JSONL)</a><br>
-        • <a href="/info" style="color: var(--accent);">Get metadata (JSON)</a>
+        <strong>📥 Raw Data Export Options:</strong><br>
+        • <a href="/export/jsonl">Download page-level data (JSONL)</a><br>
+        • <a href="/export/sections.jsonl">Download TOC/sections (JSONL)</a><br>
+        • <a href="/info">Get metadata (JSON)</a>
       </div>
     """
     return body

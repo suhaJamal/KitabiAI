@@ -4,7 +4,10 @@ Unified TOC extractor supporting both English and Arabic PDFs.
 
 Extraction strategy:
 1) Use Azure to extract text and detect language (especially important for Arabic)
-2) For English: Use native PDF bookmarks (preferred)
+2) For English: 
+   a) Try native PDF bookmarks (preferred)
+   b) If insufficient bookmarks, try pattern-based extraction
+   c) Fallback to single section
 3) For Arabic: Apply pattern-based TOC extraction on Azure-extracted text
 4) Fallback: Single 'Document' section spanning all pages
 """
@@ -20,6 +23,7 @@ from ..models.schemas import SectionInfo, SectionsReport
 from ..core.config import settings
 from .language_detector import LanguageDetector
 from .arabic_toc_extractor import ArabicTocExtractor
+from .english_toc_extractor import EnglishTocExtractor
 
 
 logger = logging.getLogger(__name__)
@@ -30,12 +34,13 @@ class TocExtractor:
     def __init__(self) -> None:
         self.language_detector = LanguageDetector()
         self.arabic_extractor = ArabicTocExtractor()
+        self.english_extractor = EnglishTocExtractor()
     
     def extract(self, pdf_bytes: bytes) -> SectionsReport:
         """Extract TOC with tracing."""
         
         with tracer.start_as_current_span("toc_extraction") as span:
-            # Detect language
+            # Detect language and extract text
             with tracer.start_as_current_span("language_detection"):
                 language, extracted_text = self.language_detector.detect(pdf_bytes)
                 span.set_attribute("language", language)
@@ -60,7 +65,8 @@ class TocExtractor:
                         report = self._fallback_section(num_pages)
             else:
                 with tracer.start_as_current_span("extract_english_toc"):
-                    report = self._extract_english(doc)
+                    # Pass extracted_text to English extraction for pattern-based fallback
+                    report = self._extract_english(doc, extracted_text, num_pages)
             
             # Fix page ranges
             report = self._fix_page_ranges(report, num_pages)
@@ -69,25 +75,50 @@ class TocExtractor:
             doc.close()
             return report
     
-    def _extract_english(self, doc: fitz.Document) -> SectionsReport:
+    def _extract_english(
+        self, 
+        doc: fitz.Document, 
+        extracted_text: Optional[str], 
+        num_pages: int
+    ) -> SectionsReport:
         """
-        Extract TOC from English PDF using native bookmarks.
+        Extract TOC from English PDF using multiple strategies.
         
         Strategy:
-        1) Try native PDF bookmarks
-        2) Fallback to single section if insufficient bookmarks
+        1) Try native PDF bookmarks (preferred)
+        2) If insufficient bookmarks and we have extracted text, try pattern-based extraction
+        3) Fallback to single section
         """
-        num_pages = doc.page_count
-        
-        # Try bookmarks
+        # Try bookmarks first
         bookmarks = self._extract_bookmarks(doc)
         if len(bookmarks) >= settings.MIN_BOOKMARKS_OK:
             logger.info(f"Using {len(bookmarks)} native bookmarks for English PDF")
             sections = self._sections_from_bookmarks(bookmarks, num_pages)
             return SectionsReport(bookmarks_found=True, sections=sections)
         
-        # Fallback
-        logger.info("Insufficient bookmarks for English PDF, using fallback")
+        logger.info(f"Found only {len(bookmarks)} bookmarks (< {settings.MIN_BOOKMARKS_OK}), trying pattern extraction")
+        
+        # Try pattern-based extraction if we have text
+        if extracted_text:
+            pattern_report = self.english_extractor.extract(extracted_text, num_pages)
+            if len(pattern_report.sections) > 1:  # More than just fallback
+                logger.info(f"Pattern-based extraction successful: {len(pattern_report.sections)} sections")
+                return pattern_report
+        else:
+            # Extract text from PDF if not already available
+            logger.info("No cached text, extracting from PDF for pattern matching")
+            doc_text = ""
+            for page in doc:
+                doc_text += page.get_text("text") + "\n"
+            
+            if doc_text.strip():
+                pattern_report = self.english_extractor.extract(doc_text, num_pages)
+                if len(pattern_report.sections) > 1:
+                    logger.info(f"Pattern-based extraction successful: {len(pattern_report.sections)} sections")
+                    return pattern_report
+        
+        # Final fallback
+        logger.info("All extraction methods failed, using single section fallback")
         return self._fallback_section(num_pages)
     
     def _extract_bookmarks(self, doc: fitz.Document) -> List[Tuple[int, str, int]]:

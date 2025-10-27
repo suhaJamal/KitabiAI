@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="arabic" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أخلاقيات الذكاء الاصطناعي</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        /* RTL Support */
+        [dir="rtl"] {
+            text-align: right;
+        }
+        
+        [dir="rtl"] body {
+            font-family: 'Traditional Arabic', 'Simplified Arabic', Arial, sans-serif;
+        }
+        
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metadata {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        /* Container */
+        .container {
+            display: flex;
+            max-width: 1400px;
+            margin: 2rem auto;
+            gap: 2rem;
+            padding: 0 1rem;
+        }
+        
+        /* Navigation */
+        nav {
+            flex: 0 0 280px;
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 2rem;
+            height: fit-content;
+            max-height: calc(100vh - 4rem);
+            overflow-y: auto;
+        }
+        
+        nav h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+        
+        nav ul {
+            list-style: none;
+        }
+        
+        nav li {
+            margin-bottom: 0.5rem;
+        }
+        
+        nav a {
+            color: #555;
+            text-decoration: none;
+            display: block;
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        nav a:hover {
+            background: #f0f0f0;
+            color: #667eea;
+        }
+        
+        nav .level-2 {
+            padding-left: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        nav .level-3 {
+            padding-left: 2rem;
+            font-size: 0.85rem;
+        }
+        
+        /* Main Content */
+        .content {
+            flex: 1;
+            background: white;
+            padding: 3rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* Sections */
+        section {
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        section:last-child {
+            border-bottom: none;
+        }
+        
+        section h2 {
+            color: #667eea;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        section h3 {
+            color: #764ba2;
+            font-size: 1.5rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        section h4 {
+            color: #555;
+            font-size: 1.2rem;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .page-range {
+            font-size: 0.9rem;
+            color: #888;
+            font-style: italic;
+            margin-bottom: 1rem;
+        }
+        
+        /* Paragraphs */
+        p {
+            margin-bottom: 1rem;
+            text-align: justify;
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+            }
+            
+            nav {
+                display: none;
+            }
+            
+            .container {
+                margin: 0;
+            }
+            
+            section {
+                page-break-inside: avoid;
+            }
+        }
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            nav {
+                position: static;
+                max-height: none;
+            }
+            
+            .content {
+                padding: 1.5rem;
+            }
+            
+            header h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+    <h1>أخلاقيات الذكاء الاصطناعي</h1>
+    <div class="metadata">By مارك كوكلبيرج • Sept 10, 2024</div>
+</header>
+    <div class="container">
+        <nav>
+    <h2>Contents</h2>
+    <ul>
+        <li class="level-1"><a href="#section-1">شكر وتقدير</a></li>
+<li class="level-1"><a href="#section-2">١ - أيتها المرآة على الحائط</a></li>
+<li class="level-1"><a href="#section-3">الذكاء الفائق والوحوش ونهاية العالم بالذكاء الاصطناعي</a></li>
+<li class="level-1"><a href="#section-4">كل ما له علاقة بالبشر</a></li>
+<li class="level-1"><a href="#section-5">٤ - أهي حقًّا مجرد آلات؟</a></li>
+<li class="level-1"><a href="#section-6">التكنولوجيا</a></li>
+<li class="level-1"><a href="#section-7">لا تنسَ (علم) البيانات</a></li>
+<li class="level-1"><a href="#section-8">الخصوصية وغيرها من القضايا</a></li>
+<li class="level-1"><a href="#section-9">لامسئوليةُ الآلات والقرارات غير المبررة</a></li>
+<li class="level-1"><a href="#section-10">التحيز ومعنى الحياة</a></li>
+<li class="level-1"><a href="#section-11">١٠ - السياسات المقترحة</a></li>
+<li class="level-1"><a href="#section-12">١١ - التحديات التي تُواجه صانعي السياسات</a></li>
+<li class="level-1"><a href="#section-13">١٢ - تحدِّي تغيّر المناخ: حول الأولويات وحقبة التأثير البشري</a></li>
+<li class="level-1"><a href="#section-14">مسرد المصطلحات</a></li>
+<li class="level-1"><a href="#section-15">ملاحظات</a></li>
+<li class="level-1"><a href="#section-16">قراءات إضافية</a></li>
+<li class="level-1"><a href="#section-17">المراجع</a></li>
+    </ul>
+</nav>
+        <main class="content">
+            <section id="section-1">
+    <h2>شكر وتقدير</h2>
+    <div class="page-range">Pages 11-12</div>
+    <p>اﻟﻔﺼﻞ اﻷول
+أﻳﺘﻬﺎ اﳌﺮآةﻋﲆ اﳊﺎﺋﻂ
+اﻟﻀﺠﺔ واملﺨﺎوف اﻟﺘﻲﻳُﺜريﻫﺎ اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ: أﻳﺘﻬﺎ املﺮآةﻋﲆ اﻟﺤﺎﺋﻂ:
+ﻣَﻦ اﻷذﻛﻰﰲ اﻟﻌﺎﻟَﻢ؟
+ﻋﻨﺪﻣﺎ أُﻋﻠﻨﺖ اﻟﻨﺘﺎﺋﺞ، اﻏﺮورﻗﺖﻋﻴﻨﺎ اﻟﻼﻋﺐﱄﺳﻴﺪولﺑﺎﻟﺪﻣﻮع.ﺣﻘﱠﻖ »أﻟﻔﺎﺟﻮ«، وﻫﻮ
+١ﰲ-ﺑﺮﻧﺎﻣﺞ ذﻛﺎء اﺻﻄﻨﺎﻋﻲﻃﻮﱠرَﺗْﻪﴍﻛﺔ »دﻳﺐﻣﺎﻳﻨﺪ« اﻟﺘﺎﺑﻌﺔ إﱃﺟﻮﺟﻞ،ﻓﻮزًا ٤
+ﻟﻌﺒﺔ »ﺟﻮ« )ﻟﻌﺒﺔ »ﺟﻮ«ﻫﻲﻟﻌﺒﺔ اﺳﱰاﺗﻴﺠﻴﺔﻗﺪﻳﻤﺔﻇﻬﺮتﰲ اﻟﺼني وﻳُﺸﺎركﻓﻴﻬﺎ
+ﻻﻋﺒﺎن اﺛﻨﺎن(.ﺗﺎرﻳﺦ اﻟﺤﺪث:ﻣﺎرس ٦١٠٢.ﻗﺒﻞﻋﻘﺪَﻳﻦﻣﻦ اﻟﺰﻣﺎن،ﺧﴪﻻﻋﺐ اﻟﺸﻄﺮﻧﺞ
+ﺟﺎريﻛﺎﺳﺒﺎروف اﻟﺤﺎﺻﻞﻋﲆﻟﻘﺐ »ﺟﺮاﻧﺪﻣﺎﺳﱰ« )اﻷﺳﺘﺎذ اﻟﻜﺒري( أﻣﺎم اﻵﻟﺔ »دﻳﺐ
+ﺑﻠﻮ«، واﻵنﻓﺎزﺑﺮﻧﺎﻣﺞﻛﻤﺒﻴﻮﺗﺮﻋﲆﺑﻄﻞ اﻟﻌﺎﻟﻢﻟﺜﻤﺎﻧﻲﻋﴩةﻣﺮة؛ﱄﺳﻴﺪول،ﰲﻟﻌﺒﺔ
+ﻣُﻌﻘﱠﺪةﻛﺎنﻳُﻨﻈَﺮ إﻟﻴﻬﺎﻋﲆ أﻧﻬﺎﻟﻌﺒﺔﻻﻳﻤﻜﻦ أنﻳﻠﻌﺒﻬﺎ إﻻ اﻟﺒﴩ،ﺑﺎﺳﺘﺨﺪامﺣﺪﺳِﻬﻢ
+وﺗﻔﻜريﻫﻢ اﻻﺳﱰاﺗﻴﺠﻲ. اﻷدﻫﻰﻣﻦ ذﻟﻚ أن اﻟﻜﻤﺒﻴﻮﺗﺮﻟﻢﻳﻔُﺰﺑﺎﺗﺒﺎع اﻟﻘﻮاﻋﺪ املُﻌﻄﺎةﻟﻪ
+ﻣﻦﻗِﺒَﻞ املُﱪﻣﺠني، وإﻧﻤﺎﻋﻦﻃﺮﻳﻖﺗﻌﻠﱡﻢ اﻵﻟﺔ اﻟﻘﺎﺋﻢﻋﲆ املﻼﻳنيﻣﻦﻣﺒﺎرﻳﺎت »ﺟﻮ«
+اﻟﺴﺎﺑﻘﺔ وﻋﲆ اﻟﻠﻌﺐﺿﺪﱠﻧﻔﺴﻪ.ﰲﻣﺜﻞﻫﺬه اﻟﺤﺎﻟﺔ،ﻳُﻌِﺪ املﱪﻣﺠﻮنﻣﺠﻤﻮﻋﺎت اﻟﺒﻴﺎﻧﺎت
+وﻳُﻨﺸِﺌﻮن اﻟﺨﻮارزﻣﻴﺎت، وﻟﻜﻦﻻﻳُﻤﻜﻨﻬﻢﻣﻌﺮﻓﺔ اﻟﺘﺤﺮﱡﻛﺎت اﻟﺘﻲﺳﻴﺄﺗﻲﺑﻬﺎ اﻟﱪﻧﺎﻣﺞ.
+ﻓﺎﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﻳﺘﻌﻠﱠﻢﻣﻦﺗﻠﻘﺎءﻧﻔﺴﻪ. وﺑﻌﺪﻋﺪدٍﻣﻦ اﻟﺘﺤﺮﱡﻛﺎتﻏري املﻌﺘﺎدة واملﻔﺎﺟﺌﺔ،
+(.Borowiec 2016)اﺿﻄُﺮﱠﺑﻄﻞ اﻟﻌﺎﻟﻢﱄ إﱃ اﻻﻧﺴﺤﺎب
+إﻧﻪ إﻧﺠﺎز راﺋﻊﺣﻘﱠﻘَﻪ اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ. وﻟﻜﻨﻪ،ﻣﻊ ذﻟﻚ،ﻳُﺜري املﺨﺎوفﰲﻗﻠﻮﺑﻨﺎ. إﻧﻨﺎ
+ﻣُﻌﺠﺒﻮنﺑﺠﻤﺎل اﻟﺤﺮﻛﺎت، وﻟﻜﻨﻨﺎ أﻳﻀًﺎﺣﺰاﻧﻰ، ورﺑﻤﺎﺣﺘﻰﺧﺎﺋﻔﻮن.ﻧﺄﻣُﻞﰲ أنﺗﺴﺎﻋﺪﻧﺎ
+أﻧﻈﻤﺔ اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ اﻷﻛﺜﺮ ذﻛﺎءًﰲ إﺣﺪاثﺛﻮرةﰲ اﻟﺮﻋﺎﻳﺔ اﻟﺼﺤﻴﺔ أوﰲ إﻳﺠﺎدﺣﻠﻮلٍ</p>
+<p>أﺧﻼﻗﻴﺎت اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ
+ﻟﺠﻤﻴﻊ أﻧﻮاع املﺸﻜﻼت املﺠﺘﻤﻌﻴﺔ، وﻟﻜﻦﻳُﺮاودﻧﺎ اﻟﻘﻠﻖﻣﻦ أنﺗﺴﻴﻄﺮ اﻵﻻتﻋﲆ زﻣﺎم
+أﻣﻮرﻧﺎ.ﻓﻬﻞﺗﺴﺘﻄﻴﻊ اﻵﻻت أنﺗﺘﻔﻮﱠقﻋﻠﻴﻨﺎ وﺗﺘﺤﻜﱠﻢﻓﻴﻨﺎ؟ﻫﻞﻻﻳﺰال اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ
+ﻣﺠﺮد أداة، أم إﻧﻪﺳﻴُﺼﺒﺢ روﻳﺪًا روﻳﺪًاﺳﻴﺪﻧﺎﻻﻣﺤﺎﻟﺔ؟ﺗُﺬﻛﱢﺮﻧﺎﻫﺬه املﺨﺎوفﺑﻜﻠﻤﺎت
+»ﻫﺎل«ﻛﻤﺒﻴﻮﺗﺮ اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﰲﻓﻴﻠﻢ اﻟﺨﻴﺎل اﻟﻌﻠﻤﻲ اﻟﺬي أﺧﺮﺟﻪﺳﺘﺎﻧﲇﻛﻮﺑﺮﻳﻚ:
+»١٠٠٢:ﻣﻠﺤﻤﺔ اﻟﻔﻀﺎء« )١٠٠٢:ﺳﺒﻴﺲ أودﻳﴘ(،ﺣنيﻗﺎل ردٍّاﻋﲆ اﻷﻣﺮ اﻟﺒﴩي »اﻓﺘﺢ
+أﺑﻮاب املﺮﻛﺒﺔ اﻟﺼﻐرية«: »أﺧﴙ أﻧﻨﻲﻻ أﺳﺘﻄﻴﻊ أن أﻓﻌﻞ ذﻟﻚﻳﺎ دﻳﻒ.« وإذاﻟﻢﻳﻜُﻦﻫﻨﺎك
+ﺧﻮف،ﻓﻘﺪﻳﻜﻮنﻫﻨﺎكﺷﻌﻮرﺑﺎﻟﺤﺰن أوﺧﻴﺒﺔ اﻷﻣﻞ.ﻟﻘﺪ أﻃﺎح داروﻳﻦ وﻓﺮوﻳﺪﺑﺈﻳﻤﺎﻧﻨﺎ
+ﺑﺘﻤﻴﱡﺰﻧﺎ، وﺑﺈﺣﺴﺎﺳﻨﺎﺑﺎﻟﺘﻔﻮﱡق، وأﻃﺎﺣﺎﺑﺄوﻫﺎم اﻟﺴﻴﻄﺮة اﻟﺘﻲﻳﻌﻴﺶﻓﻴﻬﺎ اﻟﺒﴩ؛ واﻵنﺟﺎء
+دور اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﻟﻴُﻮﺟﱢﻪﴐﺑﺔً أﺧﺮى إﱃﺻﻮرة اﻟﺒﴩﻋﻦ ذواﺗﻬﻢ. إذاﻛﺎﻧﺖ اﻵﻟﺔ
+ﺗﺴﺘﻄﻴﻊ اﻟﻘﻴﺎمﺑﺬﻟﻚ،ﻓﻤﺎذاﺗﺒﻘﱠﻰﻟﻨﺎ؟ﻣﺎذاﻧﺤﻦ؟ﻫﻞﻧﺤﻦﻣﺠﺮﱠد آﻻت؟ﻫﻞﻧﺤﻦ آﻻت
+ردﻳﺌﺔ،ﺑﻬﺎ اﻟﻜﺜريﻣﻦ اﻟﻌﻴﻮب واﻷﺧﻄﺎء؟ وﻣﺎذاﺳﻴﺤﺪُثﻟﻨﺎ؟ﻫﻞﺳﻨُﺼﺒﺢﻋﺒﻴﺪًاﻟﻶﻻت؟ أو
+ﻣﺎﻫﻮ أﺳﻮأ،ﻣﺠﺮدﻣﺼﺪرﻟﻠﻄﺎﻗﺔ،ﻛﻤﺎﰲﻓﻴﻠﻢ »املﺼﻔﻮﻓﺔ« )ذاﻣﺎﺗﺮﻳﻜﺲ(؟
+اﻟﺘﺄﺛري اﻟﺤﻘﻴﻘﻲ واﻟﻮاﺳﻊ اﻟﻨﻄﺎقﻟﻠﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ
+وﻟﻜﻦ إﻧﺠﺎزات اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﻻﺗﻘﺘﴫﻋﲆ اﻷﻟﻌﺎب أوﻋﺎﻟَﻢ اﻟﺨﻴﺎل اﻟﻌﻠﻤﻲ.ﻓﺎﻟﺬﻛﺎء
+اﻻﺻﻄﻨﺎﻋﻲﻳﺤﺪث اﻵن وﻫﻮﻣُﺘﻮﻏﱢﻞﰲﻛﻞﻣﺎﺣﻮﻟﻨﺎ، وﻏﺎﻟﺒًﺎﻣﺎﻳﻜﻮنﻣُﻀﻤﱠﻨًﺎﻋﲆﻧﺤﻮ
+Boddington)ﻏريﻣﺮﺋﻲﰲ أدواﺗﻨﺎ اﻟﻴﻮﻣﻴﺔ وﺑﻜﻮﻧﻪﺟﺰءًاﻣﻦ اﻷﻧﻈﻤﺔ اﻟﺘﻜﻨﻮﻟﻮﺟﻴﺔ املﻌﻘﱠﺪة
+(. وﻧﻈﺮًا إﱃ اﻟﻨﻤﻮ اﻟﻬﺎﺋﻞﻟﻘﺪرة اﻟﻜﻤﺒﻴﻮﺗﺮ، وإﺗﺎﺣﺔ اﻟﺒﻴﺎﻧﺎت )اﻟﻀﺨﻤﺔ(ﺑﺴﺒﺐ2017
+وﺳﺎﺋﻞ اﻟﺘﻮاﺻﻞ اﻻﺟﺘﻤﺎﻋﻲ واﻻﺳﺘﺨﺪام اﻟﻬﺎﺋﻞ ملﻠﻴﺎرات اﻟﻬﻮاﺗﻒ اﻟﺬﻛﻴﺔ، وﺷﺒﻜﺎت املﺤﻤﻮل
+اﻟﴪﻳﻌﺔ، أﺣﺮَزَ اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ، وﺧﺎﺻﺔﺗﻌﻠﱡﻢ اﻵﻟﺔ،ﺗﻘﺪﱡﻣًﺎﻛﺒريًا. وﻗﺪﻣﻜﱠﻦَﻫﺬا
+اﻟﺨﻮارزﻣﻴﺎتﻣﻦﺗﻮﱄﱢ اﻟﻌﺪﻳﺪﻣﻦ أﻧﺸﻄﺘﻨﺎ،ﺑﻤﺎﰲ ذﻟﻚ اﻟﺘﺨﻄﻴﻂ واﻟﻜﻼم واﻟﺘﻌﺮﱡفﻋﲆ
+اﻟﻮﺟﻮه واﺗﺨﺎذ اﻟﻘﺮار.ﻳﻤﺘﻠﻚ اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﺗﻄﺒﻴﻘﺎتٍﰲ اﻟﻌﺪﻳﺪﻣﻦ املﺠﺎﻻت،ﺑﻤﺎ
+ﰲ ذﻟﻚ اﻟﻨﻘﻞ واﻟﺘﺴﻮﻳﻖ واﻟﺮﻋﺎﻳﺔ اﻟﺼﺤﻴﺔ واﻟﺘﻤﻮﻳﻞ واﻟﺘﺄﻣني واﻷﻣﻦ واﻟﺠﻴﺶ واﻟﻌﻠﻮم
+واﻟﱰﻓﻴﻪ واﻟﻔﻨﻮن1واﻟﺘﻌﻠﻴﻢ واﻟﻌﻤﻞ املﻜﺘﺒﻲ واملﺴﺎﻋﺪة اﻟﺸﺨﺼﻴﺔ )ﻣﺜﻞﺟﻮﺟﻞ دوﺑﻠﻜﺲ
+)ﻣﺜﻞ اﺳﱰﺟﺎع املﻮﺳﻴﻘﻰ وﺗﺄﻟﻴﻔﻬﺎ( واﻟﺰراﻋﺔ، وﺑﺎﻟﻄﺒﻊ اﻟﺘﺼﻨﻴﻊ.
+ﺗﺘﻢﱡﻋﻤﻠﻴﺎت إﻧﺸﺎء اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ واﺳﺘﺨﺪاﻣﻪﻟﺪىﴍﻛﺎتﺗﻜﻨﻮﻟﻮﺟﻴﺎ املﻌﻠﻮﻣﺎت
+واﻹﻧﱰﻧﺖ.ﻋﲆﺳﺒﻴﻞ املﺜﺎل،ﻟﻄﺎملﺎ اﺳﺘﺨﺪﻣﺖﺟﻮﺟﻞ اﻟﺬﻛﺎءَ اﻻﺻﻄﻨﺎﻋﻲﰲﻣُﺤﺮﱢك اﻟﺒﺤﺚ
+اﻟﺨﺎصﺑﻬﺎ.ﻛﻤﺎﻳﺴﺘﺨﺪمﻓﻴﺴﺒﻮك اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﰲ اﻹﻋﻼﻧﺎت املﺴﺘﻬﺪﻓﺔ وإﺷﺎرات
+14</p>
+</section>
+<section id="section-2">
+    <h2>١ - أيتها المرآة على الحائط</h2>
+    <div class="page-range">Pages 13-13</div>
+    <p>أﻳﺘﻬﺎ املﺮآةﻋﲆ اﻟﺤﺎﺋﻂ
+اﻟﺼﻮر.ﻛﺬﻟﻚﺗﺴﺘﺨﺪمﻣﺎﻳﻜﺮوﺳﻮﻓﺖ وأﺑِﻞ اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﰲﺗﺸﻐﻴﻞﻣﺴﺎﻋﺪَﻳﻬﻤﺎ
+اﻟﺮﻗﻤﻴني.ﻟﻜﻦ اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﻻﻳﻘﺘﴫﻋﲆﻗﻄﺎعﺗﻜﻨﻮﻟﻮﺟﻴﺎ املﻌﻠﻮﻣﺎتﺑﻤﻌﻨﺎه اﻟﻀﻴﱢﻖ.
+ﻓﻬﻨﺎك،ﻋﲆﺳﺒﻴﻞ املﺜﺎل، اﻟﻜﺜريﻣﻦ اﻟﺨُﻄﻂ املﻠﻤﻮﺳﺔ، واﻟﺘﺠﺎربﰲﻣﺠﺎل اﻟﺴﻴﺎرات اﻟﺬاﺗﻴﺔ
+اﻟﻘﻴﺎدة.ﻓﻬﺬه اﻟﺘﻘﻨﻴﺔﺗﻌﺘﻤﺪ أﻳﻀًﺎﻋﲆ اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ.ﻛﻤﺎﺗﺴﺘﺨﺪِم اﻟﻄﺎﺋﺮات دون
+ﻃﻴﺎر اﻟﺬﻛﺎءَ اﻻﺻﻄﻨﺎﻋﻲ،ﻣﺜﻠﻬﺎﻣﺜﻞ اﻷﺳﻠﺤﺔ اﻟﺬاﺗﻴﺔ اﻟﺘﺸﻐﻴﻞ اﻟﺘﻲﻳﻤﻜﻦ أنﺗﻘﺘُﻞ دون
+ﺗﺪﺧﱡﻞٍﺑﴩي.ﺑﻞ إن اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﻗﺪ اﺳﺘُﺨﺪِمﺑﺎﻟﻔﻌﻞﰲ اﺗﺨﺎذ اﻟﻘﺮارﰲ املﺤﺎﻛﻢ.
+ﻓﻔﻲ اﻟﻮﻻﻳﺎت املﺘﺤﺪة،ﻋﲆﺳﺒﻴﻞ املﺜﺎل، اﺳﺘُﺨﺪمﻧﻈﺎم »ﻛﻮﻣﺒﺎس«ﻟﻠﺘﻨﺒﱡﺆﺑﺎﻟﺬﻳﻦﻳُﺤﺘﻤَﻞ أن
+ﻳُﻌﺎودوا ارﺗﻜﺎب اﻟﺠﺮاﺋﻢ.ﻳﺪﺧﻞ اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ أﻳﻀًﺎﰲ املﺠﺎﻻت اﻟﺘﻲﻧﻌﺘﱪِﻫﺎﻋﻤﻮﻣًﺎ
+أﻛﺜﺮﺷﺨﺼﻴﺔ أوﺣﻤﻴﻤﻴﺔ.ﻋﲆﺳﺒﻴﻞ املﺜﺎل،ﻳﻤﻜﻦﻟﻶﻻت اﻵنﻗﺮاءة وﺟﻮﻫﻨﺎ،ﻟﻴﺲﻓﻘﻂ
+ﻟﻠﺘﻌﺮﱡفﻋﻠﻴﻨﺎ، وﻟﻜﻦ أﻳﻀًﺎﻟﻘﺮاءة اﻧﻔﻌﺎﻻﺗﻨﺎ واﺳﱰدادﺟﻤﻴﻊ املﻌﻠﻮﻣﺎت املﺮﺗﺒﻄﺔﺑﻨﺎ.
+اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﻳﺤﺪث اﻵن وﻫﻮﻣُﺘﻮﻏﱢﻞﰲﻛﻞﱢﻣﺎﺣﻮﻟﻨﺎ، وﻏﺎﻟﺒًﺎﻣﺎﻳﻜﻮنﻣُﻀﻤﱠﻨًﺎﻋﲆﻧﺤﻮٍﻏري
+ﻣﺮﺋﻲﰲ أدواﺗﻨﺎ اﻟﻴﻮﻣﻴﺔ.
+اﻟﺤﺎﺟﺔ إﱃﻣﻨﺎﻗﺸﺔ املﺸﻜﻼت اﻷﺧﻼﻗﻴﺔ واملﺠﺘﻤﻌﻴﺔ
+ﻳﻤﻜﻦ أنﻳﻜﻮنﻟﻠﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ اﻟﻌﺪﻳﺪﻣﻦ اﻟﻔﻮاﺋﺪ. وﻳﻤﻜﻦ اﺳﺘﺨﺪاﻣﻪﻟﺘﺤﺴني اﻟﺨﺪﻣﺎت
+اﻟﻌﺎﻣﺔ واﻟﺘﺠﺎرﻳﺔ.ﻋﲆﺳﺒﻴﻞ املﺜﺎل،ﻳُﻌﺪ اﻟﺘﻌﺮﱡفﻋﲆ اﻟﺼﻮرﺷﻴﺌًﺎﻣﻔﻴﺪًاﰲ اﻟﻄﺐ؛ إذ رﺑﻤﺎ
+ﻣﺜﻞ اﻟﴪﻃﺎن وﻣﺮض أﻟﺰﻫﺎﻳﻤﺮ. وﻟﻜﻦﻣﺜﻞﻫﺬه اﻟﺘﻄﺒﻴﻘﺎت
+ﻳﺴﺎﻋﺪﰲﺗﺸﺨﻴﺺ أﻣﺮاضٍ
+اﻟﻴﻮﻣﻴﺔﻟﻠﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲﺗُﻈﻬِﺮ أﻳﻀًﺎﻛﻴﻒﺗُﺜري اﻟﺘﻘﻨﻴﺎت اﻟﺠﺪﻳﺪةﺗﺨﻮﱡﻓﺎت أﺧﻼﻗﻴﺔ.
+واﺳﻤﺤﻮاﱄ أن أُﻗﺪﱢمﺑﻌﺾ اﻷﻣﺜﻠﺔﻋﲆ أﺳﺌﻠﺔٍﺣﻮل أﺧﻼﻗﻴﺎت اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ.
+ﻫﻞﻳﺠﺐ أنﺗﺤﺘﻮي اﻟﺴﻴﺎرات اﻟﺬاﺗﻴﺔ اﻟﻘﻴﺎدةﻋﲆﻗﻴﻮدٍ أﺧﻼﻗﻴﺔﻣﻀﻤﱠﻨﺔ؟ وإذاﻛﺎن
+اﻷﻣﺮﻛﺬﻟﻚ،ﻓﻤﺎﻧﻮعﻫﺬه اﻟﻘﻴﻮد وﻛﻴﻒﻳﻨﺒﻐﻲﺗﺤﺪﻳﺪﻫﺎ؟ﻋﲆﺳﺒﻴﻞ املﺜﺎل، إذا واﺟﻬﺖ
+ﺳﻴﺎرة ذاﺗﻴﺔ اﻟﻘﻴﺎدةﻣﻮﻗﻔًﺎﻳﺘﻌنيﱠﻋﻠﻴﻬﺎﻓﻴﻪ اﻻﺧﺘﻴﺎرﺑني أنﺗﺼﻄﺪمﺑﻄﻔﻞٍ أوﺗﺼﻄﺪم
+ﺑﺠﺪارٍﻹﻧﻘﺎذﺣﻴﺎة اﻟﻄﻔﻞ، وﻟﻜﻦﻣﻊ اﺣﺘﻤﺎلﻗﺘﻞ راﻛِﺒﻬﺎ،ﻓﻤﺎذاﺗﺨﺘﺎر؟ وﻫﻞﻳﻨﺒﻐﻲﺗﺮﺧﻴﺺ
+اﻷﺳﻠﺤﺔ اﻟﻔﺘﱠﺎﻛﺔ اﻟﺬاﺗﻴﺔ اﻟﺘﺸﻐﻴﻞﻣﻦ اﻷﺳﺎس؟ﻛﻢﻋﺪد اﻟﻘﺮارات اﻟﺘﻲﻧُﺮﻳﺪﺗﻔﻮﻳﻀﻬﺎ إﱃ
+اﻟﺬﻛﺎء اﻻﺻﻄﻨﺎﻋﻲ، وﻣﺎ اﻟﻘَﺪْر اﻟﺬيﻧُﻔﻮﱢﺿﻪﻣﻨﻬﺎ؟ وﻣَﻦﺳﻴﻜﻮن املﺴﺌﻮلﻋﻨﺪﻣﺎﻳﺤﺪُثﺧﻄﺄ
+ﻣﺎ؟ﰲ إﺣﺪى اﻟﻘﻀﺎﻳﺎ، وﺿَﻊَ اﻟﻘﻀﺎةﺛﻘﺘﻬﻢﰲﺧﻮارزﻣﻴﺔ »ﻛﻮﻣﺒﺎس« أﻛﺜﺮﻣﻦﺛِﻘﺘﻬﻢﰲ
+15</p>
+</section>
+<section id="section-3">
+    <h2>الذكاء الفائق والوحوش ونهاية العالم بالذكاء الاصطناعي</h2>
+    <div class="page-range">Pages 19-13</div>
+    
+</section>
+<section id="section-4">
+    <h2>كل ما له علاقة بالبشر</h2>
+    <div class="page-range">Pages 31-13</div>
+    
+</section>
+<section id="section-5">
+    <h2>٤ - أهي حقًّا مجرد آلات؟</h2>
+    <div class="page-range">Pages 41-13</div>
+    
+</section>
+<section id="section-6">
+    <h2>التكنولوجيا</h2>
+    <div class="page-range">Pages 51-13</div>
+    
+</section>
+<section id="section-7">
+    <h2>لا تنسَ (علم) البيانات</h2>
+    <div class="page-range">Pages 63-13</div>
+    
+</section>
+<section id="section-8">
+    <h2>الخصوصية وغيرها من القضايا</h2>
+    <div class="page-range">Pages 71-13</div>
+    
+</section>
+<section id="section-9">
+    <h2>لامسئوليةُ الآلات والقرارات غير المبررة</h2>
+    <div class="page-range">Pages 79-13</div>
+    
+</section>
+<section id="section-10">
+    <h2>التحيز ومعنى الحياة</h2>
+    <div class="page-range">Pages 89-13</div>
+    
+</section>
+<section id="section-11">
+    <h2>١٠ - السياسات المقترحة</h2>
+    <div class="page-range">Pages 101-13</div>
+    
+</section>
+<section id="section-12">
+    <h2>١١ - التحديات التي تُواجه صانعي السياسات</h2>
+    <div class="page-range">Pages 113-13</div>
+    
+</section>
+<section id="section-13">
+    <h2>١٢ - تحدِّي تغيّر المناخ: حول الأولويات وحقبة التأثير البشري</h2>
+    <div class="page-range">Pages 123-13</div>
+    
+</section>
+<section id="section-14">
+    <h2>مسرد المصطلحات</h2>
+    <div class="page-range">Pages 135-13</div>
+    
+</section>
+<section id="section-15">
+    <h2>ملاحظات</h2>
+    <div class="page-range">Pages 139-13</div>
+    
+</section>
+<section id="section-16">
+    <h2>قراءات إضافية</h2>
+    <div class="page-range">Pages 143-13</div>
+    
+</section>
+<section id="section-17">
+    <h2>المراجع</h2>
+    <div class="page-range">Pages 147-13</div>
+    
+</section>
+        </main>
+    </div>
+    <footer>
+    <p>Generated by KitabiAI • 2025-10-23</p>
+</footer>
+</body>
+</html>
