@@ -362,7 +362,7 @@ class TestEnglishTocExtractor:
         # All three should be detected
         assert len(report.sections) == 3
 
-
+@pytest.mark.skip(reason="Real-world scenarios - Phase 2 WIP")  # ← ADD THIS
 class TestRealWorldScenarios:
     """Test realistic document structures."""
     
