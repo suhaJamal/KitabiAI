@@ -33,10 +33,7 @@ RUN echo "Downloading FastText model..." && \
 COPY app/ ./app/
 
 # Copy validation scripts (for language detection testing)
-COPY validate_language_detection.py .
-COPY validate_language_detection_fasttext.py .
-COPY debug_pdf_extraction.py .
-COPY download_fasttext_model.py .
+COPY scripts/ ./scripts/
 
 # Create necessary directories
 RUN mkdir -p logs && \

@@ -44,7 +44,7 @@ docker run --rm kitabiai:latest ls -lh /app/lid.176.ftz
 docker run --rm \
   -v $(pwd)/outputs:/app/outputs \
   kitabiai:latest \
-  python debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
+  python scripts/validation/debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
 ```
 
 **Windows PowerShell:**
@@ -52,7 +52,7 @@ docker run --rm \
 docker run --rm `
   -v ${PWD}/outputs:/app/outputs `
   kitabiai:latest `
-  python debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
+  python scripts/validation/debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
 ```
 
 #### Option B: Test FastText Detection
@@ -63,7 +63,7 @@ docker run --rm \
   -v $(pwd)/outputs:/app/outputs \
   -v $(pwd)/.env:/app/.env \
   kitabiai:latest \
-  python validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
+  python scripts/validation/validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
 ```
 
 **Windows PowerShell:**
@@ -72,7 +72,7 @@ docker run --rm `
   -v ${PWD}/outputs:/app/outputs `
   -v ${PWD}/.env:/app/.env `
   kitabiai:latest `
-  python validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
+  python scripts/validation/validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
 ```
 
 #### Option C: Test Character-Ratio Detection
@@ -83,7 +83,7 @@ docker run --rm \
   -v $(pwd)/outputs:/app/outputs \
   -v $(pwd)/.env:/app/.env \
   kitabiai:latest \
-  python validate_language_detection.py outputs/ar_ai_ethics_2023.pdf
+  python scripts/validation/validate_language_detection.py outputs/ar_ai_ethics_2023.pdf
 ```
 
 ---
@@ -101,18 +101,18 @@ The `docker-compose.yml` already has the necessary volume mappings.
 docker-compose build
 
 # Run validation scripts
-docker-compose run --rm kitabiai python debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
+docker-compose run --rm kitabiai python scripts/validation/debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
 
-docker-compose run --rm kitabiai python validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
+docker-compose run --rm kitabiai python scripts/validation/validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
 ```
 
 **Windows PowerShell:**
 ```powershell
 docker-compose build
 
-docker-compose run --rm kitabiai python debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
+docker-compose run --rm kitabiai python scripts/validation/debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
 
-docker-compose run --rm kitabiai python validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
+docker-compose run --rm kitabiai python scripts/validation/validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
 ```
 
 ---
@@ -196,14 +196,14 @@ docker build -t kitabiai:latest .
 
 # 5. Debug your PDF first
 docker run --rm -v $(pwd)/outputs:/app/outputs kitabiai:latest \
-  python debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
+  python scripts/validation/debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
 
 # 6. Run FastText validation
 docker run --rm \
   -v $(pwd)/outputs:/app/outputs \
   -v $(pwd)/.env:/app/.env \
   kitabiai:latest \
-  python validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
+  python scripts/validation/validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
 
 # 7. Check results and share with me!
 ```
@@ -223,14 +223,14 @@ cat .env
 docker build -t kitabiai:latest .
 
 # 5. Debug your PDF
-docker run --rm -v ${PWD}/outputs:/app/outputs kitabiai:latest python debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
+docker run --rm -v ${PWD}/outputs:/app/outputs kitabiai:latest python scripts/validation/debug_pdf_extraction.py outputs/ar_ai_ethics_2023.pdf
 
 # 6. Run FastText validation
 docker run --rm `
   -v ${PWD}/outputs:/app/outputs `
   -v ${PWD}/.env:/app/.env `
   kitabiai:latest `
-  python validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
+  python scripts/validation/validate_language_detection_fasttext.py outputs/ar_ai_ethics_2023.pdf
 ```
 
 ---
@@ -315,15 +315,15 @@ docker build -t kitabiai:latest .
 
 # Debug PDF
 docker run --rm -v $(pwd)/outputs:/app/outputs kitabiai:latest \
-  python debug_pdf_extraction.py outputs/YOUR_PDF.pdf
+  python scripts/validation/debug_pdf_extraction.py outputs/YOUR_PDF.pdf
 
 # Test FastText
 docker run --rm -v $(pwd)/outputs:/app/outputs -v $(pwd)/.env:/app/.env \
-  kitabiai:latest python validate_language_detection_fasttext.py outputs/YOUR_PDF.pdf
+  kitabiai:latest python scripts/validation/validate_language_detection_fasttext.py outputs/YOUR_PDF.pdf
 
 # Test character-ratio
 docker run --rm -v $(pwd)/outputs:/app/outputs -v $(pwd)/.env:/app/.env \
-  kitabiai:latest python validate_language_detection.py outputs/YOUR_PDF.pdf
+  kitabiai:latest python scripts/validation/validate_language_detection.py outputs/YOUR_PDF.pdf
 ```
 
 ---

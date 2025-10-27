@@ -16,8 +16,8 @@ import fitz  # PyMuPDF
 from pathlib import Path
 from typing import Literal
 
-# Add app to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add project root to path (scripts/validation -> root)
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.services.language_detector import LanguageDetector
 from app.core.config import settings
