@@ -6,6 +6,11 @@ python-multipart>=0.0.6
 # PDF Processing
 PyMuPDF>=1.23.0
 
+# Language Detection (for cost optimization)
+fasttext-wheel>=0.9.2
+numpy>=1.24.0,<2.0.0  # FastText requires NumPy 1.x (not 2.x)
+requests>=2.31.0  # For downloading FastText model
+
 # Azure Document Intelligence (for Arabic PDFs)
 azure-ai-documentintelligence>=1.0.0
 azure-core>=1.29.0
