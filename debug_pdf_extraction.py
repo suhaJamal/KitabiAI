@@ -74,14 +74,17 @@ def analyze_pdf_extraction(pdf_path: str):
     print("EXTRACTING TEXT WITH PYMUPDF")
     print("="*80)
 
+    total_pages = doc.page_count
+    sample_pages_to_extract = min(10, total_pages)
+
     sample_text = ""
-    for i in range(min(10, doc.page_count)):
+    for i in range(sample_pages_to_extract):
         page = doc[i]
         sample_text += page.get_text("text") + "\n"
 
     doc.close()
 
-    print(f"\nExtracted {len(sample_text)} characters from first {min(10, doc.page_count)} pages\n")
+    print(f"\nExtracted {len(sample_text)} characters from first {sample_pages_to_extract} pages\n")
 
     # Analyze extracted text
     print("="*80)
