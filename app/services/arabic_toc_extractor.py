@@ -310,7 +310,53 @@ class ArabicTocExtractor:
                         except ValueError:
                             pass
 
-            # If neither format matched, move to next line
+            # Format C: Try batched format (multiple titles, then multiple numbers)
+            # This happens when Azure extracts "Title....53" as separate lines: "Title" then "53"
+            # Pattern: Title1, Title2, ..., Number1, Number2, ...
+            if i < len(lines) - 1:
+                # Check if current line is NOT a number (it's a title)
+                current_normalized = normalize_digits(current_line)
+                if not re.fullmatch(r'\d+', current_normalized):
+                    # Collect consecutive titles
+                    titles = []
+                    j = i
+                    while j < len(lines):
+                        line_normalized = normalize_digits(lines[j])
+                        if re.fullmatch(r'\d+', line_normalized):
+                            break  # Hit a number, stop collecting titles
+                        # Make sure it's not just a digit by itself
+                        if not re.fullmatch(r'[\u0660-\u0669\d]+', lines[j]):
+                            titles.append(lines[j].strip())
+                        j += 1
+
+                    # Collect consecutive numbers after the titles
+                    numbers = []
+                    k = j  # Start from where titles ended
+                    while k < len(lines):
+                        line_normalized = normalize_digits(lines[k])
+                        if re.fullmatch(r'\d+', line_normalized):
+                            try:
+                                page_num = int(line_normalized)
+                                if 1 <= page_num <= 9999:
+                                    numbers.append(page_num)
+                                    k += 1
+                                else:
+                                    break  # Invalid page number, stop
+                            except ValueError:
+                                break  # Not a valid number, stop
+                        else:
+                            break  # Not a number, stop
+
+                    # If we have matching counts and at least 2 titles (batched pattern)
+                    if len(titles) >= 2 and len(titles) == len(numbers):
+                        logger.info(f"🔄 Detected batched format: {len(titles)} titles + {len(numbers)} numbers")
+                        for idx, (title, page) in enumerate(zip(titles, numbers)):
+                            entries.append({"title": title, "page": page})
+                            logger.info(f"✅ ENTRY {len(entries)} (batched): '{title}' -> {page}")
+                        i = k  # Skip all processed lines
+                        continue
+
+            # If no format matched, move to next line
             i += 1
 
         logger.info(f"✅ Parsed {len(entries)} valid TOC entries")
