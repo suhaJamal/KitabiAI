@@ -47,9 +47,10 @@ class ArabicTocExtractor:
     
     # Arabic synonyms for "Table of Contents"
     # These are the most common ways Arabic books title their TOC
+    # Use word boundaries to avoid false matches (e.g., "فهرسة" is NOT "فهرس")
     TOC_PATTERNS = [
         r"المحتويات",              # "Contents" - most common
-        r"فهرس",                   # "Index/Contents"
+        r"(?:^|\s)فهرس(?:\s|$)",  # "Index/Contents" - word boundary to avoid "فهرسة"
         r"فهرس\s+المحتويات",      # "Index of Contents"
         r"جدول\s+المحتويات",      # "Table of Contents"
         r"فهرس\s+الموضوعات",      # "Index of Topics"
