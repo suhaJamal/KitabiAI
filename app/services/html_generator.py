@@ -388,50 +388,63 @@ class HtmlGenerator:
 </nav>"""
     
     def _generate_content(
-        self, 
-        sections: List[SectionInfo], 
+        self,
+        sections: List[SectionInfo],
         pages: List[PageInfo],
         language: str
     ) -> str:
         """Generate main content sections."""
         section_htmls = []
-        
+
         for section in sections:
-            section_html = self._generate_section(section, pages, language)
+            section_html = self._generate_section(section, pages, language, sections)
             section_htmls.append(section_html)
-        
+
         return "\n".join(section_htmls)
     
     def _generate_section(
-        self, 
-        section: SectionInfo, 
+        self,
+        section: SectionInfo,
         pages: List[PageInfo],
-        language: str
+        language: str,
+        all_sections: List[SectionInfo]
     ) -> str:
-        """Generate HTML for a single section."""
+        """
+        Generate HTML for a single section.
+
+        For hierarchical TOCs (English), only leaf sections (sections with no children)
+        get content extracted. Parent sections appear in navigation only.
+        This prevents duplicate content when a parent and its children have overlapping page ranges.
+
+        For flat TOCs (Arabic), all sections are leaf nodes, so all get content.
+        """
         anchor = self._make_anchor(section.section_id)
         header_tag = f"h{min(section.level + 1, 6)}"  # h2-h6
-        
-        # Get section pages
-        section_pages = [
-            p for p in pages 
-            if section.page_start <= p.page <= section.page_end
-        ]
-        
-        # Build paragraphs
+
+        # Check if this section has children (only for hierarchical TOCs)
+        is_leaf = self._is_leaf_section(section, all_sections)
+
+        # Build paragraphs only for leaf sections
         paragraphs = []
-        for page in section_pages:
-            if page.has_text and page.text:
-                # Split into paragraphs and wrap in <p> tags
-                for para in page.text.split("\n\n"):
-                    para = para.strip()
-                    if len(para) > 10:  # Skip very short paragraphs
-                        # Escape HTML special characters
-                        para = self._escape_html(para)
-                        paragraphs.append(f"<p>{para}</p>")
-        
+        if is_leaf:
+            # Get section pages
+            section_pages = [
+                p for p in pages
+                if section.page_start <= p.page <= section.page_end
+            ]
+
+            for page in section_pages:
+                if page.has_text and page.text:
+                    # Split into paragraphs and wrap in <p> tags
+                    for para in page.text.split("\n\n"):
+                        para = para.strip()
+                        if len(para) > 10:  # Skip very short paragraphs
+                            # Escape HTML special characters
+                            para = self._escape_html(para)
+                            paragraphs.append(f"<p>{para}</p>")
+
         content_html = "\n".join(paragraphs)
-        
+
         return f"""<section id="{anchor}">
     <{header_tag}>{section.title}</{header_tag}>
     <div class="page-range">Pages {section.page_start}-{section.page_end}</div>
@@ -471,6 +484,29 @@ class HtmlGenerator:
         
         return "\n".join(section_htmls)
     
+    def _is_leaf_section(self, section: SectionInfo, all_sections: List[SectionInfo]) -> bool:
+        """
+        Check if a section is a leaf node (has no children).
+
+        A section has children if any other section's ID starts with this section's ID + "."
+        Examples:
+        - "1" has children if "1.1", "1.2", etc. exist
+        - "2.3" has children if "2.3.1", "2.3.2", etc. exist
+        - Arabic sections like "1", "2", "3" have no children (no "1.1" exists)
+
+        Args:
+            section: The section to check
+            all_sections: All sections in the TOC
+
+        Returns:
+            True if section has no children, False otherwise
+        """
+        section_prefix = section.section_id + "."
+        for other in all_sections:
+            if other.section_id.startswith(section_prefix):
+                return False  # Found a child
+        return True  # No children found
+
     def _generate_footer(self) -> str:
         """Generate page footer."""
         return f"""<footer>
