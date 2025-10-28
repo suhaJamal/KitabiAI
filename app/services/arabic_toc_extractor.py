@@ -47,10 +47,11 @@ class ArabicTocExtractor:
     
     # Arabic synonyms for "Table of Contents"
     # These are the most common ways Arabic books title their TOC
-    # Use word boundaries to avoid false matches (e.g., "فهرسة" is NOT "فهرس")
+    # Note: Keep lenient matching (e.g., "فهرس" matches "فهرسة" too)
+    # False positives are filtered by validation logic in _extract_toc_segment()
     TOC_PATTERNS = [
         r"المحتويات",              # "Contents" - most common
-        r"(?:^|\s)فهرس(?:\s|$)",  # "Index/Contents" - word boundary to avoid "فهرسة"
+        r"فهرس",                   # "Index/Contents" (matches "فهرسة" too - validated later)
         r"فهرس\s+المحتويات",      # "Index of Contents"
         r"جدول\s+المحتويات",      # "Table of Contents"
         r"فهرس\s+الموضوعات",      # "Index of Topics"
@@ -152,7 +153,27 @@ class ArabicTocExtractor:
         header_text = toc_header_match.group().strip()
         toc_start = toc_header_match.start()
         logger.info(f"TOC header detected: '{header_text}' in {context_label}")
-        
+
+        # Validate at BEGINNING only: detect false positives from copyright/cataloging pages
+        if context_label == "beginning":
+            # Option 1: Check if we matched "فهرسة" (cataloging) not "فهرس" (TOC)
+            if "فهرسة" in header_text:
+                logger.info("Skipping 'فهرسة' (cataloging info), not actual TOC")
+                return None
+
+            # Option 2: Check for copyright/ISBN keywords near the match
+            # Extract context: 500 chars before and after the match
+            context_start = max(0, toc_start - 500)
+            context_end = min(len(text_part), toc_start + 500)
+            nearby_context = text_part[context_start:context_end]
+
+            copyright_keywords = ["ردمك", "ISBN", "الطبعة الأولى", "حقوق الطباعة"]
+            if any(keyword in nearby_context for keyword in copyright_keywords):
+                logger.info(f"Skipping TOC-like header near copyright section (found keywords: {[k for k in copyright_keywords if k in nearby_context]})")
+                return None
+
+            logger.info("Validated: This appears to be real TOC, not copyright section")
+
         # Extract all lines after the TOC header
         sample_after_header = text_part[toc_start:]
         lines = [l.strip() for l in sample_after_header.split("\n") if l.strip()]
