@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Handle HTML generation form - AJAX submission to open tab only when ready
+    // Handle HTML generation form - Open tab immediately to avoid pop-up blocker
     const htmlForm = document.querySelector('form[action="/generate/html"]');
     if (htmlForm) {
         htmlForm.addEventListener('submit', function(e) {
@@ -394,6 +394,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.parentNode.appendChild(loadingMsg);
             }
 
+            // Open new tab IMMEDIATELY (before fetch) to avoid pop-up blocker
+            const newTab = window.open('about:blank', '_blank');
+            if (newTab) {
+                newTab.document.write('<html><body><h2>Generating your web page...</h2><p>Please wait...</p></body></html>');
+            }
+
             // Submit via AJAX
             fetch('/generate/html', {
                 method: 'POST',
@@ -408,9 +414,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return response.text();
             })
             .then(html => {
-                // Open new tab with ready content
-                const newTab = window.open('', '_blank');
-                if (newTab) {
+                // Write content to the already-open tab
+                if (newTab && !newTab.closed) {
                     newTab.document.open();
                     newTab.document.write(html);
                     newTab.document.close();
@@ -425,6 +430,12 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Error:', error);
+
+                // Close the blank tab on error
+                if (newTab && !newTab.closed) {
+                    newTab.close();
+                }
+
                 alert('Failed to generate web page. Please try again.');
 
                 // Reset button
@@ -437,14 +448,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Handle Markdown generation form - Auto-reset after delay
+    // Handle Markdown generation form - Show spinner then allow download
     const markdownForm = document.querySelector('form[action="/generate/markdown"]');
     if (markdownForm) {
         markdownForm.addEventListener('submit', function(e) {
             const submitBtn = markdownForm.querySelector('button[type="submit"]');
             if (submitBtn.classList.contains('loading')) {
+                e.preventDefault();
                 return; // Prevent double-clicks
             }
+
+            // Prevent default briefly to show spinner
+            e.preventDefault();
 
             // Show loading state
             const originalHTML = submitBtn.innerHTML;
@@ -459,7 +474,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.parentNode.appendChild(loadingMsg);
             }
 
-            // Auto-reset after 4 seconds (can't detect download completion)
+            // Let spinner show, then submit form after brief delay
+            setTimeout(function() {
+                // Create and submit a temporary form to trigger download
+                const tempForm = document.createElement('form');
+                tempForm.method = 'POST';
+                tempForm.action = '/generate/markdown';
+                tempForm.style.display = 'none';
+                document.body.appendChild(tempForm);
+                tempForm.submit();
+                document.body.removeChild(tempForm);
+            }, 100);
+
+            // Auto-reset after 4 seconds
             setTimeout(function() {
                 submitBtn.classList.remove('loading');
                 submitBtn.innerHTML = originalHTML;
