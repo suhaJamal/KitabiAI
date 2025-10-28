@@ -314,7 +314,103 @@ details[open] summary {
     padding-top: 20px;
     margin-top: 20px;
 }
+/* Loading Spinner */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+button.loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+button.loading:hover {
+    transform: none;
+}
+.loading-message {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 12px;
+    text-align: center;
+    font-style: italic;
+}
 </style>
+<script>
+// Loading state handlers for forms
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle upload form
+    const uploadForm = document.querySelector('form[action="/upload"]');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function(e) {
+            const submitBtn = uploadForm.querySelector('button[type="submit"]');
+            if (submitBtn && !submitBtn.classList.contains('loading')) {
+                submitBtn.classList.add('loading');
+                submitBtn.innerHTML = '<span class="spinner"></span>Analyzing PDF...';
+
+                // Add loading message
+                let loadingMsg = uploadForm.querySelector('.loading-message');
+                if (!loadingMsg) {
+                    loadingMsg = document.createElement('div');
+                    loadingMsg.className = 'loading-message';
+                    loadingMsg.textContent = 'Please wait, this may take 10-30 seconds for large files';
+                    submitBtn.parentNode.appendChild(loadingMsg);
+                }
+            }
+        });
+    }
+
+    // Handle HTML generation form
+    const htmlForm = document.querySelector('form[action="/generate/html"]');
+    if (htmlForm) {
+        htmlForm.addEventListener('submit', function(e) {
+            const submitBtn = htmlForm.querySelector('button[type="submit"]');
+            if (submitBtn && !submitBtn.classList.contains('loading')) {
+                submitBtn.classList.add('loading');
+                submitBtn.innerHTML = '<span class="spinner"></span>Generating Web Page...';
+
+                let loadingMsg = htmlForm.querySelector('.loading-message');
+                if (!loadingMsg) {
+                    loadingMsg = document.createElement('div');
+                    loadingMsg.className = 'loading-message';
+                    loadingMsg.textContent = 'This may take a few seconds';
+                    submitBtn.parentNode.appendChild(loadingMsg);
+                }
+            }
+        });
+    }
+
+    // Handle Markdown generation form
+    const markdownForm = document.querySelector('form[action="/generate/markdown"]');
+    if (markdownForm) {
+        markdownForm.addEventListener('submit', function(e) {
+            const submitBtn = markdownForm.querySelector('button[type="submit"]');
+            if (submitBtn && !submitBtn.classList.contains('loading')) {
+                submitBtn.classList.add('loading');
+                submitBtn.innerHTML = '<span class="spinner"></span>Generating Markdown...';
+
+                let loadingMsg = markdownForm.querySelector('.loading-message');
+                if (!loadingMsg) {
+                    loadingMsg = document.createElement('div');
+                    loadingMsg.className = 'loading-message';
+                    loadingMsg.textContent = 'This may take a few seconds';
+                    submitBtn.parentNode.appendChild(loadingMsg);
+                }
+            }
+        });
+    }
+});
+</script>
 """
 
 
