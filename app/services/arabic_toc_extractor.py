@@ -205,17 +205,25 @@ class ArabicTocExtractor:
         """
         lines = [l.strip() for l in toc_text.split("\n") if l.strip()]
 
+        # Log raw lines BEFORE filtering (for debugging)
+        logger.info(f"Raw lines BEFORE filtering: {len(lines)}")
+        logger.info(f"First 10 raw lines:")
+        for i, line in enumerate(lines[:10], 1):
+            logger.info(f"  RAW {i}. [{line}]")
+
         # Filter out headers/footers but KEEP page numbers
         # in_toc_context=True tells filter to be lenient with small numbers
         filtered_lines = []
+        filtered_count = 0
         for l in lines:
             if self._is_header_footer(l, in_toc_context=True):
-                logger.debug(f"FILTERED: [{l}]")
+                logger.info(f"FILTERED OUT: [{l}]")  # Changed to INFO to debug missing "9"
+                filtered_count += 1
             else:
                 filtered_lines.append(l)
 
         lines = filtered_lines
-        logger.info(f"After filtering: {len(lines)} lines")
+        logger.info(f"After filtering: {len(lines)} lines (filtered out: {filtered_count})")
 
         # Log first 30 lines for debugging purposes
         logger.info(f"First 30 lines:")
