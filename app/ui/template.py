@@ -240,6 +240,80 @@ a {
 a:hover {
     text-decoration: underline;
 }
+/* Collapsible Details */
+details {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+details summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 600;
+    padding: 14px 16px;
+    background: var(--bg);
+    list-style: none;
+    user-select: none;
+    transition: background 0.2s;
+}
+details summary:hover {
+    background: #f3f1ed;
+}
+details summary::-webkit-details-marker {
+    display: none;
+}
+details summary::before {
+    content: '▶';
+    display: inline-block;
+    margin-right: 8px;
+    transition: transform 0.2s;
+}
+details[open] summary::before {
+    transform: rotate(90deg);
+}
+details[open] summary {
+    border-bottom: 1px solid var(--border);
+}
+/* Primary/Secondary Generation Buttons */
+.gen-button-primary {
+    background: var(--accent);
+    color: white;
+    padding: 18px 24px;
+    font-size: 18px;
+    border-radius: 12px;
+    font-weight: 700;
+    width: 100%;
+    border: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.gen-button-primary:hover {
+    background: var(--accent-light);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(199, 106, 45, 0.4);
+}
+.gen-button-secondary {
+    background: white;
+    color: var(--accent);
+    padding: 12px 20px;
+    font-size: 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+.gen-button-secondary:hover {
+    background: var(--bg);
+    border-color: var(--accent);
+}
+.divider-section {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    margin-top: 20px;
+}
 </style>
 """
 
@@ -385,37 +459,35 @@ def render_report(filename: str, report: AnalysisReport, language: str = "unknow
         for p in report.pages
     )
     
-    # Generation section (NEW!)
+    # Generation section
     generation_html = """
     <div class="generation-section">
       <h3>🎨 Generate Book Formats</h3>
-      <p style="color: var(--muted); margin: 0 0 16px;">Transform your PDF into beautiful, readable formats:</p>
-      
-      <div class="button-group">
+      <p style="color: var(--muted); margin: 0 0 20px;">Transform your PDF into beautiful, readable formats</p>
+
+      <!-- PRIMARY: Web Page Generation -->
+      <form action="/generate/html" method="post" target="_blank" style="margin: 0;">
+        <button type="submit" class="gen-button-primary">
+          🌐 Generate Web Page
+        </button>
+      </form>
+      <p style="font-size: 13px; color: var(--muted); margin: 8px 0 0; text-align: center;">
+        Creates an SEO-friendly HTML version for web publishing
+      </p>
+
+      <!-- SECONDARY: Markdown (Advanced) -->
+      <div class="divider-section">
+        <h4 style="font-size: 14px; color: var(--muted); margin: 0 0 12px; font-weight: 600;">
+          Advanced: Developer Format
+        </h4>
         <form action="/generate/markdown" method="post" style="margin: 0;">
-          <button type="submit" class="gen-button">
+          <button type="submit" class="gen-button-secondary">
             📝 Generate Markdown
           </button>
         </form>
-        
-        <form action="/generate/html" method="post" target="_blank" style="margin: 0;">
-          <button type="submit" class="gen-button">
-            🌐 Generate HTML
-          </button>
-        </form>
-        
-        <form action="/generate/both" method="post" style="margin: 0;">
-          <button type="submit" class="gen-button secondary">
-            📦 Generate Both
-          </button>
-        </form>
-      </div>
-      
-      <div style="margin-top: 16px; padding: 12px; background: white; border-radius: 8px; font-size: 13px; color: var(--muted);">
-        <strong>What you get:</strong><br>
-        • <strong>Markdown</strong>: Clean .md file with YAML frontmatter & TOC<br>
-        • <strong>HTML</strong>: Styled webpage with navigation & responsive design<br>
-        • Files will be ready to download after generation (check responses)
+        <p style="font-size: 12px; color: var(--muted); margin: 8px 0 0;">
+          For developers and content editors - includes YAML frontmatter & structured TOC
+        </p>
       </div>
     </div>
     """
@@ -430,11 +502,15 @@ def render_report(filename: str, report: AnalysisReport, language: str = "unknow
         <div><strong>Pages</strong></div><div>{report.num_pages}</div>
         <div><strong>Classification</strong></div><div>{classification_badge}</div>
       </div>
-      <table>
-        <thead><tr><th>Page</th><th>Has Text</th><th>Image Count</th></tr></thead>
-        <tbody>{rows}</tbody>
-      </table>
-      
+
+      <details>
+        <summary>Show Page-by-Page Details ({report.num_pages} pages)</summary>
+        <table>
+          <thead><tr><th>Page</th><th>Has Text</th><th>Image Count</th></tr></thead>
+          <tbody>{rows}</tbody>
+        </table>
+      </details>
+
       {generation_html}
       
       <div class="info-box" style="margin-top: 20px;">
