@@ -413,15 +413,21 @@ class ArabicTocExtractor:
         for pattern in patterns:
             if re.match(pattern, line, re.IGNORECASE):
                 return True
-        
+
         # Filter very short lines (likely decorative or noise)
+        # BUT: In TOC context, keep single digits (they're page numbers like "9" or "٩")
         if len(line) < 2:
-            return True
-        
+            if in_toc_context and re.fullmatch(r'[\u0660-\u0669\d]', line):
+                # Single digit in TOC = page number, keep it!
+                return False
+            else:
+                # Other short lines = noise, filter them
+                return True
+
         # Filter lines with only special characters (decorative elements)
         if re.match(r'^[\W_]+$', line):
             return True
-        
+
         return False
     
     def _clean_entries(self, entries: List[dict]) -> List[dict]:
