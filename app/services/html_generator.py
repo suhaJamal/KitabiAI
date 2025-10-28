@@ -381,7 +381,7 @@ class HtmlGenerator:
         // Font size adjustment functionality
         (function() {{
             const MIN_SIZE = 14;
-            const MAX_SIZE = 22;
+            const MAX_SIZE = 30;
             const DEFAULT_SIZE = document.dir === 'rtl' ? 18 : 16;
 
             // Load saved font size from localStorage
@@ -398,7 +398,7 @@ class HtmlGenerator:
 
             // Apply font size to body
             function applyFontSize(size) {{
-                document.documentElement.style.fontSize = size + 'px';
+                document.body.style.fontSize = size + 'px';
                 localStorage.setItem('kitabi-font-size', size);
             }}
 
@@ -409,7 +409,7 @@ class HtmlGenerator:
 
                 // Setup button click handlers
                 document.getElementById('font-decrease').addEventListener('click', function() {{
-                    const current = parseInt(document.documentElement.style.fontSize) || DEFAULT_SIZE;
+                    const current = parseInt(document.body.style.fontSize) || DEFAULT_SIZE;
                     const newSize = Math.max(MIN_SIZE, current - 2);
                     applyFontSize(newSize);
                 }});
@@ -419,7 +419,7 @@ class HtmlGenerator:
                 }});
 
                 document.getElementById('font-increase').addEventListener('click', function() {{
-                    const current = parseInt(document.documentElement.style.fontSize) || DEFAULT_SIZE;
+                    const current = parseInt(document.body.style.fontSize) || DEFAULT_SIZE;
                     const newSize = Math.min(MAX_SIZE, current + 2);
                     applyFontSize(newSize);
                 }});
