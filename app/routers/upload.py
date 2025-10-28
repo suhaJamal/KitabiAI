@@ -85,14 +85,16 @@ async def upload(
     head = await file.read(5)
     await file.seek(0)
     analyzer.validate_signature(head)
-    
-    # Read and analyze PDF
+
+    # Read PDF bytes
     pdf_bytes = await file.read()
-    report = analyzer.analyze(pdf_bytes)
-    
-    # Detect language and extract text (returns 2 values: language and extracted_text)
+
+    # Detect language and extract text FIRST (returns 2 values: language and extracted_text)
     detected_language, extracted_text = language_detector.detect(pdf_bytes)
     logger.info(f"Detected language: {detected_language}")
+
+    # Analyze PDF with pre-extracted text (for Arabic) to maintain quality
+    report = analyzer.analyze(pdf_bytes, extracted_text, detected_language)
     
     # Cache for follow-up exports (including extracted text for BOTH languages)
     _last_report = report
