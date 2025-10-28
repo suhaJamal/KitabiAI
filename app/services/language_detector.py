@@ -257,7 +257,12 @@ class LanguageDetector:
         return language, text
 
     def _extract_with_azure(self, pdf_bytes: bytes) -> str:
-        """Use Azure Document Intelligence to extract text from PDF."""
+        """
+        Use Azure Document Intelligence to extract text from PDF.
+
+        Preserves page boundaries by inserting form feed characters (\f) between pages.
+        This allows the analyzer to correctly split text back into pages.
+        """
         if self._azure_client is None:
             self._azure_client = DocumentIntelligenceClient(
                 endpoint=settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT,
@@ -271,11 +276,19 @@ class LanguageDetector:
         result = poller.result()
 
         all_text = ""
-        for page in result.pages:
+        for page_num, page in enumerate(result.pages, start=1):
+            page_text = ""
             for line in page.lines:
-                all_text += line.content + "\n"
+                page_text += line.content + "\n"
 
-        logger.info(f"Azure extracted {len(all_text)} characters")
+            # Add page text
+            all_text += page_text
+
+            # Add form feed character between pages (except after last page)
+            if page_num < len(result.pages):
+                all_text += "\f"  # Form feed: page boundary marker
+
+        logger.info(f"Azure extracted {len(all_text)} characters from {len(result.pages)} pages")
         return all_text
 
     def _extract_with_pymupdf(self, pdf_bytes: bytes) -> str:
