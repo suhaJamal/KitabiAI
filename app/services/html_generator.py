@@ -135,6 +135,7 @@ class HtmlGenerator:
         
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 16px;
             line-height: 1.6;
             color: #333;
             background: #f5f5f5;
@@ -147,6 +148,7 @@ class HtmlGenerator:
         
         [dir="rtl"] body {{
             font-family: 'Traditional Arabic', 'Simplified Arabic', Arial, sans-serif;
+            font-size: 18px;
         }}
         
         /* Header */
@@ -156,6 +158,7 @@ class HtmlGenerator:
             padding: 2rem;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
         }}
         
         header h1 {{
@@ -314,34 +317,134 @@ class HtmlGenerator:
             .container {{
                 flex-direction: column;
             }}
-            
+
             nav {{
                 position: static;
                 max-height: none;
             }}
-            
+
             .content {{
                 padding: 1.5rem;
             }}
-            
+
             header h1 {{
                 font-size: 1.8rem;
             }}
         }}
+
+        /* Font Size Controls */
+        .font-controls {{
+            position: absolute;
+            top: 1.5rem;
+            right: 2rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }}
+
+        .font-controls span {{
+            font-size: 0.9rem;
+            margin-right: 0.5rem;
+            opacity: 0.9;
+        }}
+
+        .font-btn {{
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            font-weight: 500;
+        }}
+
+        .font-btn:hover {{
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.6);
+        }}
+
+        .font-btn:active {{
+            transform: scale(0.95);
+        }}
+
+        @media (max-width: 768px) {{
+            .font-controls {{
+                position: static;
+                justify-content: center;
+                margin-top: 1rem;
+            }}
+        }}
     </style>
+    <script>
+        // Font size adjustment functionality
+        (function() {{
+            const MIN_SIZE = 14;
+            const MAX_SIZE = 22;
+            const DEFAULT_SIZE = document.dir === 'rtl' ? 18 : 16;
+
+            // Load saved font size from localStorage
+            function loadFontSize() {{
+                const saved = localStorage.getItem('kitabi-font-size');
+                if (saved) {{
+                    const size = parseInt(saved);
+                    if (size >= MIN_SIZE && size <= MAX_SIZE) {{
+                        return size;
+                    }}
+                }}
+                return DEFAULT_SIZE;
+            }}
+
+            // Apply font size to body
+            function applyFontSize(size) {{
+                document.documentElement.style.fontSize = size + 'px';
+                localStorage.setItem('kitabi-font-size', size);
+            }}
+
+            // Initialize on page load
+            document.addEventListener('DOMContentLoaded', function() {{
+                const currentSize = loadFontSize();
+                applyFontSize(currentSize);
+
+                // Setup button click handlers
+                document.getElementById('font-decrease').addEventListener('click', function() {{
+                    const current = parseInt(document.documentElement.style.fontSize) || DEFAULT_SIZE;
+                    const newSize = Math.max(MIN_SIZE, current - 2);
+                    applyFontSize(newSize);
+                }});
+
+                document.getElementById('font-reset').addEventListener('click', function() {{
+                    applyFontSize(DEFAULT_SIZE);
+                }});
+
+                document.getElementById('font-increase').addEventListener('click', function() {{
+                    const current = parseInt(document.documentElement.style.fontSize) || DEFAULT_SIZE;
+                    const newSize = Math.min(MAX_SIZE, current + 2);
+                    applyFontSize(newSize);
+                }});
+            }});
+        }})();
+    </script>
 </head>"""
     
     def _generate_header(self, metadata: BookMetadata) -> str:
-        """Generate page header."""
+        """Generate page header with font size controls."""
         meta_parts = []
         if metadata.author:
             meta_parts.append(f"By {metadata.author}")
         if metadata.publication_date:
             meta_parts.append(metadata.publication_date)
-        
+
         meta_html = " • ".join(meta_parts) if meta_parts else ""
-        
+
         return f"""<header>
+    <div class="font-controls">
+        <span>Font:</span>
+        <button id="font-decrease" class="font-btn" title="Decrease font size">A-</button>
+        <button id="font-reset" class="font-btn" title="Reset font size">A</button>
+        <button id="font-increase" class="font-btn" title="Increase font size">A+</button>
+    </div>
     <h1>{metadata.title}</h1>
     {f'<div class="metadata">{meta_html}</div>' if meta_html else ''}
 </header>"""
