@@ -370,43 +370,103 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Handle HTML generation form
+    // Handle HTML generation form - AJAX submission to open tab only when ready
     const htmlForm = document.querySelector('form[action="/generate/html"]');
     if (htmlForm) {
         htmlForm.addEventListener('submit', function(e) {
-            const submitBtn = htmlForm.querySelector('button[type="submit"]');
-            if (submitBtn && !submitBtn.classList.contains('loading')) {
-                submitBtn.classList.add('loading');
-                submitBtn.innerHTML = '<span class="spinner"></span>Generating Web Page...';
+            e.preventDefault(); // Stop default form submission
 
-                let loadingMsg = htmlForm.querySelector('.loading-message');
-                if (!loadingMsg) {
-                    loadingMsg = document.createElement('div');
-                    loadingMsg.className = 'loading-message';
-                    loadingMsg.textContent = 'This may take a few seconds';
-                    submitBtn.parentNode.appendChild(loadingMsg);
-                }
+            const submitBtn = htmlForm.querySelector('button[type="submit"]');
+            if (submitBtn.classList.contains('loading')) {
+                return; // Prevent double-clicks
             }
+
+            // Show loading state
+            const originalHTML = submitBtn.innerHTML;
+            submitBtn.classList.add('loading');
+            submitBtn.innerHTML = '<span class="spinner"></span>Generating Web Page...';
+
+            let loadingMsg = htmlForm.querySelector('.loading-message');
+            if (!loadingMsg) {
+                loadingMsg = document.createElement('div');
+                loadingMsg.className = 'loading-message';
+                loadingMsg.textContent = 'Please wait while we generate your web page...';
+                submitBtn.parentNode.appendChild(loadingMsg);
+            }
+
+            // Submit via AJAX
+            fetch('/generate/html', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'text/html'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Generation failed');
+                }
+                return response.text();
+            })
+            .then(html => {
+                // Open new tab with ready content
+                const newTab = window.open('', '_blank');
+                if (newTab) {
+                    newTab.document.open();
+                    newTab.document.write(html);
+                    newTab.document.close();
+                }
+
+                // Reset button
+                submitBtn.classList.remove('loading');
+                submitBtn.innerHTML = originalHTML;
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to generate web page. Please try again.');
+
+                // Reset button
+                submitBtn.classList.remove('loading');
+                submitBtn.innerHTML = originalHTML;
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
+            });
         });
     }
 
-    // Handle Markdown generation form
+    // Handle Markdown generation form - Auto-reset after delay
     const markdownForm = document.querySelector('form[action="/generate/markdown"]');
     if (markdownForm) {
         markdownForm.addEventListener('submit', function(e) {
             const submitBtn = markdownForm.querySelector('button[type="submit"]');
-            if (submitBtn && !submitBtn.classList.contains('loading')) {
-                submitBtn.classList.add('loading');
-                submitBtn.innerHTML = '<span class="spinner"></span>Generating Markdown...';
-
-                let loadingMsg = markdownForm.querySelector('.loading-message');
-                if (!loadingMsg) {
-                    loadingMsg = document.createElement('div');
-                    loadingMsg.className = 'loading-message';
-                    loadingMsg.textContent = 'This may take a few seconds';
-                    submitBtn.parentNode.appendChild(loadingMsg);
-                }
+            if (submitBtn.classList.contains('loading')) {
+                return; // Prevent double-clicks
             }
+
+            // Show loading state
+            const originalHTML = submitBtn.innerHTML;
+            submitBtn.classList.add('loading');
+            submitBtn.innerHTML = '<span class="spinner"></span>Generating Markdown...';
+
+            let loadingMsg = markdownForm.querySelector('.loading-message');
+            if (!loadingMsg) {
+                loadingMsg = document.createElement('div');
+                loadingMsg.className = 'loading-message';
+                loadingMsg.textContent = 'Your download will start shortly...';
+                submitBtn.parentNode.appendChild(loadingMsg);
+            }
+
+            // Auto-reset after 4 seconds (can't detect download completion)
+            setTimeout(function() {
+                submitBtn.classList.remove('loading');
+                submitBtn.innerHTML = originalHTML;
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
+            }, 4000);
         });
     }
 });
@@ -562,7 +622,7 @@ def render_report(filename: str, report: AnalysisReport, language: str = "unknow
       <p style="color: var(--muted); margin: 0 0 20px;">Transform your PDF into beautiful, readable formats</p>
 
       <!-- PRIMARY: Web Page Generation -->
-      <form action="/generate/html" method="post" target="_blank" style="margin: 0;">
+      <form action="/generate/html" method="post" style="margin: 0;">
         <button type="submit" class="gen-button-primary">
           🌐 Generate Web Page
         </button>
