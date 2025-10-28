@@ -181,29 +181,30 @@ class ArabicTocExtractor:
 
     def _parse_toc_entries(self, toc_text: str) -> List[dict]:
         """
-        Parse TOC text into title-page pairs using separate-line format.
-        
-        Arabic TOC Format (after Azure extraction):
-        Line 1: Title (e.g., "الفصل الأول")
-        Line 2: Page number (e.g., "5" or "٥")
-        Line 3: Next title
-        Line 4: Next page number
-        ...
-        
+        Parse TOC text into title-page pairs supporting multiple formats.
+
+        Arabic TOC Formats (after Azure extraction):
+        Format A (same line): "Title PageNumber" (e.g., "تمهيد السلسلة 9")
+        Format B (separate lines):
+          Line 1: Title (e.g., "الفصل الأول")
+          Line 2: Page number (e.g., "5" or "٥")
+
         Process:
         1. Filter out headers/footers (but keep page numbers in TOC context)
-        2. Iterate through lines looking for title-page pairs
-        3. Normalize Arabic-Indic digits (٠-٩) to Western (0-9)
-        4. Validate each entry (title must have text, page must be valid number)
-        
+        2. Try Format A first (same line): split by last space to separate title from page
+        3. Fall back to Format B (separate lines): pair consecutive lines
+        4. Normalize Arabic-Indic digits (٠-٩) to Western (0-9)
+        5. Validate each entry (title must have text, page must be valid number)
+        6. Keep chapter numbers in titles (e.g., "١ - أيتها المرآة على الحائط")
+
         Args:
             toc_text: Raw TOC text segment
-        
+
         Returns:
             List of dicts with 'title' and 'page' keys
         """
         lines = [l.strip() for l in toc_text.split("\n") if l.strip()]
-        
+
         # Filter out headers/footers but KEEP page numbers
         # in_toc_context=True tells filter to be lenient with small numbers
         filtered_lines = []
@@ -212,52 +213,76 @@ class ArabicTocExtractor:
                 logger.debug(f"FILTERED: [{l}]")
             else:
                 filtered_lines.append(l)
-        
+
         lines = filtered_lines
         logger.info(f"After filtering: {len(lines)} lines")
-        
+
         # Log first 30 lines for debugging purposes
         logger.info(f"First 30 lines:")
         for i, line in enumerate(lines[:30], 1):
             logger.info(f"  {i}. [{line}]")
-        
+
         def normalize_digits(s: str) -> str:
             """Convert Arabic-Indic digits (٠-٩) to Western digits (0-9)."""
             return s.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
-        
+
         entries = []
         i = 0
-        
-        # Process lines as title-page pairs
-        while i < len(lines) - 1:
-            title_line = lines[i]
-            page_line = lines[i + 1]
-            
-            # Remove chapter numbers from title (e.g., "١-", "٢-")
-            # These are on the RIGHT side in RTL, not the page numbers we want
-            title = re.sub(r'^[\u0660-\u0669\d]+[-–—]\s*', '', title_line).strip()
-            
-            # Check if next line is ONLY a page number (no other text)
-            if re.fullmatch(r'[\u0660-\u0669\d]+', page_line):
-                page_str = normalize_digits(page_line)
-                
-                # Validate: title must not be empty and not be just a number itself
-                if title and not re.fullmatch(r'[\u0660-\u0669\d]+', title):
+
+        # Process lines supporting both formats
+        while i < len(lines):
+            current_line = lines[i]
+
+            # Format A: Try same-line format first (e.g., "تمهيد السلسلة 9")
+            # Split by last space and check if last part is a page number
+            parts = current_line.rsplit(None, 1)  # Split by last whitespace
+            if len(parts) == 2:
+                potential_title, potential_page = parts
+                normalized_page = normalize_digits(potential_page)
+
+                # Check if last part is ONLY digits
+                if re.fullmatch(r'\d+', normalized_page):
                     try:
-                        page_num = int(page_str)
+                        page_num = int(normalized_page)
                         # Sanity check: page number should be reasonable (1-9999)
                         if 1 <= page_num <= 9999:
+                            # Valid same-line format
+                            title = potential_title.strip()
+                            # Keep chapter numbers - don't remove them!
                             entries.append({"title": title, "page": page_num})
-                            logger.info(f"✅ ENTRY {len(entries)}: '{title}' -> {page_num}")
-                            i += 2  # Skip both title and page lines
+                            logger.info(f"✅ ENTRY {len(entries)} (same-line): '{title}' -> {page_num}")
+                            i += 1  # Move to next line
                             continue
                     except ValueError:
-                        # Not a valid integer, skip
                         pass
-            
-            # If not a valid pair, move to next line
+
+            # Format B: Try separate-line format (next line is page number)
+            if i < len(lines) - 1:
+                title_line = current_line
+                page_line = lines[i + 1]
+
+                # Keep chapter numbers - don't remove them!
+                title = title_line.strip()
+
+                # Check if next line is ONLY a page number (no other text)
+                normalized_page_line = normalize_digits(page_line)
+                if re.fullmatch(r'\d+', normalized_page_line):
+                    # Validate: title must not be empty and not be just a number itself
+                    if title and not re.fullmatch(r'[\u0660-\u0669\d]+', title):
+                        try:
+                            page_num = int(normalized_page_line)
+                            # Sanity check: page number should be reasonable (1-9999)
+                            if 1 <= page_num <= 9999:
+                                entries.append({"title": title, "page": page_num})
+                                logger.info(f"✅ ENTRY {len(entries)} (separate-line): '{title}' -> {page_num}")
+                                i += 2  # Skip both title and page lines
+                                continue
+                        except ValueError:
+                            pass
+
+            # If neither format matched, move to next line
             i += 1
-        
+
         logger.info(f"✅ Parsed {len(entries)} valid TOC entries")
         return entries
 
