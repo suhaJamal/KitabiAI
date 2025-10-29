@@ -53,30 +53,39 @@ async def upload(
     author: str = Form(None),  # Optional
     publication_date: str = Form(None),  # Optional
     isbn: str = Form(None),  # Optional
+    description: str = Form(None),  # Optional - SEO
+    category: str = Form(None),  # Optional - SEO
+    keywords: str = Form(None),  # Optional - SEO
     json: int = Query(default=0, ge=0, le=1)
 ):
     """
     Upload and analyze a PDF (English or Arabic) with user-provided metadata.
-    
+
     Form fields:
         file: PDF file to analyze
         book_title: Book title (required)
         author: Author name (optional)
         publication_date: Publication date (optional)
         isbn: ISBN number (optional)
-    
+        description: Brief book description for SEO (optional, max 160 chars)
+        category: Book category/subject (optional)
+        keywords: Comma-separated keywords/tags (optional)
+
     Query params:
         json: If 1, return JSON response. Otherwise, return HTML.
     """
     global _last_report, _last_filename, _last_pdf_bytes, _last_language
     global _last_extracted_text, _last_book_metadata
-    
+
     # Create and validate metadata object
     metadata = BookMetadata(
         title=book_title.strip(),
         author=author.strip() if author else None,
         publication_date=publication_date.strip() if publication_date else None,
-        isbn=isbn.strip() if isbn else None
+        isbn=isbn.strip() if isbn else None,
+        description=description.strip() if description else None,
+        category=category.strip() if category else None,
+        keywords=keywords.strip() if keywords else None
     )
     
     logger.info(f"Upload request - Book: '{metadata.title}', File: {file.filename}")

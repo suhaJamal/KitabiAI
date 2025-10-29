@@ -117,15 +117,92 @@ class HtmlGenerator:
 </html>"""
         
         return html
-    
+
+    def _generate_seo_meta(self, metadata: BookMetadata, language: str) -> str:
+        """
+        Generate SEO meta tags and Schema.org JSON-LD structured data.
+
+        Includes:
+        - Basic meta tags (description, keywords, author)
+        - Open Graph tags (for social media sharing)
+        - Schema.org Book structured data (for search engines)
+        """
+        meta_tags = []
+
+        # Basic SEO meta tags
+        if metadata.description:
+            escaped_desc = self._escape_html(metadata.description)
+            meta_tags.append(f'<meta name="description" content="{escaped_desc}">')
+
+        if metadata.keywords:
+            escaped_keywords = self._escape_html(metadata.keywords)
+            meta_tags.append(f'<meta name="keywords" content="{escaped_keywords}">')
+
+        if metadata.author:
+            escaped_author = self._escape_html(metadata.author)
+            meta_tags.append(f'<meta name="author" content="{escaped_author}">')
+
+        # Language
+        lang_code = "ar" if language == "arabic" else "en"
+        meta_tags.append(f'<meta name="language" content="{lang_code}">')
+
+        # Open Graph tags for social sharing
+        escaped_title = self._escape_html(metadata.title)
+        meta_tags.append(f'<meta property="og:title" content="{escaped_title}">')
+        meta_tags.append(f'<meta property="og:type" content="book">')
+
+        if metadata.description:
+            meta_tags.append(f'<meta property="og:description" content="{escaped_desc}">')
+
+        # Schema.org JSON-LD structured data
+        schema_data = {
+            "@context": "https://schema.org",
+            "@type": "Book",
+            "name": metadata.title,
+            "inLanguage": lang_code
+        }
+
+        if metadata.author:
+            schema_data["author"] = {
+                "@type": "Person",
+                "name": metadata.author
+            }
+
+        if metadata.description:
+            schema_data["description"] = metadata.description
+
+        if metadata.isbn:
+            schema_data["isbn"] = metadata.isbn
+
+        if metadata.publication_date:
+            schema_data["datePublished"] = metadata.publication_date
+
+        if metadata.category:
+            schema_data["genre"] = metadata.category
+
+        if metadata.keywords:
+            schema_data["keywords"] = metadata.keywords
+
+        # Build Schema.org script tag
+        import json
+        schema_json = json.dumps(schema_data, ensure_ascii=False, indent=2)
+        schema_script = f'<script type="application/ld+json">\n{schema_json}\n</script>'
+
+        # Combine all meta tags
+        return "\n    ".join(meta_tags) + "\n    " + schema_script if meta_tags else ""
+
     def _generate_head(self, metadata: BookMetadata, language: str) -> str:
-        """Generate HTML head with styles."""
+        """Generate HTML head with styles and SEO meta tags."""
         direction = "rtl" if language == "arabic" else "ltr"
-        
+
+        # Build SEO meta tags
+        seo_meta = self._generate_seo_meta(metadata, language)
+
         return f"""<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{metadata.title}</title>
+    {seo_meta}
     <style>
         * {{
             margin: 0;

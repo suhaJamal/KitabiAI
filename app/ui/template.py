@@ -79,7 +79,8 @@ label .required {
     color: #dc2626;
 }
 input[type="file"],
-input[type="text"] {
+input[type="text"],
+textarea {
     padding: 10px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -87,16 +88,23 @@ input[type="text"] {
     color: var(--ink);
     font-size: 14px;
     width: 100%;
+    font-family: inherit;
 }
 input[type="file"] {
     border-style: dashed;
 }
-input[type="text"]:focus {
+input[type="text"]:focus,
+textarea:focus {
     outline: none;
     border-color: var(--accent);
 }
-input[type="text"]::placeholder {
+input[type="text"]::placeholder,
+textarea::placeholder {
     color: #9ca3af;
+}
+textarea {
+    resize: vertical;
+    min-height: 80px;
 }
 .help-text {
     font-size: 12px;
@@ -577,6 +585,38 @@ def render_home() -> str:
             <label>ISBN</label>
             <input type="text" name="isbn" placeholder="e.g., 978-3-16-148410-0 (optional)" pattern="[0-9\\-X]{10,17}" />
             <div class="help-text">Format: 10 or 13 digits with optional hyphens</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEO Metadata Section -->
+      <div class="form-section metadata-section">
+        <h3>🔍 SEO & Discoverability (Optional)</h3>
+        <div class="info-box" style="margin-top: 0; margin-bottom: 16px; background: #e7f3fe;">
+          <strong>💡 Tip:</strong> Adding these details helps readers discover your book online through search engines.
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>Book Description</label>
+            <textarea name="description" placeholder="Brief description of the book content (max 160 characters recommended for SEO)" maxlength="160" rows="3"></textarea>
+            <div class="help-text">This appears in search engine results. Keep it concise and compelling.</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>Category / Subject</label>
+            <input type="text" name="category" placeholder="e.g., Philosophy, History, Islamic Studies, Science" />
+            <div class="help-text">Main subject area or genre</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>Keywords / Tags</label>
+            <input type="text" name="keywords" placeholder="e.g., medieval history, Arabic literature, philosophy" />
+            <div class="help-text">Comma-separated keywords that describe the book's topics</div>
           </div>
         </div>
       </div>

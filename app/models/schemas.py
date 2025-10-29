@@ -38,14 +38,22 @@ class BookMetadata(BaseModel):
     author: Optional[str] = Field(None, description="Author name")
     publication_date: Optional[str] = Field(None, description="Publication date")
     isbn: Optional[str] = Field(None, description="ISBN number")
-    
+
+    # SEO fields (optional)
+    description: Optional[str] = Field(None, max_length=160, description="Brief book description for SEO (max 160 characters)")
+    category: Optional[str] = Field(None, description="Book category/subject (e.g., Philosophy, History)")
+    keywords: Optional[str] = Field(None, description="Comma-separated keywords/tags")
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "title": "Artificial Intelligence Ethics",
                 "author": "John Smith",
                 "publication_date": "2024",
-                "isbn": "978-3-16-148410-0"
+                "isbn": "978-3-16-148410-0",
+                "description": "A comprehensive exploration of ethical considerations in artificial intelligence and machine learning applications.",
+                "category": "Technology",
+                "keywords": "AI, ethics, machine learning, technology, philosophy"
             }
         }
     )
