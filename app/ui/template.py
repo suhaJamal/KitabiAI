@@ -549,6 +549,37 @@ def html_shell(body: str) -> str:
           <div class="card">
             <h1>📚 Book Converter – Unified (English & Arabic)</h1>
             <div class="subtitle">Upload a PDF → we'll detect the language, verify content, and extract TOC automatically.</div>
+
+            <!-- Collapsible: What Books Work Best -->
+            <details style="margin: 20px 0;">
+              <summary>📖 What Books Work Best?</summary>
+              <div style="padding: 16px; background: var(--bg); border-radius: 8px; margin-top: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <div style="display: flex; align-items: start; gap: 10px;">
+                    <span style="color: #16a34a; font-size: 18px; flex-shrink: 0;">✅</span>
+                    <div>
+                      <strong style="color: var(--ink);">Modern printed books</strong>
+                      <div style="color: var(--muted); font-size: 14px;">Full automatic processing</div>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: start; gap: 10px;">
+                    <span style="color: #d97706; font-size: 18px; flex-shrink: 0;">⚠️</span>
+                    <div>
+                      <strong style="color: var(--ink);">Older printed books</strong>
+                      <div style="color: var(--muted); font-size: 14px;">Mostly works, may need review</div>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: start; gap: 10px;">
+                    <span style="color: #667eea; font-size: 18px; flex-shrink: 0;">💡</span>
+                    <div>
+                      <strong style="color: var(--ink);">Ancient manuscripts</strong>
+                      <div style="color: var(--muted); font-size: 14px;">Manual TOC input (coming soon!)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </details>
+
             {body}
             <div class="footer">
               💡 Tip: add <code>?json=1</code> to <code>/upload</code> for JSON response. <br>
