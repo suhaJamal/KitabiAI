@@ -47,9 +47,11 @@ class ArabicTocExtractor:
     
     # Arabic synonyms for "Table of Contents"
     # These are the most common ways Arabic books title their TOC
+    # Note: Keep lenient matching (e.g., "فهرس" matches "فهرسة" too)
+    # False positives are filtered by validation logic in _extract_toc_segment()
     TOC_PATTERNS = [
         r"المحتويات",              # "Contents" - most common
-        r"فهرس",                   # "Index/Contents"
+        r"فهرس",                   # "Index/Contents" (matches "فهرسة" too - validated later)
         r"فهرس\s+المحتويات",      # "Index of Contents"
         r"جدول\s+المحتويات",      # "Table of Contents"
         r"فهرس\s+الموضوعات",      # "Index of Topics"
@@ -151,7 +153,27 @@ class ArabicTocExtractor:
         header_text = toc_header_match.group().strip()
         toc_start = toc_header_match.start()
         logger.info(f"TOC header detected: '{header_text}' in {context_label}")
-        
+
+        # Validate at BEGINNING only: detect false positives from copyright/cataloging pages
+        if context_label == "beginning":
+            # Option 1: Check if we matched "فهرسة" (cataloging) not "فهرس" (TOC)
+            if "فهرسة" in header_text:
+                logger.info("Skipping 'فهرسة' (cataloging info), not actual TOC")
+                return None
+
+            # Option 2: Check for copyright/ISBN keywords near the match
+            # Extract context: 500 chars before and after the match
+            context_start = max(0, toc_start - 500)
+            context_end = min(len(text_part), toc_start + 500)
+            nearby_context = text_part[context_start:context_end]
+
+            copyright_keywords = ["ردمك", "ISBN", "الطبعة الأولى", "حقوق الطباعة"]
+            if any(keyword in nearby_context for keyword in copyright_keywords):
+                logger.info(f"Skipping TOC-like header near copyright section (found keywords: {[k for k in copyright_keywords if k in nearby_context]})")
+                return None
+
+            logger.info("Validated: This appears to be real TOC, not copyright section")
+
         # Extract all lines after the TOC header
         sample_after_header = text_part[toc_start:]
         lines = [l.strip() for l in sample_after_header.split("\n") if l.strip()]
@@ -181,83 +203,162 @@ class ArabicTocExtractor:
 
     def _parse_toc_entries(self, toc_text: str) -> List[dict]:
         """
-        Parse TOC text into title-page pairs using separate-line format.
-        
-        Arabic TOC Format (after Azure extraction):
-        Line 1: Title (e.g., "الفصل الأول")
-        Line 2: Page number (e.g., "5" or "٥")
-        Line 3: Next title
-        Line 4: Next page number
-        ...
-        
+        Parse TOC text into title-page pairs supporting multiple formats.
+
+        Arabic TOC Formats (after Azure extraction):
+        Format A (same line): "Title PageNumber" (e.g., "تمهيد السلسلة 9")
+        Format B (separate lines):
+          Line 1: Title (e.g., "الفصل الأول")
+          Line 2: Page number (e.g., "5" or "٥")
+
         Process:
         1. Filter out headers/footers (but keep page numbers in TOC context)
-        2. Iterate through lines looking for title-page pairs
-        3. Normalize Arabic-Indic digits (٠-٩) to Western (0-9)
-        4. Validate each entry (title must have text, page must be valid number)
-        
+        2. Try Format A first (same line): split by last space to separate title from page
+        3. Fall back to Format B (separate lines): pair consecutive lines
+        4. Normalize Arabic-Indic digits (٠-٩) to Western (0-9)
+        5. Validate each entry (title must have text, page must be valid number)
+        6. Keep chapter numbers in titles (e.g., "١ - أيتها المرآة على الحائط")
+
         Args:
             toc_text: Raw TOC text segment
-        
+
         Returns:
             List of dicts with 'title' and 'page' keys
         """
         lines = [l.strip() for l in toc_text.split("\n") if l.strip()]
-        
+
+        # Log raw lines BEFORE filtering (for debugging)
+        logger.info(f"Raw lines BEFORE filtering: {len(lines)}")
+        logger.info(f"First 10 raw lines:")
+        for i, line in enumerate(lines[:10], 1):
+            logger.info(f"  RAW {i}. [{line}]")
+
         # Filter out headers/footers but KEEP page numbers
         # in_toc_context=True tells filter to be lenient with small numbers
         filtered_lines = []
+        filtered_count = 0
         for l in lines:
             if self._is_header_footer(l, in_toc_context=True):
-                logger.debug(f"FILTERED: [{l}]")
+                logger.info(f"FILTERED OUT: [{l}]")  # Changed to INFO to debug missing "9"
+                filtered_count += 1
             else:
                 filtered_lines.append(l)
-        
+
         lines = filtered_lines
-        logger.info(f"After filtering: {len(lines)} lines")
-        
+        logger.info(f"After filtering: {len(lines)} lines (filtered out: {filtered_count})")
+
         # Log first 30 lines for debugging purposes
         logger.info(f"First 30 lines:")
         for i, line in enumerate(lines[:30], 1):
             logger.info(f"  {i}. [{line}]")
-        
+
         def normalize_digits(s: str) -> str:
             """Convert Arabic-Indic digits (٠-٩) to Western digits (0-9)."""
             return s.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
-        
+
         entries = []
         i = 0
-        
-        # Process lines as title-page pairs
-        while i < len(lines) - 1:
-            title_line = lines[i]
-            page_line = lines[i + 1]
-            
-            # Remove chapter numbers from title (e.g., "١-", "٢-")
-            # These are on the RIGHT side in RTL, not the page numbers we want
-            title = re.sub(r'^[\u0660-\u0669\d]+[-–—]\s*', '', title_line).strip()
-            
-            # Check if next line is ONLY a page number (no other text)
-            if re.fullmatch(r'[\u0660-\u0669\d]+', page_line):
-                page_str = normalize_digits(page_line)
-                
-                # Validate: title must not be empty and not be just a number itself
-                if title and not re.fullmatch(r'[\u0660-\u0669\d]+', title):
+
+        # Process lines supporting both formats
+        while i < len(lines):
+            current_line = lines[i]
+
+            # Format A: Try same-line format first (e.g., "تمهيد السلسلة 9")
+            # Split by last space and check if last part is a page number
+            parts = current_line.rsplit(None, 1)  # Split by last whitespace
+            if len(parts) == 2:
+                potential_title, potential_page = parts
+                normalized_page = normalize_digits(potential_page)
+
+                # Check if last part is ONLY digits
+                if re.fullmatch(r'\d+', normalized_page):
                     try:
-                        page_num = int(page_str)
+                        page_num = int(normalized_page)
                         # Sanity check: page number should be reasonable (1-9999)
                         if 1 <= page_num <= 9999:
+                            # Valid same-line format
+                            title = potential_title.strip()
+                            # Keep chapter numbers - don't remove them!
                             entries.append({"title": title, "page": page_num})
-                            logger.info(f"✅ ENTRY {len(entries)}: '{title}' -> {page_num}")
-                            i += 2  # Skip both title and page lines
+                            logger.info(f"✅ ENTRY {len(entries)} (same-line): '{title}' -> {page_num}")
+                            i += 1  # Move to next line
                             continue
                     except ValueError:
-                        # Not a valid integer, skip
                         pass
-            
-            # If not a valid pair, move to next line
+
+            # Format B: Try separate-line format (next line is page number)
+            if i < len(lines) - 1:
+                title_line = current_line
+                page_line = lines[i + 1]
+
+                # Keep chapter numbers - don't remove them!
+                title = title_line.strip()
+
+                # Check if next line is ONLY a page number (no other text)
+                normalized_page_line = normalize_digits(page_line)
+                if re.fullmatch(r'\d+', normalized_page_line):
+                    # Validate: title must not be empty and not be just a number itself
+                    if title and not re.fullmatch(r'[\u0660-\u0669\d]+', title):
+                        try:
+                            page_num = int(normalized_page_line)
+                            # Sanity check: page number should be reasonable (1-9999)
+                            if 1 <= page_num <= 9999:
+                                entries.append({"title": title, "page": page_num})
+                                logger.info(f"✅ ENTRY {len(entries)} (separate-line): '{title}' -> {page_num}")
+                                i += 2  # Skip both title and page lines
+                                continue
+                        except ValueError:
+                            pass
+
+            # Format C: Try batched format (multiple titles, then multiple numbers)
+            # This happens when Azure extracts "Title....53" as separate lines: "Title" then "53"
+            # Pattern: Title1, Title2, ..., Number1, Number2, ...
+            if i < len(lines) - 1:
+                # Check if current line is NOT a number (it's a title)
+                current_normalized = normalize_digits(current_line)
+                if not re.fullmatch(r'\d+', current_normalized):
+                    # Collect consecutive titles
+                    titles = []
+                    j = i
+                    while j < len(lines):
+                        line_normalized = normalize_digits(lines[j])
+                        if re.fullmatch(r'\d+', line_normalized):
+                            break  # Hit a number, stop collecting titles
+                        # Make sure it's not just a digit by itself
+                        if not re.fullmatch(r'[\u0660-\u0669\d]+', lines[j]):
+                            titles.append(lines[j].strip())
+                        j += 1
+
+                    # Collect consecutive numbers after the titles
+                    numbers = []
+                    k = j  # Start from where titles ended
+                    while k < len(lines):
+                        line_normalized = normalize_digits(lines[k])
+                        if re.fullmatch(r'\d+', line_normalized):
+                            try:
+                                page_num = int(line_normalized)
+                                if 1 <= page_num <= 9999:
+                                    numbers.append(page_num)
+                                    k += 1
+                                else:
+                                    break  # Invalid page number, stop
+                            except ValueError:
+                                break  # Not a valid number, stop
+                        else:
+                            break  # Not a number, stop
+
+                    # If we have matching counts and at least 2 titles (batched pattern)
+                    if len(titles) >= 2 and len(titles) == len(numbers):
+                        logger.info(f"🔄 Detected batched format: {len(titles)} titles + {len(numbers)} numbers")
+                        for idx, (title, page) in enumerate(zip(titles, numbers)):
+                            entries.append({"title": title, "page": page})
+                            logger.info(f"✅ ENTRY {len(entries)} (batched): '{title}' -> {page}")
+                        i = k  # Skip all processed lines
+                        continue
+
+            # If no format matched, move to next line
             i += 1
-        
+
         logger.info(f"✅ Parsed {len(entries)} valid TOC entries")
         return entries
 
@@ -380,15 +481,21 @@ class ArabicTocExtractor:
         for pattern in patterns:
             if re.match(pattern, line, re.IGNORECASE):
                 return True
-        
+
         # Filter very short lines (likely decorative or noise)
+        # BUT: In TOC context, keep single digits (they're page numbers like "9" or "٩")
         if len(line) < 2:
-            return True
-        
+            if in_toc_context and re.fullmatch(r'[\u0660-\u0669\d]', line):
+                # Single digit in TOC = page number, keep it!
+                return False
+            else:
+                # Other short lines = noise, filter them
+                return True
+
         # Filter lines with only special characters (decorative elements)
         if re.match(r'^[\W_]+$', line):
             return True
-        
+
         return False
     
     def _clean_entries(self, entries: List[dict]) -> List[dict]:

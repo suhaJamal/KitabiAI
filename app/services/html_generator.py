@@ -117,15 +117,98 @@ class HtmlGenerator:
 </html>"""
         
         return html
-    
+
+    def _generate_seo_meta(self, metadata: BookMetadata, language: str) -> str:
+        """
+        Generate SEO meta tags and Schema.org JSON-LD structured data.
+
+        Includes:
+        - Basic meta tags (description, keywords, author)
+        - Open Graph tags (for social media sharing)
+        - Schema.org Book structured data (for search engines)
+
+        Only generates SEO tags if enable_seo is True.
+        """
+        # Skip SEO generation if not enabled
+        if not metadata.enable_seo:
+            return ""
+
+        meta_tags = []
+
+        # Basic SEO meta tags
+        if metadata.description:
+            escaped_desc = self._escape_html(metadata.description)
+            meta_tags.append(f'<meta name="description" content="{escaped_desc}">')
+
+        if metadata.keywords:
+            escaped_keywords = self._escape_html(metadata.keywords)
+            meta_tags.append(f'<meta name="keywords" content="{escaped_keywords}">')
+
+        if metadata.author:
+            escaped_author = self._escape_html(metadata.author)
+            meta_tags.append(f'<meta name="author" content="{escaped_author}">')
+
+        # Language
+        lang_code = "ar" if language == "arabic" else "en"
+        meta_tags.append(f'<meta name="language" content="{lang_code}">')
+
+        # Open Graph tags for social sharing
+        escaped_title = self._escape_html(metadata.title)
+        meta_tags.append(f'<meta property="og:title" content="{escaped_title}">')
+        meta_tags.append(f'<meta property="og:type" content="book">')
+
+        if metadata.description:
+            meta_tags.append(f'<meta property="og:description" content="{escaped_desc}">')
+
+        # Schema.org JSON-LD structured data
+        schema_data = {
+            "@context": "https://schema.org",
+            "@type": "Book",
+            "name": metadata.title,
+            "inLanguage": lang_code
+        }
+
+        if metadata.author:
+            schema_data["author"] = {
+                "@type": "Person",
+                "name": metadata.author
+            }
+
+        if metadata.description:
+            schema_data["description"] = metadata.description
+
+        if metadata.isbn:
+            schema_data["isbn"] = metadata.isbn
+
+        if metadata.publication_date:
+            schema_data["datePublished"] = metadata.publication_date
+
+        if metadata.category:
+            schema_data["genre"] = metadata.category
+
+        if metadata.keywords:
+            schema_data["keywords"] = metadata.keywords
+
+        # Build Schema.org script tag
+        import json
+        schema_json = json.dumps(schema_data, ensure_ascii=False, indent=2)
+        schema_script = f'<script type="application/ld+json">\n{schema_json}\n</script>'
+
+        # Combine all meta tags
+        return "\n    ".join(meta_tags) + "\n    " + schema_script if meta_tags else ""
+
     def _generate_head(self, metadata: BookMetadata, language: str) -> str:
-        """Generate HTML head with styles."""
+        """Generate HTML head with styles and SEO meta tags."""
         direction = "rtl" if language == "arabic" else "ltr"
-        
+
+        # Build SEO meta tags
+        seo_meta = self._generate_seo_meta(metadata, language)
+
         return f"""<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{metadata.title}</title>
+    {seo_meta}
     <style>
         * {{
             margin: 0;
@@ -135,6 +218,7 @@ class HtmlGenerator:
         
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 16px;
             line-height: 1.6;
             color: #333;
             background: #f5f5f5;
@@ -147,6 +231,7 @@ class HtmlGenerator:
         
         [dir="rtl"] body {{
             font-family: 'Traditional Arabic', 'Simplified Arabic', Arial, sans-serif;
+            font-size: 18px;
         }}
         
         /* Header */
@@ -156,6 +241,7 @@ class HtmlGenerator:
             padding: 2rem;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
         }}
         
         header h1 {{
@@ -314,34 +400,134 @@ class HtmlGenerator:
             .container {{
                 flex-direction: column;
             }}
-            
+
             nav {{
                 position: static;
                 max-height: none;
             }}
-            
+
             .content {{
                 padding: 1.5rem;
             }}
-            
+
             header h1 {{
                 font-size: 1.8rem;
             }}
         }}
+
+        /* Font Size Controls */
+        .font-controls {{
+            position: absolute;
+            top: 1.5rem;
+            right: 2rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }}
+
+        .font-controls span {{
+            font-size: 0.9rem;
+            margin-right: 0.5rem;
+            opacity: 0.9;
+        }}
+
+        .font-btn {{
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            font-weight: 500;
+        }}
+
+        .font-btn:hover {{
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.6);
+        }}
+
+        .font-btn:active {{
+            transform: scale(0.95);
+        }}
+
+        @media (max-width: 768px) {{
+            .font-controls {{
+                position: static;
+                justify-content: center;
+                margin-top: 1rem;
+            }}
+        }}
     </style>
+    <script>
+        // Font size adjustment functionality
+        (function() {{
+            const MIN_SIZE = 14;
+            const MAX_SIZE = 30;
+            const DEFAULT_SIZE = document.dir === 'rtl' ? 18 : 16;
+
+            // Load saved font size from localStorage
+            function loadFontSize() {{
+                const saved = localStorage.getItem('kitabi-font-size');
+                if (saved) {{
+                    const size = parseInt(saved);
+                    if (size >= MIN_SIZE && size <= MAX_SIZE) {{
+                        return size;
+                    }}
+                }}
+                return DEFAULT_SIZE;
+            }}
+
+            // Apply font size to body
+            function applyFontSize(size) {{
+                document.body.style.fontSize = size + 'px';
+                localStorage.setItem('kitabi-font-size', size);
+            }}
+
+            // Initialize on page load
+            document.addEventListener('DOMContentLoaded', function() {{
+                const currentSize = loadFontSize();
+                applyFontSize(currentSize);
+
+                // Setup button click handlers
+                document.getElementById('font-decrease').addEventListener('click', function() {{
+                    const current = parseInt(document.body.style.fontSize) || DEFAULT_SIZE;
+                    const newSize = Math.max(MIN_SIZE, current - 2);
+                    applyFontSize(newSize);
+                }});
+
+                document.getElementById('font-reset').addEventListener('click', function() {{
+                    applyFontSize(DEFAULT_SIZE);
+                }});
+
+                document.getElementById('font-increase').addEventListener('click', function() {{
+                    const current = parseInt(document.body.style.fontSize) || DEFAULT_SIZE;
+                    const newSize = Math.min(MAX_SIZE, current + 2);
+                    applyFontSize(newSize);
+                }});
+            }});
+        }})();
+    </script>
 </head>"""
     
     def _generate_header(self, metadata: BookMetadata) -> str:
-        """Generate page header."""
+        """Generate page header with font size controls."""
         meta_parts = []
         if metadata.author:
             meta_parts.append(f"By {metadata.author}")
         if metadata.publication_date:
             meta_parts.append(metadata.publication_date)
-        
+
         meta_html = " • ".join(meta_parts) if meta_parts else ""
-        
+
         return f"""<header>
+    <div class="font-controls">
+        <span>Font:</span>
+        <button id="font-decrease" class="font-btn" title="Decrease font size">A-</button>
+        <button id="font-reset" class="font-btn" title="Reset font size">A</button>
+        <button id="font-increase" class="font-btn" title="Increase font size">A+</button>
+    </div>
     <h1>{metadata.title}</h1>
     {f'<div class="metadata">{meta_html}</div>' if meta_html else ''}
 </header>"""
@@ -388,50 +574,63 @@ class HtmlGenerator:
 </nav>"""
     
     def _generate_content(
-        self, 
-        sections: List[SectionInfo], 
+        self,
+        sections: List[SectionInfo],
         pages: List[PageInfo],
         language: str
     ) -> str:
         """Generate main content sections."""
         section_htmls = []
-        
+
         for section in sections:
-            section_html = self._generate_section(section, pages, language)
+            section_html = self._generate_section(section, pages, language, sections)
             section_htmls.append(section_html)
-        
+
         return "\n".join(section_htmls)
     
     def _generate_section(
-        self, 
-        section: SectionInfo, 
+        self,
+        section: SectionInfo,
         pages: List[PageInfo],
-        language: str
+        language: str,
+        all_sections: List[SectionInfo]
     ) -> str:
-        """Generate HTML for a single section."""
+        """
+        Generate HTML for a single section.
+
+        For hierarchical TOCs (English), only leaf sections (sections with no children)
+        get content extracted. Parent sections appear in navigation only.
+        This prevents duplicate content when a parent and its children have overlapping page ranges.
+
+        For flat TOCs (Arabic), all sections are leaf nodes, so all get content.
+        """
         anchor = self._make_anchor(section.section_id)
         header_tag = f"h{min(section.level + 1, 6)}"  # h2-h6
-        
-        # Get section pages
-        section_pages = [
-            p for p in pages 
-            if section.page_start <= p.page <= section.page_end
-        ]
-        
-        # Build paragraphs
+
+        # Check if this section has children (only for hierarchical TOCs)
+        is_leaf = self._is_leaf_section(section, all_sections)
+
+        # Build paragraphs only for leaf sections
         paragraphs = []
-        for page in section_pages:
-            if page.has_text and page.text:
-                # Split into paragraphs and wrap in <p> tags
-                for para in page.text.split("\n\n"):
-                    para = para.strip()
-                    if len(para) > 10:  # Skip very short paragraphs
-                        # Escape HTML special characters
-                        para = self._escape_html(para)
-                        paragraphs.append(f"<p>{para}</p>")
-        
+        if is_leaf:
+            # Get section pages
+            section_pages = [
+                p for p in pages
+                if section.page_start <= p.page <= section.page_end
+            ]
+
+            for page in section_pages:
+                if page.has_text and page.text:
+                    # Split into paragraphs and wrap in <p> tags
+                    for para in page.text.split("\n\n"):
+                        para = para.strip()
+                        if len(para) > 10:  # Skip very short paragraphs
+                            # Escape HTML special characters
+                            para = self._escape_html(para)
+                            paragraphs.append(f"<p>{para}</p>")
+
         content_html = "\n".join(paragraphs)
-        
+
         return f"""<section id="{anchor}">
     <{header_tag}>{section.title}</{header_tag}>
     <div class="page-range">Pages {section.page_start}-{section.page_end}</div>
@@ -471,6 +670,29 @@ class HtmlGenerator:
         
         return "\n".join(section_htmls)
     
+    def _is_leaf_section(self, section: SectionInfo, all_sections: List[SectionInfo]) -> bool:
+        """
+        Check if a section is a leaf node (has no children).
+
+        A section has children if any other section's ID starts with this section's ID + "."
+        Examples:
+        - "1" has children if "1.1", "1.2", etc. exist
+        - "2.3" has children if "2.3.1", "2.3.2", etc. exist
+        - Arabic sections like "1", "2", "3" have no children (no "1.1" exists)
+
+        Args:
+            section: The section to check
+            all_sections: All sections in the TOC
+
+        Returns:
+            True if section has no children, False otherwise
+        """
+        section_prefix = section.section_id + "."
+        for other in all_sections:
+            if other.section_id.startswith(section_prefix):
+                return False  # Found a child
+        return True  # No children found
+
     def _generate_footer(self) -> str:
         """Generate page footer."""
         return f"""<footer>

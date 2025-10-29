@@ -1,0 +1,62 @@
+# Git files
+.git
+.gitignore
+.github
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv
+venv/
+ENV/
+env/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+.tox/
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Output files (will be mounted as volumes)
+outputs/
+uploads/
+logs/
+
+# Environment files (will be mounted as volumes)
+.env
+.env.*
+
+# Docker files
+docker-compose.yml
+Dockerfile
+
+# Large files
+*.pdf
+*.zip
+*.tar.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# FastText model (downloaded during build)
+lid.176.ftz

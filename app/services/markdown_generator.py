@@ -63,7 +63,7 @@ class MarkdownGenerator:
         
         # 4. Content sections
         for section in sections:
-            section_md = self._generate_section(section, pages, language)
+            section_md = self._generate_section(section, pages, language, sections)
             parts.append(section_md)
         
         # Join all parts with proper spacing
@@ -179,34 +179,71 @@ class MarkdownGenerator:
         return "\n".join(lines)
     
     def _generate_section(
-        self, 
-        section: SectionInfo, 
+        self,
+        section: SectionInfo,
         pages: List[PageInfo],
-        language: str
+        language: str,
+        all_sections: List[SectionInfo]
     ) -> str:
-        """Generate Markdown for a single section."""
+        """
+        Generate Markdown for a single section.
+
+        For hierarchical TOCs (English), only leaf sections (sections with no children)
+        get content extracted. Parent sections appear as headers only.
+        This prevents duplicate content when a parent and its children have overlapping page ranges.
+
+        For flat TOCs (Arabic), all sections are leaf nodes, so all get content.
+        """
         # Section header (level based on TOC hierarchy)
         header_level = "#" * (section.level + 1)  # +1 because title is H1
         lines = [f"{header_level} {section.title}"]
-        
+
         # Add page range annotation
         lines.append(f"*Pages {section.page_start}-{section.page_end}*\n")
-        
-        # Get section content
-        section_pages = [
-            p for p in pages 
-            if section.page_start <= p.page <= section.page_end
-        ]
-        
-        # Join page content
-        for page in section_pages:
-            if page.has_text and page.text:
-                # Clean and format text
-                text = self._clean_text(page.text, language)
-                lines.append(text)
-        
+
+        # Check if this section has children (only for hierarchical TOCs)
+        is_leaf = self._is_leaf_section(section, all_sections)
+
+        # Extract content only for leaf sections
+        if is_leaf:
+            # Get section content
+            section_pages = [
+                p for p in pages
+                if section.page_start <= p.page <= section.page_end
+            ]
+
+            # Join page content
+            for page in section_pages:
+                if page.has_text and page.text:
+                    # Clean and format text
+                    text = self._clean_text(page.text, language)
+                    lines.append(text)
+
         return "\n\n".join(lines)
-    
+
+    def _is_leaf_section(self, section: SectionInfo, all_sections: List[SectionInfo]) -> bool:
+        """
+        Check if a section is a leaf node (has no children).
+
+        A section has children if any other section's ID starts with this section's ID + "."
+        Examples:
+        - "1" has children if "1.1", "1.2", etc. exist
+        - "2.3" has children if "2.3.1", "2.3.2", etc. exist
+        - Arabic sections like "1", "2", "3" have no children (no "1.1" exists)
+
+        Args:
+            section: The section to check
+            all_sections: All sections in the TOC
+
+        Returns:
+            True if section has no children, False otherwise
+        """
+        section_prefix = section.section_id + "."
+        for other in all_sections:
+            if other.section_id.startswith(section_prefix):
+                return False  # Found a child
+        return True  # No children found
+
     def _clean_text(self, text: str, language: str) -> str:
         """
         Clean and format extracted text.
