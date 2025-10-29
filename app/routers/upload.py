@@ -51,11 +51,12 @@ async def upload(
     file: UploadFile = File(...),
     book_title: str = Form(...),  # Required
     author: str = Form(None),  # Optional
-    publication_date: str = Form(None),  # Optional
-    isbn: str = Form(None),  # Optional
+    enable_seo: bool = Form(False),  # Optional - SEO toggle
     description: str = Form(None),  # Optional - SEO
     category: str = Form(None),  # Optional - SEO
     keywords: str = Form(None),  # Optional - SEO
+    publication_date: str = Form(None),  # Optional - SEO/Cataloging
+    isbn: str = Form(None),  # Optional - SEO/Cataloging
     json: int = Query(default=0, ge=0, le=1)
 ):
     """
@@ -65,11 +66,12 @@ async def upload(
         file: PDF file to analyze
         book_title: Book title (required)
         author: Author name (optional)
-        publication_date: Publication date (optional)
-        isbn: ISBN number (optional)
+        enable_seo: Enable SEO optimization (optional, default False)
         description: Brief book description for SEO (optional, max 160 chars)
         category: Book category/subject (optional)
         keywords: Comma-separated keywords/tags (optional)
+        publication_date: Publication date (optional)
+        isbn: ISBN number (optional)
 
     Query params:
         json: If 1, return JSON response. Otherwise, return HTML.
@@ -81,11 +83,12 @@ async def upload(
     metadata = BookMetadata(
         title=book_title.strip(),
         author=author.strip() if author else None,
-        publication_date=publication_date.strip() if publication_date else None,
-        isbn=isbn.strip() if isbn else None,
+        enable_seo=enable_seo,
         description=description.strip() if description else None,
         category=category.strip() if category else None,
-        keywords=keywords.strip() if keywords else None
+        keywords=keywords.strip() if keywords else None,
+        publication_date=publication_date.strip() if publication_date else None,
+        isbn=isbn.strip() if isbn else None
     )
     
     logger.info(f"Upload request - Book: '{metadata.title}', File: {file.filename}")

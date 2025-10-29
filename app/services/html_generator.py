@@ -126,7 +126,13 @@ class HtmlGenerator:
         - Basic meta tags (description, keywords, author)
         - Open Graph tags (for social media sharing)
         - Schema.org Book structured data (for search engines)
+
+        Only generates SEO tags if enable_seo is True.
         """
+        # Skip SEO generation if not enabled
+        if not metadata.enable_seo:
+            return ""
+
         meta_tags = []
 
         # Basic SEO meta tags

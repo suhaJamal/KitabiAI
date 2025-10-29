@@ -357,6 +357,33 @@ button.loading:hover {
 <script>
 // Loading state handlers for forms
 document.addEventListener('DOMContentLoaded', function() {
+    // Handle SEO checkbox toggle
+    const seoCheckbox = document.getElementById('enable_seo');
+    const seoFields = document.getElementById('seo-fields');
+
+    if (seoCheckbox && seoFields) {
+        seoCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                seoFields.style.display = 'block';
+                // Smooth slide animation
+                seoFields.style.opacity = '0';
+                seoFields.style.transform = 'translateY(-10px)';
+                setTimeout(function() {
+                    seoFields.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    seoFields.style.opacity = '1';
+                    seoFields.style.transform = 'translateY(0)';
+                }, 10);
+            } else {
+                seoFields.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                seoFields.style.opacity = '0';
+                seoFields.style.transform = 'translateY(-10px)';
+                setTimeout(function() {
+                    seoFields.style.display = 'none';
+                }, 200);
+            }
+        });
+    }
+
     // Handle upload form
     const uploadForm = document.querySelector('form[action="/upload"]');
     if (uploadForm) {
@@ -554,7 +581,7 @@ def render_home() -> str:
           • Extracts Table of Contents structure<br>
           • Identifies sections and page ranges<br>
           <br>
-          <strong>📝 Metadata Note:</strong> To save complete book information, please fill in the fields below. Only the title is required.
+          <strong>📝 Metadata Note:</strong> Only the title is required. Additional details help improve discoverability.
         </div>
 
         <div class="form-row">
@@ -572,51 +599,63 @@ def render_home() -> str:
             <input type="text" name="author" placeholder="e.g., John Doe (optional)" />
           </div>
         </div>
-
-        <div class="form-row">
-          <div>
-            <label>Publication Date</label>
-            <input type="text" name="publication_date" placeholder="e.g., 2024 or January 2024 (optional)" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div>
-            <label>ISBN</label>
-            <input type="text" name="isbn" placeholder="e.g., 978-3-16-148410-0 (optional)" pattern="[0-9\\-X]{10,17}" />
-            <div class="help-text">Format: 10 or 13 digits with optional hyphens</div>
-          </div>
-        </div>
       </div>
 
       <!-- SEO Metadata Section -->
       <div class="form-section metadata-section">
         <h3>🔍 SEO & Discoverability (Optional)</h3>
-        <div class="info-box" style="margin-top: 0; margin-bottom: 16px; background: #e7f3fe;">
-          <strong>💡 Tip:</strong> Adding these details helps readers discover your book online through search engines.
-        </div>
 
-        <div class="form-row">
-          <div>
-            <label>Book Description</label>
-            <textarea name="description" placeholder="Brief description of the book content (max 160 characters recommended for SEO)" maxlength="160" rows="3"></textarea>
-            <div class="help-text">This appears in search engine results. Keep it concise and compelling.</div>
+        <!-- Checkbox to enable SEO -->
+        <div style="margin-bottom: 16px;">
+          <label style="display: flex; align-items: center; cursor: pointer; font-size: 14px;">
+            <input type="checkbox" name="enable_seo" id="enable_seo" value="true" style="width: auto; margin-right: 10px; cursor: pointer;" />
+            <span style="font-weight: 600; color: var(--ink);">☑ Optimize for search engines (recommended)</span>
+          </label>
+          <div class="help-text" style="margin-left: 28px; margin-top: 6px;">
+            Adds meta tags and structured data to help readers discover this book online through Google, Bing, and other search engines.
           </div>
         </div>
 
-        <div class="form-row">
-          <div>
-            <label>Category / Subject</label>
-            <input type="text" name="category" placeholder="e.g., Philosophy, History, Islamic Studies, Science" />
-            <div class="help-text">Main subject area or genre</div>
+        <!-- Collapsible SEO fields (hidden by default) -->
+        <div id="seo-fields" style="display: none; margin-top: 16px;">
+          <div class="form-row">
+            <div>
+              <label>Book Description</label>
+              <textarea name="description" placeholder="Brief description of the book content (max 160 characters recommended for SEO)" maxlength="160" rows="3"></textarea>
+              <div class="help-text">This appears in search engine results. Keep it concise and compelling.</div>
+            </div>
           </div>
-        </div>
 
-        <div class="form-row">
-          <div>
-            <label>Keywords / Tags</label>
-            <input type="text" name="keywords" placeholder="e.g., medieval history, Arabic literature, philosophy" />
-            <div class="help-text">Comma-separated keywords that describe the book's topics</div>
+          <div class="form-row">
+            <div>
+              <label>Category / Subject</label>
+              <input type="text" name="category" placeholder="e.g., Philosophy, History, Islamic Studies, Science" />
+              <div class="help-text">Main subject area or genre</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>Keywords / Tags</label>
+              <input type="text" name="keywords" placeholder="e.g., medieval history, Arabic literature, philosophy" />
+              <div class="help-text">Comma-separated keywords that describe the book's topics</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>Publication Date</label>
+              <input type="text" name="publication_date" placeholder="e.g., 2024 or January 2024 (optional)" />
+              <div class="help-text">When the book was published</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>ISBN</label>
+              <input type="text" name="isbn" placeholder="e.g., 978-3-16-148410-0 (optional)" pattern="[0-9\\-X]{10,17}" />
+              <div class="help-text">Format: 10 or 13 digits with optional hyphens</div>
+            </div>
           </div>
         </div>
       </div>
