@@ -29,11 +29,12 @@ html_generator = HtmlGenerator()
 # For now, assuming we have access to the same in-memory state
 from .upload import (
     _last_report,
-    _last_filename, 
+    _last_filename,
     _last_pdf_bytes,
     _last_language,
     _last_extracted_text,
-    _last_book_metadata
+    _last_book_metadata,
+    _last_sections_report
 )
 
 
@@ -46,12 +47,18 @@ def _ensure_output_dir():
 
 def _check_state():
     """Check if we have required state from upload."""
-    from .upload import _last_report, _last_book_metadata
-    
+    from .upload import _last_report, _last_book_metadata, _last_sections_report
+
     if _last_report is None or _last_book_metadata is None:
         raise HTTPException(
             status_code=409,
             detail="No analysis available. Upload a PDF first."
+        )
+
+    if _last_sections_report is None:
+        raise HTTPException(
+            status_code=409,
+            detail="No TOC sections available. Re-upload the PDF."
         )
 
 
@@ -70,17 +77,15 @@ async def generate_markdown(
         chunk_size: Split sections larger than this (None = keep sections intact)
     """
     _check_state()
-    
+
     from .upload import (
-        _last_report, _last_filename, _last_pdf_bytes,
-        _last_language, _last_book_metadata
+        _last_report, _last_filename,
+        _last_language, _last_book_metadata, _last_sections_report
     )
-    from ..services.toc_extractor import TocExtractor
-    
-    # Extract TOC
-    toc_extractor = TocExtractor()
-    sections_report = toc_extractor.extract(_last_pdf_bytes)
-    
+
+    # Use cached TOC sections (already extracted during upload)
+    sections_report = _last_sections_report
+
     # Generate Markdown
     markdown_content = md_generator.generate(
         metadata=_last_book_metadata,
@@ -121,18 +126,16 @@ async def generate_html(
         include_toc: Include navigation sidebar with table of contents
     """
     _check_state()
-    
+
     from .upload import (
-        _last_report, _last_filename, _last_pdf_bytes,
-        _last_language, _last_book_metadata
+        _last_report, _last_filename,
+        _last_language, _last_book_metadata, _last_sections_report
     )
-    from ..services.toc_extractor import TocExtractor
     from fastapi.responses import HTMLResponse
-    
-    # Extract TOC
-    toc_extractor = TocExtractor()
-    sections_report = toc_extractor.extract(_last_pdf_bytes)
-    
+
+    # Use cached TOC sections (already extracted during upload)
+    sections_report = _last_sections_report
+
     # Generate HTML
     html_content = html_generator.generate(
         metadata=_last_book_metadata,
@@ -167,14 +170,12 @@ async def get_chunks(
         max_words: Maximum words per chunk
     """
     _check_state()
-    
-    from .upload import _last_report, _last_pdf_bytes
-    from ..services.toc_extractor import TocExtractor
-    
-    # Extract TOC
-    toc_extractor = TocExtractor()
-    sections_report = toc_extractor.extract(_last_pdf_bytes)
-    
+
+    from .upload import _last_report, _last_sections_report
+
+    # Use cached TOC sections (already extracted during upload)
+    sections_report = _last_sections_report
+
     # Chunk based on strategy
     chunker_svc = ChunkerService(max_words=max_words)
     
@@ -210,17 +211,15 @@ async def generate_both(
     Returns URLs for both generated files.
     """
     _check_state()
-    
+
     from .upload import (
-        _last_report, _last_filename, _last_pdf_bytes,
-        _last_language, _last_book_metadata
+        _last_report, _last_filename,
+        _last_language, _last_book_metadata, _last_sections_report
     )
-    from ..services.toc_extractor import TocExtractor
-    
-    # Extract TOC (once)
-    toc_extractor = TocExtractor()
-    sections_report = toc_extractor.extract(_last_pdf_bytes)
-    
+
+    # Use cached TOC sections (already extracted during upload)
+    sections_report = _last_sections_report
+
     output_dir = _ensure_output_dir()
     base_name = _last_filename.rsplit(".", 1)[0]
     

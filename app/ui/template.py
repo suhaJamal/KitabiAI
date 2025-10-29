@@ -79,7 +79,8 @@ label .required {
     color: #dc2626;
 }
 input[type="file"],
-input[type="text"] {
+input[type="text"],
+textarea {
     padding: 10px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -87,16 +88,23 @@ input[type="text"] {
     color: var(--ink);
     font-size: 14px;
     width: 100%;
+    font-family: inherit;
 }
 input[type="file"] {
     border-style: dashed;
 }
-input[type="text"]:focus {
+input[type="text"]:focus,
+textarea:focus {
     outline: none;
     border-color: var(--accent);
 }
-input[type="text"]::placeholder {
+input[type="text"]::placeholder,
+textarea::placeholder {
     color: #9ca3af;
+}
+textarea {
+    resize: vertical;
+    min-height: 80px;
 }
 .help-text {
     font-size: 12px;
@@ -240,7 +248,291 @@ a {
 a:hover {
     text-decoration: underline;
 }
+/* Collapsible Details */
+details {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+details summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 600;
+    padding: 14px 16px;
+    background: var(--bg);
+    list-style: none;
+    user-select: none;
+    transition: background 0.2s;
+}
+details summary:hover {
+    background: #f3f1ed;
+}
+details summary::-webkit-details-marker {
+    display: none;
+}
+details summary::before {
+    content: '▶';
+    display: inline-block;
+    margin-right: 8px;
+    transition: transform 0.2s;
+}
+details[open] summary::before {
+    transform: rotate(90deg);
+}
+details[open] summary {
+    border-bottom: 1px solid var(--border);
+}
+/* Primary/Secondary Generation Buttons */
+.gen-button-primary {
+    background: var(--accent);
+    color: white;
+    padding: 18px 24px;
+    font-size: 18px;
+    border-radius: 12px;
+    font-weight: 700;
+    width: 100%;
+    border: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.gen-button-primary:hover {
+    background: var(--accent-light);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(199, 106, 45, 0.4);
+}
+.gen-button-secondary {
+    background: white;
+    color: var(--accent);
+    padding: 12px 20px;
+    font-size: 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+.gen-button-secondary:hover {
+    background: var(--bg);
+    border-color: var(--accent);
+}
+.divider-section {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    margin-top: 20px;
+}
+/* Loading Spinner */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+button.loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+button.loading:hover {
+    transform: none;
+}
+.loading-message {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 12px;
+    text-align: center;
+    font-style: italic;
+}
 </style>
+<script>
+// Loading state handlers for forms
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle SEO checkbox toggle
+    const seoCheckbox = document.getElementById('enable_seo');
+    const seoFields = document.getElementById('seo-fields');
+
+    if (seoCheckbox && seoFields) {
+        seoCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                seoFields.style.display = 'block';
+                // Smooth slide animation
+                seoFields.style.opacity = '0';
+                seoFields.style.transform = 'translateY(-10px)';
+                setTimeout(function() {
+                    seoFields.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    seoFields.style.opacity = '1';
+                    seoFields.style.transform = 'translateY(0)';
+                }, 10);
+            } else {
+                seoFields.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                seoFields.style.opacity = '0';
+                seoFields.style.transform = 'translateY(-10px)';
+                setTimeout(function() {
+                    seoFields.style.display = 'none';
+                }, 200);
+            }
+        });
+    }
+
+    // Handle upload form
+    const uploadForm = document.querySelector('form[action="/upload"]');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function(e) {
+            const submitBtn = uploadForm.querySelector('button[type="submit"]');
+            if (submitBtn && !submitBtn.classList.contains('loading')) {
+                submitBtn.classList.add('loading');
+                submitBtn.innerHTML = '<span class="spinner"></span>Analyzing PDF...';
+
+                // Add loading message
+                let loadingMsg = uploadForm.querySelector('.loading-message');
+                if (!loadingMsg) {
+                    loadingMsg = document.createElement('div');
+                    loadingMsg.className = 'loading-message';
+                    loadingMsg.textContent = 'Please wait, this may take 10-30 seconds for large files';
+                    submitBtn.parentNode.appendChild(loadingMsg);
+                }
+            }
+        });
+    }
+
+    // Handle HTML generation form - Open tab immediately to avoid pop-up blocker
+    const htmlForm = document.querySelector('form[action="/generate/html"]');
+    if (htmlForm) {
+        htmlForm.addEventListener('submit', function(e) {
+            e.preventDefault(); // Stop default form submission
+
+            const submitBtn = htmlForm.querySelector('button[type="submit"]');
+            if (submitBtn.classList.contains('loading')) {
+                return; // Prevent double-clicks
+            }
+
+            // Show loading state
+            const originalHTML = submitBtn.innerHTML;
+            submitBtn.classList.add('loading');
+            submitBtn.innerHTML = '<span class="spinner"></span>Generating Web Page...';
+
+            let loadingMsg = htmlForm.querySelector('.loading-message');
+            if (!loadingMsg) {
+                loadingMsg = document.createElement('div');
+                loadingMsg.className = 'loading-message';
+                loadingMsg.textContent = 'Please wait while we generate your web page...';
+                submitBtn.parentNode.appendChild(loadingMsg);
+            }
+
+            // Open new tab IMMEDIATELY (before fetch) to avoid pop-up blocker
+            const newTab = window.open('about:blank', '_blank');
+            if (newTab) {
+                newTab.document.write('<html><body><h2>Generating your web page...</h2><p>Please wait...</p></body></html>');
+            }
+
+            // Submit via AJAX
+            fetch('/generate/html', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'text/html'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Generation failed');
+                }
+                return response.text();
+            })
+            .then(html => {
+                // Write content to the already-open tab
+                if (newTab && !newTab.closed) {
+                    newTab.document.open();
+                    newTab.document.write(html);
+                    newTab.document.close();
+                }
+
+                // Reset button
+                submitBtn.classList.remove('loading');
+                submitBtn.innerHTML = originalHTML;
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+
+                // Close the blank tab on error
+                if (newTab && !newTab.closed) {
+                    newTab.close();
+                }
+
+                alert('Failed to generate web page. Please try again.');
+
+                // Reset button
+                submitBtn.classList.remove('loading');
+                submitBtn.innerHTML = originalHTML;
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
+            });
+        });
+    }
+
+    // Handle Markdown generation form - Show spinner then allow download
+    const markdownForm = document.querySelector('form[action="/generate/markdown"]');
+    if (markdownForm) {
+        markdownForm.addEventListener('submit', function(e) {
+            const submitBtn = markdownForm.querySelector('button[type="submit"]');
+            if (submitBtn.classList.contains('loading')) {
+                e.preventDefault();
+                return; // Prevent double-clicks
+            }
+
+            // Prevent default briefly to show spinner
+            e.preventDefault();
+
+            // Show loading state
+            const originalHTML = submitBtn.innerHTML;
+            submitBtn.classList.add('loading');
+            submitBtn.innerHTML = '<span class="spinner"></span>Generating Markdown...';
+
+            let loadingMsg = markdownForm.querySelector('.loading-message');
+            if (!loadingMsg) {
+                loadingMsg = document.createElement('div');
+                loadingMsg.className = 'loading-message';
+                loadingMsg.textContent = 'Your download will start shortly...';
+                submitBtn.parentNode.appendChild(loadingMsg);
+            }
+
+            // Let spinner show, then submit form after brief delay
+            setTimeout(function() {
+                // Create and submit a temporary form to trigger download
+                const tempForm = document.createElement('form');
+                tempForm.method = 'POST';
+                tempForm.action = '/generate/markdown';
+                tempForm.style.display = 'none';
+                document.body.appendChild(tempForm);
+                tempForm.submit();
+                document.body.removeChild(tempForm);
+            }, 100);
+
+            // Auto-reset after 4 seconds
+            setTimeout(function() {
+                submitBtn.classList.remove('loading');
+                submitBtn.innerHTML = originalHTML;
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
+            }, 4000);
+        });
+    }
+});
+</script>
 """
 
 
@@ -257,6 +549,37 @@ def html_shell(body: str) -> str:
           <div class="card">
             <h1>📚 Book Converter – Unified (English & Arabic)</h1>
             <div class="subtitle">Upload a PDF → we'll detect the language, verify content, and extract TOC automatically.</div>
+
+            <!-- Collapsible: What Books Work Best -->
+            <details style="margin: 20px 0;">
+              <summary>📖 What Books Work Best?</summary>
+              <div style="padding: 16px; background: var(--bg); border-radius: 8px; margin-top: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <div style="display: flex; align-items: start; gap: 10px;">
+                    <span style="color: #16a34a; font-size: 18px; flex-shrink: 0;">✅</span>
+                    <div>
+                      <strong style="color: var(--ink);">Modern printed books</strong>
+                      <div style="color: var(--muted); font-size: 14px;">Full automatic processing</div>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: start; gap: 10px;">
+                    <span style="color: #d97706; font-size: 18px; flex-shrink: 0;">⚠️</span>
+                    <div>
+                      <strong style="color: var(--ink);">Older printed books</strong>
+                      <div style="color: var(--muted); font-size: 14px;">Mostly works, may need review</div>
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: start; gap: 10px;">
+                    <span style="color: #667eea; font-size: 18px; flex-shrink: 0;">💡</span>
+                    <div>
+                      <strong style="color: var(--ink);">Ancient manuscripts</strong>
+                      <div style="color: var(--muted); font-size: 14px;">Manual TOC input (coming soon!)</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </details>
+
             {body}
             <div class="footer">
               💡 Tip: add <code>?json=1</code> to <code>/upload</code> for JSON response. <br>
@@ -289,7 +612,7 @@ def render_home() -> str:
           • Extracts Table of Contents structure<br>
           • Identifies sections and page ranges<br>
           <br>
-          <strong>📝 Metadata Note:</strong> To save complete book information, please fill in the fields below. Only the title is required.
+          <strong>📝 Metadata Note:</strong> Only the title is required. Additional details help improve discoverability.
         </div>
 
         <div class="form-row">
@@ -307,19 +630,63 @@ def render_home() -> str:
             <input type="text" name="author" placeholder="e.g., John Doe (optional)" />
           </div>
         </div>
+      </div>
 
-        <div class="form-row">
-          <div>
-            <label>Publication Date</label>
-            <input type="text" name="publication_date" placeholder="e.g., 2024 or January 2024 (optional)" />
+      <!-- SEO Metadata Section -->
+      <div class="form-section metadata-section">
+        <h3>🔍 SEO & Discoverability (Optional)</h3>
+
+        <!-- Checkbox to enable SEO -->
+        <div style="margin-bottom: 16px;">
+          <label style="display: flex; align-items: center; cursor: pointer; font-size: 14px;">
+            <input type="checkbox" name="enable_seo" id="enable_seo" value="true" style="width: auto; margin-right: 10px; cursor: pointer;" />
+            <span style="font-weight: 600; color: var(--ink);">☑ Optimize for search engines (recommended)</span>
+          </label>
+          <div class="help-text" style="margin-left: 28px; margin-top: 6px;">
+            Adds meta tags and structured data to help readers discover this book online through Google, Bing, and other search engines.
           </div>
         </div>
 
-        <div class="form-row">
-          <div>
-            <label>ISBN</label>
-            <input type="text" name="isbn" placeholder="e.g., 978-3-16-148410-0 (optional)" pattern="[0-9\\-X]{10,17}" />
-            <div class="help-text">Format: 10 or 13 digits with optional hyphens</div>
+        <!-- Collapsible SEO fields (hidden by default) -->
+        <div id="seo-fields" style="display: none; margin-top: 16px;">
+          <div class="form-row">
+            <div>
+              <label>Book Description</label>
+              <textarea name="description" placeholder="Brief description of the book content (max 160 characters recommended for SEO)" maxlength="160" rows="3"></textarea>
+              <div class="help-text">This appears in search engine results. Keep it concise and compelling.</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>Category / Subject</label>
+              <input type="text" name="category" placeholder="e.g., Philosophy, History, Islamic Studies, Science" />
+              <div class="help-text">Main subject area or genre</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>Keywords / Tags</label>
+              <input type="text" name="keywords" placeholder="e.g., medieval history, Arabic literature, philosophy" />
+              <div class="help-text">Comma-separated keywords that describe the book's topics</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>Publication Date</label>
+              <input type="text" name="publication_date" placeholder="e.g., 2024 or January 2024 (optional)" />
+              <div class="help-text">When the book was published</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>ISBN</label>
+              <input type="text" name="isbn" placeholder="e.g., 978-3-16-148410-0 (optional)" pattern="[0-9\\-X]{10,17}" />
+              <div class="help-text">Format: 10 or 13 digits with optional hyphens</div>
+            </div>
           </div>
         </div>
       </div>
@@ -385,37 +752,35 @@ def render_report(filename: str, report: AnalysisReport, language: str = "unknow
         for p in report.pages
     )
     
-    # Generation section (NEW!)
+    # Generation section
     generation_html = """
     <div class="generation-section">
       <h3>🎨 Generate Book Formats</h3>
-      <p style="color: var(--muted); margin: 0 0 16px;">Transform your PDF into beautiful, readable formats:</p>
-      
-      <div class="button-group">
+      <p style="color: var(--muted); margin: 0 0 20px;">Transform your PDF into beautiful, readable formats</p>
+
+      <!-- PRIMARY: Web Page Generation -->
+      <form action="/generate/html" method="post" style="margin: 0;">
+        <button type="submit" class="gen-button-primary">
+          🌐 Generate Web Page
+        </button>
+      </form>
+      <p style="font-size: 13px; color: var(--muted); margin: 8px 0 0; text-align: center;">
+        Creates an SEO-friendly HTML version for web publishing
+      </p>
+
+      <!-- SECONDARY: Markdown (Advanced) -->
+      <div class="divider-section">
+        <h4 style="font-size: 14px; color: var(--muted); margin: 0 0 12px; font-weight: 600;">
+          Advanced: Developer Format
+        </h4>
         <form action="/generate/markdown" method="post" style="margin: 0;">
-          <button type="submit" class="gen-button">
+          <button type="submit" class="gen-button-secondary">
             📝 Generate Markdown
           </button>
         </form>
-        
-        <form action="/generate/html" method="post" target="_blank" style="margin: 0;">
-          <button type="submit" class="gen-button">
-            🌐 Generate HTML
-          </button>
-        </form>
-        
-        <form action="/generate/both" method="post" style="margin: 0;">
-          <button type="submit" class="gen-button secondary">
-            📦 Generate Both
-          </button>
-        </form>
-      </div>
-      
-      <div style="margin-top: 16px; padding: 12px; background: white; border-radius: 8px; font-size: 13px; color: var(--muted);">
-        <strong>What you get:</strong><br>
-        • <strong>Markdown</strong>: Clean .md file with YAML frontmatter & TOC<br>
-        • <strong>HTML</strong>: Styled webpage with navigation & responsive design<br>
-        • Files will be ready to download after generation (check responses)
+        <p style="font-size: 12px; color: var(--muted); margin: 8px 0 0;">
+          For developers and content editors - includes YAML frontmatter & structured TOC
+        </p>
       </div>
     </div>
     """
@@ -430,11 +795,15 @@ def render_report(filename: str, report: AnalysisReport, language: str = "unknow
         <div><strong>Pages</strong></div><div>{report.num_pages}</div>
         <div><strong>Classification</strong></div><div>{classification_badge}</div>
       </div>
-      <table>
-        <thead><tr><th>Page</th><th>Has Text</th><th>Image Count</th></tr></thead>
-        <tbody>{rows}</tbody>
-      </table>
-      
+
+      <details>
+        <summary>Show Page-by-Page Details ({report.num_pages} pages)</summary>
+        <table>
+          <thead><tr><th>Page</th><th>Has Text</th><th>Image Count</th></tr></thead>
+          <tbody>{rows}</tbody>
+        </table>
+      </details>
+
       {generation_html}
       
       <div class="info-box" style="margin-top: 20px;">
