@@ -19,9 +19,9 @@ class Settings(BaseSettings):
     AZURE_DOCUMENT_INTELLIGENCE_KEY: Optional[str] = None
 
     # Feature flags
-    USE_AZURE_FOR_ARABIC: bool = True
-    ARABIC_RATIO_THRESHOLD: float = 0.3
-    MIN_BOOKMARKS_OK: int = 4
+    USE_AZURE_FOR_ARABIC: bool = True #  Controls whether to use Azure Document Intelligence for Arabic text extraction.
+    ARABIC_RATIO_THRESHOLD: float = 0.3 #Minimum percentage of Arabic characters required to classify a document as "Arabic".
+    MIN_BOOKMARKS_OK: int = 4 # Minimum number of PDF bookmarks required to trust bookmark-based TOC extraction.
 
     # FastText Language Detection (Cost Optimization)
     USE_FASTTEXT_DETECTION: bool = True  # Use FastText for quick language detection
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     FASTTEXT_SAMPLE_PAGES: int = 15  # Number of pages to sample for detection
 
     # Tracing
-    ENABLE_TRACING: bool = False  # Set to True to enable
+    ENABLE_TRACING: bool = False  # Set to True to enable and run tracing.py or uncomment # tracer = setup_tracing(app) in the main.py 
     JAEGER_ENDPOINT: str = "http://localhost:4317"
     
     class Config:
