@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KitabiAI - Digital Library</title>
+    <style>
+        :root {
+            --bg-primary: #F5F3F7;
+            --bg-secondary: #FFFFFF;
+            --text-primary: #1F2937;
+            --text-secondary: #6B7280;
+            --accent: #7C3AED;
+            --accent-light: #A78BFA;
+            --border: #E5E7EB;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1A1625;
+            --bg-secondary: #2D1B3D;
+            --text-primary: #F9FAFB;
+            --text-secondary: #D1D5DB;
+            --accent: #A78BFA;
+            --accent-light: #7C3AED;
+            --border: #3D2952;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        /* Header */
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .theme-toggle {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .theme-toggle:hover {
+            background: var(--accent-light);
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 4rem 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .search-box {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto 2rem;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            border: 2px solid var(--border);
+            border-radius: 50px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .cta-button {
+            background: var(--accent);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .cta-button:hover {
+            background: var(--accent-light);
+            transform: translateY(-2px);
+        }
+
+        /* Stats Section */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .stat-card h3 {
+            font-size: 2rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card p {
+            color: var(--text-secondary);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+        }
+
+        /* Book Grid */
+        .book-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .book-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .book-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(124, 58, 237, 0.2);
+        }
+
+        .book-image {
+            width: 100%;
+            height: 300px;
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+        }
+
+        .book-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .book-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Category Buttons */
+        .categories {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 4rem;
+        }
+
+        .category-btn {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .category-btn:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .book-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="logo">📚 KitabiAI</div>
+        <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+    </header>
+
+    <!-- Hero Section -->
+    <div class="hero">
+        <h1>Preserving Arabic & English Knowledge</h1>
+        <p>A digital library of historical books, fully searchable and accessible</p>
+        
+        <div class="search-box">
+            <input type="text" placeholder="Search books, authors, topics...">
+        </div>
+        
+        <button class="cta-button">Browse Collection →</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+        <div class="stat-card">
+            <h3>100</h3>
+            <p>Books</p>
+        </div>
+        <div class="stat-card">
+            <h3>2</h3>
+            <p>Languages</p>
+        </div>
+        <div class="stat-card">
+            <h3>12,450</h3>
+            <p>Pages</p>
+        </div>
+        <div class="stat-card">
+            <h3>78</h3>
+            <p>Authors</p>
+        </div>
+    </div>
+
+    <!-- Featured Books -->
+    <div class="container">
+        <h2 class="section-title">⭐ Featured Books</h2>
+        <div class="book-grid">
+            <div class="book-card">
+                <div class="book-image">📖</div>
+                <h3>Book Title in Arabic</h3>
+                <p>Author Name • Philosophy</p>
+            </div>
+            <div class="book-card">
+                <div class="book-image">📖</div>
+                <h3>The History of Philosophy</h3>
+                <p>Bertrand Russell • Philosophy</p>
+            </div>
+            <div class="book-card">
+                <div class="book-image">📖</div>
+                <h3>Arabic Literature</h3>
+                <p>Various Authors • Literature</p>
+            </div>
+            <div class="book-card">
+                <div class="book-image">📖</div>
+                <h3>Islamic History</h3>
+                <p>Ibn Khaldun • History</p>
+            </div>
+        </div>
+
+        <!-- Browse by Language -->
+        <h2 class="section-title">🌐 Browse by Language</h2>
+        <div class="categories">
+            <button class="category-btn">📚 Arabic Books (50)</button>
+            <button class="category-btn">📚 English Books (50)</button>
+        </div>
+
+        <!-- Browse by Category -->
+        <h2 class="section-title">📂 Browse by Category</h2>
+        <div class="categories">
+            <button class="category-btn">Philosophy</button>
+            <button class="category-btn">History</button>
+            <button class="category-btn">Literature</button>
+            <button class="category-btn">Science</button>
+            <button class="category-btn">Religion</button>
+            <button class="category-btn">Politics</button>
+            <button class="category-btn">Biography</button>
+            <button class="category-btn">Poetry</button>
+        </div>
+    </div>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const button = document.querySelector('.theme-toggle');
+            
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.removeAttribute('data-theme');
+                button.textContent = '🌙 Dark Mode';
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                button.textContent = '☀️ Light Mode';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Load saved theme
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme');
+            const button = document.querySelector('.theme-toggle');
+            
+            if (savedTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                button.textContent = '☀️ Light Mode';
+            }
+        });
+    </script>
+</body>
+</html>
