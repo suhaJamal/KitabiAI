@@ -3,7 +3,7 @@
 HTTP routes for the upload & analyze flow (unified English & Arabic support).
 
 - GET "/" renders the upload form (HTML shell).
-- POST "/upload" validates PDF, analyzes content, detects language, and returns JSON/HTML.
+- POST "/upload" validates PDF, analyzes content, detects language, saves to database, and returns JSON/HTML.
 - GET "/export/jsonl" streams page-level JSONL.
 - GET "/export/sections.jsonl" streams sections from unified TOC extraction (bookmarks or pattern-based).
 - GET "/info" returns metadata about last uploaded PDF (language, classification, etc.).
@@ -20,7 +20,10 @@ from ..services.export_service import ExportService
 from ..services.toc_extractor import TocExtractor
 from ..services.language_detector import LanguageDetector
 from ..models.schemas import AnalysisReport, BookMetadata, BookInfo, SectionsReport
+from ..models.database import SessionLocal, Book, Section
+from ..models.database import SessionLocal, Book, Section, Author, Category
 from typing import Optional
+import re
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -39,7 +42,24 @@ _last_language: Optional[str] = None
 _last_extracted_text: Optional[str] = None
 _last_book_metadata: Optional[BookMetadata] = None
 _last_sections_report: Optional[SectionsReport] = None  # Cache TOC extraction to avoid re-extraction
+_last_book_id: Optional[int] = None # Track last inserted book ID
 
+def create_slug(text: str) -> str:
+    """
+    Create URL-friendly slug from text.
+    Example: "محمد عبده" -> "muhammad-abduh"
+             "Bertrand Russell" -> "bertrand-russell"
+    """
+    if not text:
+        return ""
+    
+    # Basic transliteration for Arabic (simplified)
+    # For production, use a proper library like `arabic-reshaper` or `python-slugify`
+    text = text.lower().strip()
+    text = re.sub(r'[^\w\s-]', '', text)  # Remove special chars
+    text = re.sub(r'[\s_]+', '-', text)   # Replace spaces with hyphens
+    text = text.strip('-')
+    return text
 
 @router.get("/", response_class=HTMLResponse)
 def home():
@@ -51,7 +71,8 @@ def home():
 async def upload(
     file: UploadFile = File(...),
     book_title: str = Form(...),  # Required
-    author: str = Form(None),  # Optional
+    author: str = Form(...),  
+    author_slug: str = Form(None), #  Optional - for clean URLs
     enable_seo: bool = Form(False),  # Optional - SEO toggle
     description: str = Form(None),  # Optional - SEO
     category: str = Form(None),  # Optional - SEO
@@ -67,6 +88,7 @@ async def upload(
         file: PDF file to analyze
         book_title: Book title (required)
         author: Author name (optional)
+        author_slug: URL-friendly author name (optional, auto-generated if not provided)
         enable_seo: Enable SEO optimization (optional, default False)
         description: Brief book description for SEO (optional, max 160 chars)
         category: Book category/subject (optional)
@@ -78,7 +100,7 @@ async def upload(
         json: If 1, return JSON response. Otherwise, return HTML.
     """
     global _last_report, _last_filename, _last_pdf_bytes, _last_language
-    global _last_extracted_text, _last_book_metadata, _last_sections_report
+    global _last_extracted_text, _last_book_metadata, _last_sections_report, _last_book_id
 
     # Create and validate metadata object
     metadata = BookMetadata(
@@ -129,6 +151,98 @@ async def upload(
         sections_report = toc_extractor.extract(pdf_bytes)
         logger.info(f"English extraction result: {len(sections_report.sections)} sections")
 
+    # Save to database
+    db = SessionLocal()
+    try:
+        # 1. Handle Author (get existing or create new)
+        author_obj = None
+        if metadata.author:
+            # Check if author exists
+            author_obj = db.query(Author).filter(Author.name == metadata.author).first()
+            
+            if not author_obj:
+                # Create new author
+                author_slug = create_slug(metadata.author)
+                author_obj = Author(
+                    name=metadata.author,
+                    slug=author_slug
+                )
+                db.add(author_obj)
+                db.flush()  # Get the author ID
+                logger.info(f"Created new author: {metadata.author} (ID: {author_obj.id})")
+            else:
+                logger.info(f"Using existing author: {metadata.author} (ID: {author_obj.id})")
+        
+        if not author_obj:
+            raise HTTPException(status_code=400, detail="Author is required")
+        
+        # 2. Handle Category (get existing or create new)
+        category_obj = None
+        if metadata.category:
+            # Check if category exists
+            category_obj = db.query(Category).filter(Category.name == metadata.category).first()
+            
+            if not category_obj:
+                # Create new category
+                category_slug = create_slug(metadata.category)
+                category_obj = Category(
+                    name=metadata.category,
+                    slug=category_slug
+                )
+                db.add(category_obj)
+                db.flush()  # Get the category ID
+                logger.info(f"Created new category: {metadata.category} (ID: {category_obj.id})")
+            else:
+                logger.info(f"Using existing category: {metadata.category} (ID: {category_obj.id})")
+        
+        # 3. Create book record with foreign keys
+        new_book = Book(
+            title=metadata.title,
+            author_id=author_obj.id,  # CHANGED: Use foreign key
+            category_id=category_obj.id if category_obj else None,  # CHANGED: Use foreign key
+            language="ar" if detected_language == "arabic" else "en",
+            description=metadata.description,
+            keywords=metadata.keywords,
+            publication_date=metadata.publication_date,
+            isbn=metadata.isbn,
+            page_count=report.num_pages,
+            section_count=len(sections_report.sections),
+            status='published'
+        )
+        
+        db.add(new_book)
+        db.flush()  # Get the book ID
+        
+        logger.info(f"Book saved to database with ID: {new_book.id}")
+        
+        # 4. Save sections (unchanged)
+        for idx, section in enumerate(sections_report.sections):
+            new_section = Section(
+                book_id=new_book.id,
+                title=section.title,
+                level=section.level,
+                page_start=section.page_start,
+                page_end=section.page_end,
+                order_index=idx
+            )
+            db.add(new_section)
+        
+        db.commit()
+        logger.info(f"Saved {len(sections_report.sections)} sections to database")
+        
+        # Store book ID for later use
+        _last_book_id = new_book.id
+        
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Database error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save to database: {str(e)}")
+    finally:
+        db.close()
+
     # Cache for follow-up exports (including extracted text for BOTH languages)
     _last_report = report
     _last_filename = file.filename
@@ -143,6 +257,7 @@ async def upload(
         return JSONResponse({
             "ok": True,
             "message": "Valid PDF uploaded and analyzed.",
+            "book_id": _last_book_id,
             "metadata": metadata.model_dump(),
             "language": detected_language,
             "classification": report.classification,
@@ -238,6 +353,7 @@ def export_sections_jsonl():
     # First line: metadata
     metadata_line = {
         "type": "metadata",
+        "book_id": _last_book_id,
         "book_title": _last_book_metadata.title,
         "author": _last_book_metadata.author,
         "publication_date": _last_book_metadata.publication_date,
