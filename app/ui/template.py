@@ -691,6 +691,33 @@ def render_home() -> str:
         </div>
       </div>
 
+      <!-- TOC Extraction Parameters (Advanced) -->
+      <div class="form-section metadata-section">
+        <h3>⚙️ Advanced TOC Extraction (Optional)</h3>
+
+        <div class="info-box" style="margin-top: 0; margin-bottom: 16px; background: #f0f9ff;">
+          <strong>💡 When to use these options:</strong><br>
+          • <strong>TOC Page Number</strong>: If the Table of Contents is in a specific location (enables table-based extraction)<br>
+          • <strong>Page Offset</strong>: If the book's page 1 doesn't match PDF page 1 (e.g., if book page 1 is on PDF page 15, use offset 14)
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>TOC Page Number</label>
+            <input type="number" name="toc_page" placeholder="e.g., 345 (optional)" min="1" />
+            <div class="help-text">Page number where the Table of Contents is located (enables Azure table-based extraction)</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>Page Offset</label>
+            <input type="number" name="page_offset" placeholder="e.g., 14 (optional)" min="0" value="0" />
+            <div class="help-text">Offset between book page numbers and PDF page numbers (default: 0)</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Submit Button -->
       <button type="submit">🚀 Upload & Analyze</button>
     </form>

@@ -12,14 +12,20 @@ Language detection service for PDFs with FastText optimization.
 
 import re
 import logging
-from typing import Literal, Optional
+from typing import Literal, Optional, Any, Tuple
 from pathlib import Path
 import fitz  # PyMuPDF
 
-from azure.ai.documentintelligence import DocumentIntelligenceClient
-from azure.core.credentials import AzureKeyCredential
+try:
+    from azure.ai.documentintelligence import DocumentIntelligenceClient
+    from azure.core.credentials import AzureKeyCredential
+    AZURE_AVAILABLE = True
+except ImportError:
+    AZURE_AVAILABLE = False
+    logging.warning("Azure SDK not installed. Azure features disabled.")
 
 from ..core.config import settings
+from .ocr_detector import OCRDetector
 
 
 logger = logging.getLogger(__name__)
@@ -38,10 +44,11 @@ class LanguageDetector:
         self.arabic_threshold = arabic_threshold or settings.ARABIC_RATIO_THRESHOLD
         self._azure_client = None
         self._fasttext_model = None  # Lazy load
+        self.ocr_detector = OCRDetector()  # NEW: OCR detection for scanned PDFs
 
-    def detect(self, pdf_bytes: bytes) -> tuple[Literal["arabic", "english"], Optional[str]]:
+    def detect(self, pdf_bytes: bytes) -> tuple[Literal["arabic", "english"], Optional[str], Optional[Any]]:
         """
-        Analyze PDF and return detected language and extracted text.
+        Analyze PDF and return detected language, extracted text, and Azure result.
 
         Strategy (controlled by USE_FASTTEXT_DETECTION flag):
 
@@ -59,16 +66,46 @@ class LanguageDetector:
             pdf_bytes: Raw PDF file bytes
 
         Returns:
-            Tuple of (language, extracted_text)
+            Tuple of (language, extracted_text, azure_result)
             - language: 'arabic' or 'english'
             - extracted_text: Full text from appropriate extraction method
+            - azure_result: Full Azure result object (None if not used)
         """
+        # NEW: Check if PDF is scanned (image-only) FIRST
+        # This fixes the bug where scanned Arabic PDFs are misclassified as English
+        is_scanned, ocr_metadata = self.ocr_detector.is_scanned(pdf_bytes)
+
+        if is_scanned:
+            logger.info("🔍 Scanned PDF detected - forcing Azure OCR extraction")
+
+            if not settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT or not settings.AZURE_DOCUMENT_INTELLIGENCE_KEY:
+                logger.error("Scanned PDF detected but Azure not configured!")
+                logger.warning("Scanned PDFs require Azure Document Intelligence for OCR. Falling back to normal detection (may fail).")
+                # Fall through to normal detection
+            else:
+                # Force Azure extraction with OCR for scanned PDFs
+                try:
+                    text, azure_result = self._extract_with_azure(pdf_bytes)
+                    arabic_ratio = self.get_arabic_ratio(text)
+                    language = "arabic" if arabic_ratio > self.arabic_threshold else "english"
+
+                    logger.info(
+                        f"✅ Scanned PDF processed: {language.upper()} "
+                        f"(Arabic ratio: {arabic_ratio:.2%})"
+                    )
+                    return language, text, azure_result
+                except Exception as e:
+                    logger.error(f"Azure OCR failed for scanned PDF: {e}")
+                    logger.warning("Falling back to normal detection (may produce incorrect results)")
+                    # Fall through to normal detection
+
+        # Continue with normal FastText/Legacy detection for digital PDFs
         if settings.USE_FASTTEXT_DETECTION:
             return self._detect_with_fasttext(pdf_bytes)
         else:
             return self._detect_legacy(pdf_bytes)
 
-    def _detect_with_fasttext(self, pdf_bytes: bytes) -> tuple[Literal["arabic", "english"], Optional[str]]:
+    def _detect_with_fasttext(self, pdf_bytes: bytes) -> tuple[Literal["arabic", "english"], Optional[str], Optional[Any]]:
         """
         FastText-based detection strategy (cost-optimized).
 
@@ -82,6 +119,9 @@ class LanguageDetector:
           - English → Use PyMuPDF (fast, free)
 
         Fallback: If FastText fails or low confidence, fall back to legacy method
+
+        Returns:
+            Tuple of (language, extracted_text, azure_result)
         """
         logger.info("Using FastText detection strategy")
 
@@ -108,22 +148,22 @@ class LanguageDetector:
                 # Use Azure for accurate Arabic text extraction
                 if settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and settings.AZURE_DOCUMENT_INTELLIGENCE_KEY:
                     try:
-                        text = self._extract_with_azure(pdf_bytes)
+                        text, azure_result = self._extract_with_azure(pdf_bytes)
                         logger.info(f"Used Azure for Arabic text extraction")
-                        return "arabic", text
+                        return "arabic", text, azure_result
                     except Exception as e:
                         logger.warning(f"Azure extraction failed: {e}, using PyMuPDF")
                         text = self._extract_full_with_pymupdf(pdf_bytes)
-                        return "arabic", text
+                        return "arabic", text, None
                 else:
                     logger.info("Azure not configured, using PyMuPDF for Arabic")
                     text = self._extract_full_with_pymupdf(pdf_bytes)
-                    return "arabic", text
+                    return "arabic", text, None
             else:
                 # Use PyMuPDF for English (fast & free)
                 text = self._extract_full_with_pymupdf(pdf_bytes)
                 logger.info(f"Used PyMuPDF for English text extraction")
-                return "english", text
+                return "english", text, None
 
         except Exception as e:
             logger.error(f"FastText detection failed: {e}, falling back to legacy")
@@ -221,7 +261,7 @@ class LanguageDetector:
             logger.error(f"Failed to load FastText model: {e}")
             raise
 
-    def _detect_legacy(self, pdf_bytes: bytes) -> tuple[Literal["arabic", "english"], Optional[str]]:
+    def _detect_legacy(self, pdf_bytes: bytes) -> tuple[Literal["arabic", "english"], Optional[str], Optional[Any]]:
         """
         Legacy detection strategy (Azure-based).
 
@@ -233,18 +273,21 @@ class LanguageDetector:
         - USE_FASTTEXT_DETECTION = False
         - FastText detection fails
         - FastText confidence too low
+
+        Returns:
+            Tuple of (language, extracted_text, azure_result)
         """
         logger.info("Using legacy Azure-based detection strategy")
 
         # Try Azure first (better for Arabic)
         if settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and settings.AZURE_DOCUMENT_INTELLIGENCE_KEY:
             try:
-                text = self._extract_with_azure(pdf_bytes)
+                text, azure_result = self._extract_with_azure(pdf_bytes)
                 if text:
                     arabic_ratio = self.get_arabic_ratio(text)
                     language = "arabic" if arabic_ratio > self.arabic_threshold else "english"
                     logger.info(f"Language detected via Azure: {language} (Arabic ratio: {arabic_ratio:.2%})")
-                    return language, text
+                    return language, text, azure_result
             except Exception as e:
                 logger.warning(f"Azure extraction failed, falling back to PyMuPDF: {e}")
 
@@ -254,14 +297,19 @@ class LanguageDetector:
         language = "arabic" if arabic_ratio > self.arabic_threshold else "english"
         logger.info(f"Language detected via PyMuPDF: {language} (Arabic ratio: {arabic_ratio:.2%})")
 
-        return language, text
+        return language, text, None
 
-    def _extract_with_azure(self, pdf_bytes: bytes) -> str:
+    def _extract_with_azure(self, pdf_bytes: bytes) -> tuple[str, Any]:
         """
         Use Azure Document Intelligence to extract text from PDF.
 
         Preserves page boundaries by inserting form feed characters (\f) between pages.
         This allows the analyzer to correctly split text back into pages.
+
+        Returns:
+            Tuple of (extracted_text, azure_result)
+            - extracted_text: Full text with page boundaries (\f)
+            - azure_result: Full Azure result object (includes tables, paragraphs, etc.)
         """
         if self._azure_client is None:
             self._azure_client = DocumentIntelligenceClient(
@@ -289,7 +337,7 @@ class LanguageDetector:
                 all_text += "\f"  # Form feed: page boundary marker
 
         logger.info(f"Azure extracted {len(all_text)} characters from {len(result.pages)} pages")
-        return all_text
+        return all_text, result
 
     def _extract_with_pymupdf(self, pdf_bytes: bytes) -> str:
         """

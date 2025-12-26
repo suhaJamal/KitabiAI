@@ -71,7 +71,7 @@ def home():
 async def upload(
     file: UploadFile = File(...),
     book_title: str = Form(...),  # Required
-    author: str = Form(...),  
+    author: str = Form(...),
     author_slug: str = Form(None), #  Optional - for clean URLs
     enable_seo: bool = Form(False),  # Optional - SEO toggle
     description: str = Form(None),  # Optional - SEO
@@ -79,6 +79,8 @@ async def upload(
     keywords: str = Form(None),  # Optional - SEO
     publication_date: str = Form(None),  # Optional - SEO/Cataloging
     isbn: str = Form(None),  # Optional - SEO/Cataloging
+    toc_page: int = Form(None),  # Optional - TOC page number for table-based extraction
+    page_offset: int = Form(0),  # Optional - Page offset (default: 0)
     json: int = Query(default=0, ge=0, le=1)
 ):
     """
@@ -95,6 +97,8 @@ async def upload(
         keywords: Comma-separated keywords/tags (optional)
         publication_date: Publication date (optional)
         isbn: ISBN number (optional)
+        toc_page: TOC page number for table-based extraction (optional)
+        page_offset: Page offset between book and PDF page numbers (optional, default: 0)
 
     Query params:
         json: If 1, return JSON response. Otherwise, return HTML.
@@ -115,7 +119,11 @@ async def upload(
     )
     
     logger.info(f"Upload request - Book: '{metadata.title}', File: {file.filename}")
-    
+
+    # Log TOC extraction parameters
+    if toc_page or page_offset:
+        logger.info(f"TOC extraction params - Page: {toc_page}, Offset: {page_offset}")
+
     # Validate PDF signature
     head = await file.read(5)
     await file.seek(0)
@@ -124,8 +132,8 @@ async def upload(
     # Read PDF bytes
     pdf_bytes = await file.read()
 
-    # Detect language and extract text FIRST (returns 2 values: language and extracted_text)
-    detected_language, extracted_text = language_detector.detect(pdf_bytes)
+    # Detect language and extract text FIRST (returns 3 values: language, extracted_text, and azure_result)
+    detected_language, extracted_text, azure_result = language_detector.detect(pdf_bytes)
     logger.info(f"Detected language: {detected_language}")
 
     # Analyze PDF with pre-extracted text (for Arabic) to maintain quality
@@ -136,7 +144,13 @@ async def upload(
     if detected_language == "arabic" and extracted_text:
         from ..services.arabic_toc_extractor import ArabicTocExtractor
         arabic_extractor = ArabicTocExtractor()
-        sections_report = arabic_extractor.extract(extracted_text)
+        # Pass TOC page, Azure result, and page offset to the extractor
+        sections_report = arabic_extractor.extract(
+            extracted_text,
+            toc_page_number=toc_page,
+            azure_result=azure_result,
+            page_offset=page_offset
+        )
 
         # Fix page ranges based on actual PDF page count
         import fitz
@@ -195,30 +209,59 @@ async def upload(
             else:
                 logger.info(f"Using existing category: {metadata.category} (ID: {category_obj.id})")
         
-        # 3. Create book record with foreign keys
-        new_book = Book(
-            title=metadata.title,
-            author_id=author_obj.id,  # CHANGED: Use foreign key
-            category_id=category_obj.id if category_obj else None,  # CHANGED: Use foreign key
-            language="ar" if detected_language == "arabic" else "en",
-            description=metadata.description,
-            keywords=metadata.keywords,
-            publication_date=metadata.publication_date,
-            isbn=metadata.isbn,
-            page_count=report.num_pages,
-            section_count=len(sections_report.sections),
-            status='published'
-        )
-        
-        db.add(new_book)
-        db.flush()  # Get the book ID
-        
-        logger.info(f"Book saved to database with ID: {new_book.id}")
-        
-        # 4. Save sections (unchanged)
+        # 3. Check if book already exists (same title + author)
+        existing_book = db.query(Book).filter(
+            Book.title == metadata.title,
+            Book.author_id == author_obj.id
+        ).first()
+
+        if existing_book:
+            # Smart Replacement: Update existing book instead of creating duplicate
+            logger.info(f"Book already exists with ID: {existing_book.id} - updating record")
+
+            # Delete old sections
+            deleted_count = db.query(Section).filter(Section.book_id == existing_book.id).delete()
+            logger.info(f"Deleted {deleted_count} old sections for book ID: {existing_book.id}")
+
+            # Update existing book record with new data
+            existing_book.language = "ar" if detected_language == "arabic" else "en"
+            existing_book.page_count = report.num_pages
+            existing_book.section_count = len(sections_report.sections)
+            existing_book.description = metadata.description
+            existing_book.keywords = metadata.keywords
+            existing_book.publication_date = metadata.publication_date
+            existing_book.isbn = metadata.isbn
+            existing_book.category_id = category_obj.id if category_obj else None
+            existing_book.status = 'published'
+
+            book_id = existing_book.id
+            logger.info(f"Updated existing book record with ID: {book_id}")
+        else:
+            # Create new book record (first upload)
+            new_book = Book(
+                title=metadata.title,
+                author_id=author_obj.id,
+                category_id=category_obj.id if category_obj else None,
+                language="ar" if detected_language == "arabic" else "en",
+                description=metadata.description,
+                keywords=metadata.keywords,
+                publication_date=metadata.publication_date,
+                isbn=metadata.isbn,
+                page_count=report.num_pages,
+                section_count=len(sections_report.sections),
+                status='published'
+            )
+
+            db.add(new_book)
+            db.flush()  # Get the book ID
+
+            book_id = new_book.id
+            logger.info(f"Created new book with ID: {book_id}")
+
+        # 4. Save new sections (using book_id from either path)
         for idx, section in enumerate(sections_report.sections):
             new_section = Section(
-                book_id=new_book.id,
+                book_id=book_id,
                 title=section.title,
                 level=section.level,
                 page_start=section.page_start,
@@ -226,12 +269,12 @@ async def upload(
                 order_index=idx
             )
             db.add(new_section)
-        
+
         db.commit()
-        logger.info(f"Saved {len(sections_report.sections)} sections to database")
-        
+        logger.info(f"Saved {len(sections_report.sections)} new sections to database")
+
         # Store book ID for later use
-        _last_book_id = new_book.id
+        _last_book_id = book_id
         
     except HTTPException:
         db.rollback()
