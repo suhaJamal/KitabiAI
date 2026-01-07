@@ -277,19 +277,19 @@ async def upload(
         # Store book ID for later use
         _last_book_id = book_id
 
-        # Save PDF and cover image to local storage
-        from ..services.local_storage_service import local_storage
+        # Save PDF and cover image to Azure Blob Storage
+        from ..services.azure_storage_service import azure_storage
 
         # Save PDF file
-        pdf_url = local_storage.save_pdf(book_id, pdf_bytes, file.filename)
-        logger.info(f"Saved PDF to local storage: {pdf_url}")
+        pdf_url = azure_storage.save_pdf(book_id, pdf_bytes, file.filename)
+        logger.info(f"Saved PDF to Azure Blob Storage: {pdf_url}")
 
         # Save cover image if provided
         cover_url = None
         if cover_image:
             cover_bytes = await cover_image.read()
-            cover_url = local_storage.save_cover_image(book_id, cover_bytes, cover_image.filename)
-            logger.info(f"Saved cover image to local storage: {cover_url}")
+            cover_url = azure_storage.save_cover_image(book_id, cover_bytes, cover_image.filename)
+            logger.info(f"Saved cover image to Azure Blob Storage: {cover_url}")
 
         # Update database with PDF and cover URLs
         db2 = SessionLocal()

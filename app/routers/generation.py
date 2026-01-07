@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from ..services.chunker_service import ChunkerService
 from ..services.markdown_generator import MarkdownGenerator
 from ..services.html_generator import HtmlGenerator
-from ..services.local_storage_service import local_storage
+from ..services.azure_storage_service import azure_storage
 from ..models.schemas import GenerationRequest, GenerationResponse
 from ..models.database import SessionLocal, Book
 
@@ -349,11 +349,11 @@ async def generate_both(
     pages_jsonl_content = _generate_pages_jsonl()
     sections_jsonl_content = _generate_sections_jsonl()
 
-    # Save all files locally and get URLs
-    html_url = local_storage.save_html(_last_book_id, html_content, f"{base_name}.html")
-    markdown_url = local_storage.save_markdown(_last_book_id, markdown_content, f"{base_name}.md")
-    pages_jsonl_url = local_storage.save_pages_jsonl(_last_book_id, pages_jsonl_content, f"{base_name}_pages.jsonl")
-    sections_jsonl_url = local_storage.save_sections_jsonl(_last_book_id, sections_jsonl_content, f"{base_name}_sections.jsonl")
+    # Save all files to Azure Blob Storage and get URLs
+    html_url = azure_storage.save_html(_last_book_id, html_content, f"{base_name}.html")
+    markdown_url = azure_storage.save_markdown(_last_book_id, markdown_content, f"{base_name}.md")
+    pages_jsonl_url = azure_storage.save_pages_jsonl(_last_book_id, pages_jsonl_content, f"{base_name}_pages.jsonl")
+    sections_jsonl_url = azure_storage.save_sections_jsonl(_last_book_id, sections_jsonl_content, f"{base_name}_sections.jsonl")
 
     # Update database with URLs and timestamp
     _update_book_urls(
@@ -366,7 +366,7 @@ async def generate_both(
 
     return JSONResponse({
         "ok": True,
-        "message": "Generated all files and saved to local storage",
+        "message": "Generated all files and saved to Azure Blob Storage",
         "book_id": _last_book_id,
         "files": [
             {
