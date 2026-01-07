@@ -57,11 +57,22 @@ class Book(Base):
     isbn = Column(String(20))
     page_count = Column(Integer)
     section_count = Column(Integer)
+
+    # Generated file URLs (populated after generation)
     html_url = Column(String(500))
     markdown_url = Column(String(500))
-    json_url = Column(String(500))
+    pages_jsonl_url = Column(String(500))      # Page-level analysis JSONL
+    sections_jsonl_url = Column(String(500))   # TOC sections JSONL
+
+    # Source file URLs (populated during/after upload)
+    pdf_url = Column(String(500))              # Original PDF in Azure Blob Storage
+    cover_image_url = Column(String(500))      # Book cover image
+
+    # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    files_generated_at = Column(DateTime)      # When HTML/Markdown/JSON files were generated
+
     view_count = Column(Integer, default=0)
     status = Column(String(20), default='published')
     

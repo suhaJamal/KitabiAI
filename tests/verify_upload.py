@@ -1,4 +1,10 @@
 # verify_upload.py
+import sys
+from pathlib import Path
+
+# Add parent directory to path so we can import app module
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from app.models.database import SessionLocal, Book, Section, Author, Category
 
 db = SessionLocal()
@@ -15,10 +21,20 @@ for book in books:
     print(f"   Category: {book.category_rel.name if book.category_rel else 'None'}")
     print(f"   Language: {book.language}")
     print(f"   Pages: {book.page_count}")
-    
+
     # Check sections
     sections_count = db.query(Section).filter(Section.book_id == book.id).count()
     print(f"   Sections: {sections_count}")
+
+    # Check file URLs
+    print(f"\n   📁 File URLs:")
+    print(f"   - HTML: {book.html_url or 'Not generated'}")
+    print(f"   - Markdown: {book.markdown_url or 'Not generated'}")
+    print(f"   - Pages JSONL: {book.pages_jsonl_url or 'Not generated'}")
+    print(f"   - Sections JSONL: {book.sections_jsonl_url or 'Not generated'}")
+    print(f"   - PDF: {book.pdf_url or 'Not uploaded'}")
+    print(f"   - Cover: {book.cover_image_url or 'Not uploaded'}")
+    print(f"   - Generated At: {book.files_generated_at or 'Not generated yet'}")
 
 # Show all authors
 print("\n👤 Authors:")

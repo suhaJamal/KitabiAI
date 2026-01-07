@@ -81,6 +81,7 @@ async def upload(
     isbn: str = Form(None),  # Optional - SEO/Cataloging
     toc_page: int = Form(None),  # Optional - TOC page number for table-based extraction
     page_offset: int = Form(0),  # Optional - Page offset (default: 0)
+    cover_image: UploadFile = File(None),  # Optional - Book cover image
     json: int = Query(default=0, ge=0, le=1)
 ):
     """
@@ -275,6 +276,33 @@ async def upload(
 
         # Store book ID for later use
         _last_book_id = book_id
+
+        # Save PDF and cover image to local storage
+        from ..services.local_storage_service import local_storage
+
+        # Save PDF file
+        pdf_url = local_storage.save_pdf(book_id, pdf_bytes, file.filename)
+        logger.info(f"Saved PDF to local storage: {pdf_url}")
+
+        # Save cover image if provided
+        cover_url = None
+        if cover_image:
+            cover_bytes = await cover_image.read()
+            cover_url = local_storage.save_cover_image(book_id, cover_bytes, cover_image.filename)
+            logger.info(f"Saved cover image to local storage: {cover_url}")
+
+        # Update database with PDF and cover URLs
+        db2 = SessionLocal()
+        try:
+            book_record = db2.query(Book).filter(Book.id == book_id).first()
+            if book_record:
+                book_record.pdf_url = pdf_url
+                if cover_url:
+                    book_record.cover_image_url = cover_url
+                db2.commit()
+                logger.info(f"Updated book {book_id} with PDF and cover URLs")
+        finally:
+            db2.close()
         
     except HTTPException:
         db.rollback()
