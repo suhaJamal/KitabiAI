@@ -190,8 +190,13 @@ class LanguageDetector:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
             sample_pages = min(settings.FASTTEXT_SAMPLE_PAGES, doc.page_count)
 
+            # Skip front matter (cover, title, copyright pages)
+            skip_pages = 3
+            start_page = min(skip_pages, doc.page_count - 1)
+            end_page = min(start_page + sample_pages, doc.page_count)
+
             sample_text = ""
-            for i in range(sample_pages):
+            for i in range(start_page, end_page):
                 page = doc[i]
                 sample_text += page.get_text("text") + "\n"
 
@@ -217,9 +222,14 @@ class LanguageDetector:
             elif detected_lang_code == 'en':
                 language = "english"
             else:
-                logger.warning(f"Unexpected language code: {detected_lang_code}, defaulting to English")
+                # Unexpected language (not Arabic or English) - likely gibberish/corrupted text
+                logger.warning(
+                    f"Unexpected language code: {detected_lang_code}, "
+                    f"treating as possible gibberish - returning low confidence"
+                )
+                # Return with very low confidence to trigger fallback
                 language = "english"
-                confidence = 0.5  # Lower confidence for unexpected languages
+                confidence = 0.1  # Very low confidence triggers legacy detection
 
             logger.info(
                 f"FastText quick detection: {language} "
@@ -280,13 +290,14 @@ class LanguageDetector:
         logger.info("Using legacy Azure-based detection strategy")
 
         # Try Azure first (better for Arabic)
+        # Use sample mode for language detection (only 10 pages, much faster!)
         if settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and settings.AZURE_DOCUMENT_INTELLIGENCE_KEY:
             try:
-                text, azure_result = self._extract_with_azure(pdf_bytes)
+                text, azure_result = self._extract_with_azure(pdf_bytes, sample_only=True, sample_pages=10)
                 if text:
                     arabic_ratio = self.get_arabic_ratio(text)
                     language = "arabic" if arabic_ratio > self.arabic_threshold else "english"
-                    logger.info(f"Language detected via Azure: {language} (Arabic ratio: {arabic_ratio:.2%})")
+                    logger.info(f"Language detected via Azure (sample): {language} (Arabic ratio: {arabic_ratio:.2%})")
                     return language, text, azure_result
             except Exception as e:
                 logger.warning(f"Azure extraction failed, falling back to PyMuPDF: {e}")
@@ -299,12 +310,17 @@ class LanguageDetector:
 
         return language, text, None
 
-    def _extract_with_azure(self, pdf_bytes: bytes) -> tuple[str, Any]:
+    def _extract_with_azure(self, pdf_bytes: bytes, sample_only: bool = False, sample_pages: int = 10) -> tuple[str, Any]:
         """
         Use Azure Document Intelligence to extract text from PDF.
 
         Preserves page boundaries by inserting form feed characters (\f) between pages.
         This allows the analyzer to correctly split text back into pages.
+
+        Args:
+            pdf_bytes: PDF file bytes
+            sample_only: If True, only extract from first N pages (for language detection)
+            sample_pages: Number of pages to sample when sample_only=True
 
         Returns:
             Tuple of (extracted_text, azure_result)
@@ -324,7 +340,13 @@ class LanguageDetector:
         result = poller.result()
 
         all_text = ""
+        pages_to_process = sample_pages if sample_only else len(result.pages)
+
         for page_num, page in enumerate(result.pages, start=1):
+            # Stop after sample_pages if in sample mode
+            if sample_only and page_num > pages_to_process:
+                break
+
             page_text = ""
             for line in page.lines:
                 page_text += line.content + "\n"
@@ -333,10 +355,11 @@ class LanguageDetector:
             all_text += page_text
 
             # Add form feed character between pages (except after last page)
-            if page_num < len(result.pages):
+            if page_num < pages_to_process:
                 all_text += "\f"  # Form feed: page boundary marker
 
-        logger.info(f"Azure extracted {len(all_text)} characters from {len(result.pages)} pages")
+        mode = f"sample ({pages_to_process} pages)" if sample_only else f"full ({len(result.pages)} pages)"
+        logger.info(f"Azure extracted {len(all_text)} characters from {mode}")
         return all_text, result
 
     def _extract_with_pymupdf(self, pdf_bytes: bytes) -> str:
