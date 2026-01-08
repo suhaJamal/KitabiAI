@@ -42,7 +42,7 @@ class TocExtractor:
         with tracer.start_as_current_span("toc_extraction") as span:
             # Detect language and extract text
             with tracer.start_as_current_span("language_detection"):
-                language, extracted_text = self.language_detector.detect(pdf_bytes)
+                language, extracted_text, _ = self.language_detector.detect(pdf_bytes)
                 span.set_attribute("language", language)
                 logger.info(f"Detected language: {language}")
             

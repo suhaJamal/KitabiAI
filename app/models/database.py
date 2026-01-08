@@ -12,6 +12,32 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
+class Author(Base):
+    """Author table - stores unique authors"""
+    __tablename__ = "authors"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(300), nullable=False, unique=True)  # Unique constraint
+    name_en = Column(String(300))  # Optional English name
+    slug = Column(String(200), nullable=False, unique=True)  # URL-friendly
+    bio = Column(Text)  # Optional biography
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationship: one author has many books
+    books = relationship("Book", back_populates="author")
+
+class Category(Base):
+    """Category table - stores book categories"""
+    __tablename__ = "categories"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)  # Unique constraint
+    slug = Column(String(100), nullable=False, unique=True)  # URL-friendly
+    description = Column(Text)  # Optional description
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationship: one category has many books
+    books = relationship("Book", back_populates="category_rel")
 
 class Book(Base):
     __tablename__ = "books"
@@ -19,25 +45,40 @@ class Book(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(500), nullable=False)
     title_ar = Column(String(500))
-    author = Column(String(300))
-    author_ar = Column(String(300))
-    author_slug = Column(String(200))  # NEW: For clean URLs
+    
+    # CHANGED: Foreign keys instead of direct author/category strings
+    author_id = Column(Integer, ForeignKey('authors.id'), nullable=False)
+    category_id = Column(Integer, ForeignKey('categories.id'))  # Optional
+    
     language = Column(String(2), nullable=False)
-    category = Column(String(100))
     description = Column(Text)
     keywords = Column(String(500))
     publication_date = Column(String(50))
     isbn = Column(String(20))
     page_count = Column(Integer)
     section_count = Column(Integer)
+
+    # Generated file URLs (populated after generation)
     html_url = Column(String(500))
     markdown_url = Column(String(500))
-    json_url = Column(String(500))
+    pages_jsonl_url = Column(String(500))      # Page-level analysis JSONL
+    sections_jsonl_url = Column(String(500))   # TOC sections JSONL
+
+    # Source file URLs (populated during/after upload)
+    pdf_url = Column(String(500))              # Original PDF in Azure Blob Storage
+    cover_image_url = Column(String(500))      # Book cover image
+
+    # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    files_generated_at = Column(DateTime)      # When HTML/Markdown/JSON files were generated
+
     view_count = Column(Integer, default=0)
     status = Column(String(20), default='published')
     
+    # Relationships
+    author = relationship("Author", back_populates="books")
+    category_rel = relationship("Category", back_populates="books")
     sections = relationship("Section", back_populates="book", cascade="all, delete-orphan")
 
 

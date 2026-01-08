@@ -14,6 +14,17 @@ from typing import Optional
 class Settings(BaseSettings):
     APP_NAME: str = "KitabiAI - Unified (English & Arabic)"
 
+    # Database
+    DATABASE_URL: str  # PostgreSQL connection string
+    
+    # Azure Blob Storage
+    AZURE_STORAGE_CONNECTION_STRING: str  # Blob storage connection
+    AZURE_STORAGE_CONTAINER_HTML: str = "books-html"
+    AZURE_STORAGE_CONTAINER_MARKDOWN: str = "books-markdown"
+    AZURE_STORAGE_CONTAINER_JSON: str = "books-json"
+    AZURE_STORAGE_CONTAINER_PDF: str = "books-pdf"
+    AZURE_STORAGE_CONTAINER_IMAGES: str = "books-images"
+
     # Azure Document Intelligence
     AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: Optional[str] = None
     AZURE_DOCUMENT_INTELLIGENCE_KEY: Optional[str] = None

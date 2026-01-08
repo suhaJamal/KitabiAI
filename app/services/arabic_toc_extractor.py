@@ -1,17 +1,16 @@
 # app/services/arabic_toc_extractor.py
 """
-Arabic-specific TOC extraction using pre-extracted text from Azure.
+Arabic-specific TOC extraction with hybrid approach (table + text-based).
 
 This module handles Table of Contents (TOC) extraction from Arabic PDF books.
-It uses text that was already extracted by Azure Document Intelligence during
-the language detection phase, avoiding redundant API calls.
+It supports multiple extraction strategies:
+1. Azure table-based extraction (when page hint provided)
+2. Text-based pattern matching at beginning of book
+3. Text-based pattern matching at end of book
+4. Fallback to single section
 
-Key Features:
-- Detects TOC at beginning OR end of book (common in Arabic publishing)
-- Uses Arabic synonyms for "Table of Contents" header detection
-- Handles separate-line format: title on one line, page number on next line
-- Filters out headers, footers, and page breaks
-- Validates page number sequences to detect body text contamination
+Copied from arabic-books-engine/extractors/arabic_toc_extractor.py
+with import path adjustments for the original project structure.
 
 Author: Suha Islaih
 Date: October 2025
@@ -19,7 +18,7 @@ Date: October 2025
 
 import re
 import logging
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from ..models.schemas import SectionInfo, SectionsReport
 
@@ -29,24 +28,22 @@ logger = logging.getLogger(__name__)
 
 class ArabicTocExtractor:
     """
-    Extract Table of Contents from Arabic text pre-extracted by Azure.
-    
-    This class handles the unique challenges of Arabic PDF books:
-    - TOC can be at the beginning OR end of the book
-    - Title and page number are typically on separate lines
-    - Arabic and Western-Arabic digits (٠-٩) need normalization
-    - Headers, footers, and page breaks need filtering
-    
-    The extraction process:
-    1. Search for TOC header using Arabic patterns
-    2. Extract text segment (generous, let parsing filter)
-    3. Parse title-page pairs
-    4. Clean entries (validate page number sequences)
-    5. Create SectionInfo objects with page ranges
+    Extract Table of Contents from Arabic PDFs using hybrid approach.
+
+    Strategies (in order):
+    1. Azure table-based extraction (if page hint provided)
+    2. Text-based search at beginning (first 33%)
+    3. Text-based search at end (last 20%)
+    4. Fallback to single section
+
+    Handles:
+    - Multi-column TOC layouts (4-column and 2-column tables)
+    - Arabic-Indic digits (٠-٩) normalization
+    - Page offset between book page numbers and PDF page numbers
+    - Separate-line format (title on one line, page number on next)
     """
-    
+
     # Arabic synonyms for "Table of Contents"
-    # These are the most common ways Arabic books title their TOC
     # Note: Keep lenient matching (e.g., "فهرس" matches "فهرسة" too)
     # False positives are filtered by validation logic in _extract_toc_segment()
     TOC_PATTERNS = [
@@ -55,49 +52,71 @@ class ArabicTocExtractor:
         r"فهرس\s+المحتويات",      # "Index of Contents"
         r"جدول\s+المحتويات",      # "Table of Contents"
         r"فهرس\s+الموضوعات",      # "Index of Topics"
-        r"جدول\s+الموضوعات"       # "Table of Topics"
+        r"جدول\s+الموضوعات",       # "Table of Topics"
+        r"^محتويات الكتاب$"       # "Table of Topics"
     ]
-    
+
     def __init__(self):
         """Initialize the Arabic TOC extractor with compiled regex patterns."""
         # Compile all TOC header patterns into a single regex for efficiency
         self.toc_regex = re.compile("|".join(self.TOC_PATTERNS))
 
-    def extract(self, extracted_text: str) -> SectionsReport:
+    def extract(
+        self,
+        extracted_text: str,
+        toc_page_number: Optional[int] = None,
+        azure_result: Optional[Any] = None,
+        page_offset: int = 0
+    ) -> SectionsReport:
         """
-        Extract TOC from pre-extracted Arabic text.
-        
-        Strategy:
-        1. Try to find TOC at beginning of book (first 33% of text)
-        2. If not found or insufficient entries, try end of book (last 20%)
-        3. If still not found, return fallback single section
-        
+        Extract TOC from pre-extracted Arabic text with hybrid approach.
+
+        Strategy (Hybrid):
+        1. If toc_page_number provided and azure_result available, try table-based extraction
+        2. Fall back to text-based search at beginning of book (first 33% of text)
+        3. If not found or insufficient entries, try end of book (last 20%)
+        4. If still not found, return fallback single section
+
         Args:
             extracted_text: Full text already extracted from PDF via Azure
-        
+            toc_page_number: Optional page number where TOC is located (user hint)
+            azure_result: Optional full Azure result object (includes tables, paragraphs)
+            page_offset: Offset to add to book page numbers to get PDF page numbers (default: 0)
+                        Example: if book page 1 is on PDF page 15, offset = 14
+
         Returns:
             SectionsReport containing list of extracted sections with page ranges
         """
-        logger.info("Starting Arabic TOC extraction from pre-extracted text")
-        
+        logger.info("Starting Arabic TOC extraction (hybrid approach)")
+
         if not extracted_text:
             logger.warning("No text provided. Returning fallback section.")
             return self._fallback_section()
-        
-        # Step 1: Try beginning of book (first third)
+
+        # Step 1: Try Azure table-based extraction (if page hint provided)
+        if toc_page_number and azure_result:
+            logger.info(f"Trying Azure table extraction on page {toc_page_number} (page offset: {page_offset})")
+            sections = self._extract_from_table(toc_page_number, azure_result, page_offset)
+            if sections:
+                logger.info(f"✅ Found valid TOC from Azure table with {len(sections)} sections")
+                return SectionsReport(bookmarks_found=True, sections=sections)
+            else:
+                logger.info("No valid table found, falling back to text-based search")
+
+        # Step 2: Try beginning of book (first third)
         toc_text = self._extract_toc_segment(
-            extracted_text[:len(extracted_text)//3], 
+            extracted_text[:len(extracted_text)//3],
             "beginning"
         )
-        
+
         if toc_text:
             entries = self._parse_toc_entries(toc_text)
             entries = self._clean_entries(entries)  # Validate page sequences
-            
+
             # Require at least 5 valid entries to accept TOC
             # This prevents false positives from copyright pages, etc.
             if len(entries) >= 5:
-                sections = self._create_sections(entries)
+                sections = self._create_sections(entries, page_offset)
                 logger.info(f"✅ Found valid TOC at beginning with {len(sections)} sections")
                 return SectionsReport(bookmarks_found=True, sections=sections)
             else:
@@ -105,255 +124,311 @@ class ArabicTocExtractor:
                     f"Found header at beginning but only {len(entries)} valid "
                     f"entries after cleaning. Trying end..."
                 )
-        
-        # Step 2: Try end of book (last 20%)
-        logger.info("Searching for TOC at end of book...")
+
+        # Step 3: Try end of book (last 20%)
         end_portion = extracted_text[int(len(extracted_text)*0.8):]
         toc_text = self._extract_toc_segment(end_portion, "end")
-        
+
         if toc_text:
             entries = self._parse_toc_entries(toc_text)
             entries = self._clean_entries(entries)
-            
+
             if len(entries) >= 5:
-                sections = self._create_sections(entries)
+                sections = self._create_sections(entries, page_offset)
                 logger.info(f"✅ Found valid TOC at end with {len(sections)} sections")
                 return SectionsReport(bookmarks_found=True, sections=sections)
-        
-        # Step 3: No valid TOC found anywhere
+
+        # Step 4: No valid TOC found anywhere
         logger.warning("No valid TOC found anywhere. Returning fallback section.")
         return self._fallback_section()
+
+    def _extract_from_table(self, page_number: int, azure_result: Any, page_offset: int = 0, max_pages: int = 20) -> Optional[List[SectionInfo]]:
+        """
+        Extract TOC from Azure-detected tables starting from specified page.
+
+        Handles multi-page TOCs by checking consecutive pages for continuation.
+        Handles multi-column TOC layouts:
+        - 4-column table: [Title1, Page1, Title2, Page2]
+        - 2-column table: [Title, Page]
+
+        Args:
+            page_number: Starting page number where TOC is located
+            azure_result: Full Azure Document Intelligence result object
+            page_offset: Offset to add to book page numbers to get PDF page numbers (default: 0)
+            max_pages: Maximum number of consecutive pages to check (default: 20)
+
+        Returns:
+            List of SectionInfo objects, or None if no valid table found
+        """
+        # Check if tables exist in Azure result
+        if not hasattr(azure_result, 'tables') or not azure_result.tables:
+            logger.info("No tables found in Azure result")
+            return None
+
+        # Find ALL tables on the specified page AND following consecutive pages
+        # This handles multi-page TOCs (e.g., TOC spanning pages 345-349)
+        page_tables = []
+        total_pages = len(azure_result.pages)
+
+        for page_offset_check in range(max_pages):
+            current_page = page_number + page_offset_check
+
+            # Stop if we exceed the document page count
+            if current_page > total_pages:
+                break
+
+            # Find tables on this page
+            tables_on_page = [
+                t for t in azure_result.tables
+                if t.bounding_regions and t.bounding_regions[0].page_number == current_page
+            ]
+
+            # If we find tables on this page, add them
+            if tables_on_page:
+                logger.info(f"Found {len(tables_on_page)} table(s) on page {current_page}")
+                page_tables.extend(tables_on_page)
+            # If this is NOT the first page and we find no tables, stop searching
+            # (TOC has ended)
+            elif page_offset_check > 0:
+                logger.info(f"No tables on page {current_page}, TOC ends at page {current_page - 1}")
+                break
+
+        if not page_tables:
+            logger.info(f"No tables found starting from page {page_number}")
+            return None
+
+        logger.info(f"Processing {len(page_tables)} table(s) across {page_offset_check + 1} page(s)")
+
+        # Collect ALL entries from ALL tables across all pages
+        all_entries = []
+
+        for table_idx, table in enumerate(page_tables):
+            table_page = table.bounding_regions[0].page_number if table.bounding_regions else "unknown"
+            logger.info(f"Analyzing table #{table_idx + 1} on page {table_page}: {table.row_count} rows × {table.column_count} columns")
+
+            # Handle 4-column table (two-column TOC layout)
+            if table.column_count == 4:
+                logger.info("Detected 4-column table (two-column TOC layout)")
+                for cell in table.cells:
+                    row = cell.row_index
+                    col = cell.column_index
+                    content = cell.content.strip()
+
+                    # Page number columns (1 and 3)
+                    if col in [1, 3]:
+                        # Get the title from previous column
+                        title_col = col - 1
+                        title_cell = next(
+                            (c for c in table.cells
+                             if c.row_index == row and c.column_index == title_col),
+                            None
+                        )
+
+                        if title_cell and content:
+                            title = title_cell.content.strip()
+                            # Normalize Arabic-Indic digits
+                            normalized_page = self._normalize_arabic_digits(content)
+
+                            # Handle "و" (and) - take only first number
+                            # Example: "٣ و ٢٥٧" -> take "3", ignore "257"
+                            if 'و' in normalized_page or ' و ' in normalized_page:
+                                normalized_page = normalized_page.split('و')[0].strip()
+
+                            if title and normalized_page.isdigit():
+                                page_num = int(normalized_page)
+                                if 1 <= page_num <= 9999:
+                                    all_entries.append({"title": title, "page": page_num})
+
+            # Handle 2-column table (single-column TOC layout)
+            elif table.column_count == 2:
+                logger.info("Detected 2-column table (single-column TOC layout)")
+                for cell in table.cells:
+                    row = cell.row_index
+                    col = cell.column_index
+                    content = cell.content.strip()
+
+                    # Page number column (1)
+                    if col == 1:
+                        title_cell = next(
+                            (c for c in table.cells
+                             if c.row_index == row and c.column_index == 0),
+                            None
+                        )
+
+                        if title_cell and content:
+                            title = title_cell.content.strip()
+                            normalized_page = self._normalize_arabic_digits(content)
+
+                            # Handle "و" (and) - take only first number
+                            # Example: "٣ و ٢٥٧" -> take "3", ignore "257"
+                            if 'و' in normalized_page or ' و ' in normalized_page:
+                                normalized_page = normalized_page.split('و')[0].strip()
+
+                            if title and normalized_page.isdigit():
+                                page_num = int(normalized_page)
+                                if 1 <= page_num <= 9999:
+                                    all_entries.append({"title": title, "page": page_num})
+
+        logger.info(f"Extracted {len(all_entries)} total entries from all tables")
+
+        # Process all entries together
+        if len(all_entries) >= 5:
+            # IMPORTANT: Sort entries by page number first!
+            # Multi-column tables will have non-sequential page numbers
+            # Also, entries from multiple pages need to be in order
+            entries_sorted = sorted(all_entries, key=lambda x: x["page"])
+            logger.info(f"Sorted {len(entries_sorted)} entries by page number (first: {entries_sorted[0]['page']}, last: {entries_sorted[-1]['page']})")
+
+            # Clean and validate entries
+            entries_clean = self._clean_entries(entries_sorted)
+            if len(entries_clean) >= 5:
+                sections = self._create_sections(entries_clean, page_offset)
+                logger.info(f"✅ Created {len(sections)} sections from multi-page TOC (with offset {page_offset})")
+                return sections
+            else:
+                logger.warning(f"Only {len(entries_clean)} entries after cleaning")
+
+        logger.info("No valid table with sufficient entries found")
+        return None
+
+    def _normalize_arabic_digits(self, text: str) -> str:
+        """
+        Normalize Arabic-Indic digits (٠-٩) to Western digits (0-9).
+
+        Args:
+            text: Text containing Arabic-Indic digits
+
+        Returns:
+            Text with normalized digits
+        """
+        arabic_to_western = str.maketrans('٠١٢٣٤٥٦٧٨٩', '0123456789')
+        return text.translate(arabic_to_western)
 
     def _extract_toc_segment(self, text_part: str, context_label: str) -> Optional[str]:
         """
         Extract TOC segment from text using generous extraction strategy.
-        
+
         Instead of trying to detect exactly where TOC ends (which is error-prone
         due to page breaks, headers, footers), we extract generously and rely
         on the parsing and validation phases to filter out noise.
-        
-        Strategy:
-        - At beginning: Take first 200 lines (covers multi-page TOCs)
-        - At end: Take everything (it's all TOC until end of book)
-        
+
         Args:
-            text_part: Portion of book text to search (beginning or end)
-            context_label: "beginning" or "end" for logging
-        
+            text_part: Text segment to search (beginning or end portion)
+            context_label: "beginning" or "end" (for logging)
+
         Returns:
-            Extracted TOC text as string, or None if TOC header not found
+            TOC text segment if found, None otherwise
         """
-        logger.info(f"Searching for TOC in {context_label} section...")
-        
-        # Search for TOC header using compiled regex
-        toc_header_match = self.toc_regex.search(text_part)
-        if not toc_header_match:
-            return None
-        
-        header_text = toc_header_match.group().strip()
-        toc_start = toc_header_match.start()
-        logger.info(f"TOC header detected: '{header_text}' in {context_label}")
+        match = self.toc_regex.search(text_part)
 
-        # Validate at BEGINNING only: detect false positives from copyright/cataloging pages
-        if context_label == "beginning":
-            # Option 1: Check if we matched "فهرسة" (cataloging) not "فهرس" (TOC)
-            if "فهرسة" in header_text:
-                logger.info("Skipping 'فهرسة' (cataloging info), not actual TOC")
+        if not match:
+            logger.info(f"No TOC header found at {context_label}")
+            return None
+
+        # Validate the header is actually a TOC header (not part of a sentence)
+        # Get surrounding context (20 chars before and after)
+        start_pos = max(0, match.start() - 20)
+        end_pos = min(len(text_part), match.end() + 20)
+        context = text_part[start_pos:end_pos]
+
+        # Check for invalidating patterns that indicate this is NOT a TOC header
+        # For example: "فهرسة" (indexing/cataloging) should be rejected if it's
+        # part of a sentence like "فهرسة الكتب" (cataloging books)
+        if "فهرسة" in match.group():
+            # "فهرسة" can mean "indexing/cataloging" (false positive)
+            # vs "فهرس" which means "table of contents"
+            # Reject if followed by non-TOC words
+            if re.search(r"فهرسة\s+(الكتب|المراجع|البيانات)", context):
+                logger.info(
+                    f"Rejected false positive at {context_label}: '{match.group()}' "
+                    f"in context '{context.strip()}'"
+                )
                 return None
 
-            # Option 2: Check for copyright/ISBN keywords near the match
-            # Extract context: 500 chars before and after the match
-            context_start = max(0, toc_start - 500)
-            context_end = min(len(text_part), toc_start + 500)
-            nearby_context = text_part[context_start:context_end]
-
-            copyright_keywords = ["ردمك", "ISBN", "الطبعة الأولى", "حقوق الطباعة"]
-            if any(keyword in nearby_context for keyword in copyright_keywords):
-                logger.info(f"Skipping TOC-like header near copyright section (found keywords: {[k for k in copyright_keywords if k in nearby_context]})")
-                return None
-
-            logger.info("Validated: This appears to be real TOC, not copyright section")
-
-        # Extract all lines after the TOC header
-        sample_after_header = text_part[toc_start:]
-        lines = [l.strip() for l in sample_after_header.split("\n") if l.strip()]
-        
-        # Skip duplicate headers (sometimes TOC header appears multiple times)
-        skip_words = ["المحتويات", "فهرس", "فهرس المحتويات", "جدول المحتويات"]
-        filtered = [l for l in lines[1:] if not any(sw in l for sw in skip_words)]
-        
-        # Apply generous extraction based on location
-        if context_label == "end":
-            # At end: take everything (it's all TOC until end of book)
-            toc_entries = filtered
-            logger.info(f"TOC at end - taking all {len(toc_entries)} lines")
-        else:
-            # At beginning: take first 200 lines (covers even long multi-page TOCs)
-            # This ensures we don't miss any TOC entries due to page breaks
-            toc_entries = filtered[:200]
-            logger.info(f"TOC at beginning - taking first {len(toc_entries)} lines (max 200)")
-        
-        if not toc_entries:
-            logger.warning("No TOC entries found")
+        # Validate: header should be on its own line or followed by newline
+        # (not in the middle of a paragraph)
+        if match.start() > 0 and text_part[match.start() - 1] not in ['\n', '\f']:
+            # Not at start of line, likely false positive
+            logger.info(f"Rejected header not at line start: '{context.strip()}'")
             return None
-        
-        toc_text = "\n".join(toc_entries)
-        logger.info(f"Extracted {len(toc_entries)} lines for parsing")
-        return toc_text
+
+        logger.info(f"✅ Found TOC header at {context_label}: '{match.group()}'")
+
+        # Extract generously: from header to end of this text segment
+        # Let parsing and validation filter out non-TOC content
+        toc_segment = text_part[match.start():]
+
+        logger.info(
+            f"Extracted TOC segment ({len(toc_segment)} chars) "
+            f"from {context_label}"
+        )
+
+        return toc_segment
 
     def _parse_toc_entries(self, toc_text: str) -> List[dict]:
         """
-        Parse TOC text into title-page pairs supporting multiple formats.
+        Parse TOC entries from text.
 
-        Arabic TOC Formats (after Azure extraction):
-        Format A (same line): "Title PageNumber" (e.g., "تمهيد السلسلة 9")
-        Format B (separate lines):
-          Line 1: Title (e.g., "الفصل الأول")
-          Line 2: Page number (e.g., "5" or "٥")
+        Handles the common Arabic TOC format where:
+        - Title is on one line
+        - Page number is on the next line (standalone)
 
-        Process:
-        1. Filter out headers/footers (but keep page numbers in TOC context)
-        2. Try Format A first (same line): split by last space to separate title from page
-        3. Fall back to Format B (separate lines): pair consecutive lines
-        4. Normalize Arabic-Indic digits (٠-٩) to Western (0-9)
-        5. Validate each entry (title must have text, page must be valid number)
-        6. Keep chapter numbers in titles (e.g., "١ - أيتها المرآة على الحائط")
+        Example:
+            الفصل الأول: المقدمة
+            ١٥
 
-        Args:
-            toc_text: Raw TOC text segment
+            الفصل الثاني: النظرية
+            ٣٢
+
+        Also handles:
+        - Arabic-Indic digits (٠-٩)
+        - Western digits (0-9)
+        - Page number ranges (e.g., "15-20" -> take first number)
 
         Returns:
             List of dicts with 'title' and 'page' keys
         """
-        lines = [l.strip() for l in toc_text.split("\n") if l.strip()]
-
-        # Log raw lines BEFORE filtering (for debugging)
-        logger.info(f"Raw lines BEFORE filtering: {len(lines)}")
-        logger.info(f"First 10 raw lines:")
-        for i, line in enumerate(lines[:10], 1):
-            logger.info(f"  RAW {i}. [{line}]")
-
-        # Filter out headers/footers but KEEP page numbers
-        # in_toc_context=True tells filter to be lenient with small numbers
-        filtered_lines = []
-        filtered_count = 0
-        for l in lines:
-            if self._is_header_footer(l, in_toc_context=True):
-                logger.info(f"FILTERED OUT: [{l}]")  # Changed to INFO to debug missing "9"
-                filtered_count += 1
-            else:
-                filtered_lines.append(l)
-
-        lines = filtered_lines
-        logger.info(f"After filtering: {len(lines)} lines (filtered out: {filtered_count})")
-
-        # Log first 30 lines for debugging purposes
-        logger.info(f"First 30 lines:")
-        for i, line in enumerate(lines[:30], 1):
-            logger.info(f"  {i}. [{line}]")
-
-        def normalize_digits(s: str) -> str:
-            """Convert Arabic-Indic digits (٠-٩) to Western digits (0-9)."""
-            return s.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789"))
-
+        lines = toc_text.split('\n')
         entries = []
         i = 0
 
-        # Process lines supporting both formats
         while i < len(lines):
-            current_line = lines[i]
+            line = lines[i].strip()
 
-            # Format A: Try same-line format first (e.g., "تمهيد السلسلة 9")
-            # Split by last space and check if last part is a page number
-            parts = current_line.rsplit(None, 1)  # Split by last whitespace
-            if len(parts) == 2:
-                potential_title, potential_page = parts
-                normalized_page = normalize_digits(potential_page)
+            # Skip empty lines
+            if not line:
+                i += 1
+                continue
 
-                # Check if last part is ONLY digits
-                if re.fullmatch(r'\d+', normalized_page):
-                    try:
-                        page_num = int(normalized_page)
-                        # Sanity check: page number should be reasonable (1-9999)
-                        if 1 <= page_num <= 9999:
-                            # Valid same-line format
-                            title = potential_title.strip()
-                            # Keep chapter numbers - don't remove them!
-                            entries.append({"title": title, "page": page_num})
-                            logger.info(f"✅ ENTRY {len(entries)} (same-line): '{title}' -> {page_num}")
-                            i += 1  # Move to next line
-                            continue
-                    except ValueError:
-                        pass
+            # Skip obvious headers/footers
+            if len(line) < 3 or self._is_header_footer(line):
+                i += 1
+                continue
 
-            # Format B: Try separate-line format (next line is page number)
-            if i < len(lines) - 1:
-                title_line = current_line
-                page_line = lines[i + 1]
+            # Check if next line is a page number
+            if i + 1 < len(lines):
+                next_line = lines[i + 1].strip()
 
-                # Keep chapter numbers - don't remove them!
-                title = title_line.strip()
+                # Normalize Arabic-Indic digits (٠-٩) to Western (0-9)
+                next_line_normalized = self._normalize_arabic_digits(next_line)
 
-                # Check if next line is ONLY a page number (no other text)
-                normalized_page_line = normalize_digits(page_line)
-                if re.fullmatch(r'\d+', normalized_page_line):
-                    # Validate: title must not be empty and not be just a number itself
-                    if title and not re.fullmatch(r'[\u0660-\u0669\d]+', title):
-                        try:
-                            page_num = int(normalized_page_line)
-                            # Sanity check: page number should be reasonable (1-9999)
-                            if 1 <= page_num <= 9999:
-                                entries.append({"title": title, "page": page_num})
-                                logger.info(f"✅ ENTRY {len(entries)} (separate-line): '{title}' -> {page_num}")
-                                i += 2  # Skip both title and page lines
-                                continue
-                        except ValueError:
-                            pass
+                # Check if next line is a page number (digits only or digit-digit range)
+                page_match = re.match(r'^(\d+)(?:-\d+)?$', next_line_normalized)
 
-            # Format C: Try batched format (multiple titles, then multiple numbers)
-            # This happens when Azure extracts "Title....53" as separate lines: "Title" then "53"
-            # Pattern: Title1, Title2, ..., Number1, Number2, ...
-            if i < len(lines) - 1:
-                # Check if current line is NOT a number (it's a title)
-                current_normalized = normalize_digits(current_line)
-                if not re.fullmatch(r'\d+', current_normalized):
-                    # Collect consecutive titles
-                    titles = []
-                    j = i
-                    while j < len(lines):
-                        line_normalized = normalize_digits(lines[j])
-                        if re.fullmatch(r'\d+', line_normalized):
-                            break  # Hit a number, stop collecting titles
-                        # Make sure it's not just a digit by itself
-                        if not re.fullmatch(r'[\u0660-\u0669\d]+', lines[j]):
-                            titles.append(lines[j].strip())
-                        j += 1
+                if page_match:
+                    # This looks like a title-page pair
+                    title = line
+                    page_num = int(page_match.group(1))  # Use first number in range
 
-                    # Collect consecutive numbers after the titles
-                    numbers = []
-                    k = j  # Start from where titles ended
-                    while k < len(lines):
-                        line_normalized = normalize_digits(lines[k])
-                        if re.fullmatch(r'\d+', line_normalized):
-                            try:
-                                page_num = int(line_normalized)
-                                if 1 <= page_num <= 9999:
-                                    numbers.append(page_num)
-                                    k += 1
-                                else:
-                                    break  # Invalid page number, stop
-                            except ValueError:
-                                break  # Not a valid number, stop
-                        else:
-                            break  # Not a number, stop
+                    # Sanity check: page number should be reasonable (1-9999)
+                    if 1 <= page_num <= 9999:
+                        entries.append({
+                            "title": title,
+                            "page": page_num
+                        })
 
-                    # If we have matching counts and at least 2 titles (batched pattern)
-                    if len(titles) >= 2 and len(titles) == len(numbers):
-                        logger.info(f"🔄 Detected batched format: {len(titles)} titles + {len(numbers)} numbers")
-                        for idx, (title, page) in enumerate(zip(titles, numbers)):
-                            entries.append({"title": title, "page": page})
-                            logger.info(f"✅ ENTRY {len(entries)} (batched): '{title}' -> {page}")
-                        i = k  # Skip all processed lines
+                        # Skip the page number line
+                        i += 2
                         continue
 
             # If no format matched, move to next line
@@ -362,197 +437,140 @@ class ArabicTocExtractor:
         logger.info(f"✅ Parsed {len(entries)} valid TOC entries")
         return entries
 
-    def _create_sections(self, entries: List[dict]) -> List[SectionInfo]:
+    def _create_sections(self, entries: List[dict], page_offset: int = 0) -> List[SectionInfo]:
         """
         Convert parsed entries into SectionInfo objects with page ranges.
-        
+
         Each section's end page is calculated as (next section's start page - 1).
         For the last section, we set a placeholder (start + 100) which will be
         corrected by the caller based on the actual PDF page count.
-        
+
         Args:
-            entries: List of dicts with 'title' and 'page' keys
-        
+            entries: List of dicts with 'title' and 'page' keys (book page numbers)
+            page_offset: Offset to add to book page numbers to get PDF page numbers (default: 0)
+
         Returns:
-            List of SectionInfo objects with hierarchical IDs and page ranges
+            List of SectionInfo objects with hierarchical IDs and page ranges (PDF page numbers)
         """
         sections = []
-        
+
         for idx, entry in enumerate(entries):
-            page_start = entry["page"]
-            
+            # Apply offset: book page -> PDF page
+            page_start = entry["page"] + page_offset
+
             # Calculate page_end: until next section starts
             if idx + 1 < len(entries):
-                page_end = entries[idx + 1]["page"] - 1
+                page_end = (entries[idx + 1]["page"] + page_offset) - 1
             else:
                 # Last section: set placeholder that caller will fix
                 page_end = page_start + 100
-            
+
             # Ensure page_end is never less than page_start
             page_end = max(page_start, page_end)
-            
+
             sections.append(
                 SectionInfo(
-                    section_id=str(idx + 1),  # Simple sequential IDs: 1, 2, 3...
+                    section_id=f"{idx + 1}",
                     title=entry["title"],
-                    level=1,  # Arabic TOCs typically don't have hierarchy
+                    level=1,
                     page_start=page_start,
                     page_end=page_end
                 )
             )
-        
+
         return sections
-    
-    def _fallback_section(self) -> SectionsReport:
+
+    def _clean_entries(self, entries: List[dict]) -> List[dict]:
         """
-        Return a single fallback section when TOC extraction fails.
-        
-        This provides a graceful degradation: instead of failing completely,
-        we return a single section spanning the entire document.
-        
-        Returns:
-            SectionsReport with one section covering the whole document
-        """
-        return SectionsReport(
-            bookmarks_found=False,
-            sections=[
-                SectionInfo(
-                    section_id="1",
-                    title="Document",
-                    level=1,
-                    page_start=1,
-                    page_end=9999  # Placeholder, will be fixed by caller
-                )
-            ]
-        )
-    
-    def _is_header_footer(self, line: str, in_toc_context: bool = False) -> bool:
-        """
-        Detect and filter out header/footer patterns.
-        
-        Context-aware filtering:
-        - In TOC context: Be lenient with numbers (they're page numbers we need!)
-        - Outside TOC: Be aggressive (filter lone numbers, page markers, etc.)
-        
-        Common patterns filtered:
-        - Timestamps: "10/20/20 9:10 AM"
-        - InDesign footers: "filename.indd 223"
-        - Copyright symbols: "©"
-        - Page markers: "صفحة 5", "page 5"
-        - ISBN/publication info
-        
+        Clean and validate TOC entries.
+
+        Removes entries that are likely contamination from body text:
+        1. Page numbers that decrease (going backwards)
+        2. Page numbers that jump too much (>500 pages)
+
+        NOTE: Duplicate page numbers are ALLOWED since multiple sections
+        can legitimately start on the same page (e.g., subsections).
+
         Args:
-            line: Text line to check
-            in_toc_context: If True, be lenient with small numbers
-        
+            entries: List of dicts with 'title' and 'page' keys
+
         Returns:
-            True if line should be filtered out, False to keep
+            Cleaned list of entries
         """
-        line = line.strip()
-        
-        # Define patterns based on context
-        if in_toc_context:
-            # In TOC: Only filter obvious non-TOC patterns
-            # KEEP small numbers (they're page numbers!)
-            patterns = [
-                r'^\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}',  # Timestamps
-                r'^[\w\s]+\.indd\s+\d+$',                      # InDesign footers
-                r'^©',                                          # Copyright
-            ]
-        else:
-            # Outside TOC: Filter aggressively
-            patterns = [
-                r'^\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}:\d{2}',  # Timestamps
-                r'^[\w\s]+\.indd\s+\d+$',                      # InDesign footers
-                r'^صفحة\s*\d+$',                               # "Page 5" in Arabic
-                r'^ص\s*[\u0660-\u0669\d]+$',                   # "ص ٥" abbreviation
-                r'^\d+\s*$',                                   # Lone page numbers
-                r'^[\u0660-\u0669]+\s*$',                      # Arabic digits alone
-                r'^page\s+\d+$',                               # "page 5" in English
-                r'^الطبعة',                                    # Edition info
-                r'^©',                                          # Copyright
-                r'^\d{4}هـ',                                   # Hijri year
-                r'^\d{4}م',                                    # Gregorian year
-                r'^ISBN',                                      # ISBN
-                r'^ردمك',                                      # ISBN in Arabic
-            ]
-        
-        # Check against all patterns
-        for pattern in patterns:
-            if re.match(pattern, line, re.IGNORECASE):
-                return True
+        if not entries:
+            return []
 
-        # Filter very short lines (likely decorative or noise)
-        # BUT: In TOC context, keep single digits (they're page numbers like "9" or "٩")
-        if len(line) < 2:
-            if in_toc_context and re.fullmatch(r'[\u0660-\u0669\d]', line):
-                # Single digit in TOC = page number, keep it!
-                return False
-            else:
-                # Other short lines = noise, filter them
-                return True
+        cleaned = []
+        last_page = 0
 
-        # Filter lines with only special characters (decorative elements)
-        if re.match(r'^[\W_]+$', line):
+        for entry in entries:
+            page = entry["page"]
+
+            # Skip if page goes backwards (but allow same page)
+            if page < last_page:
+                logger.debug(f"Skipping entry (page decreased): {entry['title']} -> {page}")
+                continue
+
+            # Skip if page jumps too much (likely body text contamination)
+            if last_page > 0 and (page - last_page) > 500:
+                logger.debug(f"Skipping entry (page jump too large): {entry['title']} -> {page}")
+                continue
+
+            # ALLOW duplicate page numbers (multiple sections can start on same page)
+            cleaned.append(entry)
+            last_page = page
+
+        logger.info(
+            f"Cleaned {len(entries)} entries -> {len(cleaned)} valid "
+            f"(removed {len(entries) - len(cleaned)} invalid)"
+        )
+
+        return cleaned
+
+    def _is_header_footer(self, line: str) -> bool:
+        """
+        Check if line is likely a header/footer.
+
+        Common patterns:
+        - Standalone page numbers (e.g., "15")
+        - Common header words (e.g., "الفصل", "الباب")
+        - Very short lines (<3 chars)
+        """
+        # Skip very short lines
+        if len(line) < 3:
+            return True
+
+        # Normalize Arabic-Indic digits
+        line_normalized = self._normalize_arabic_digits(line)
+
+        # Skip standalone page numbers
+        if re.match(r'^\d+$', line_normalized):
+            return True
+
+        # Skip common header patterns (but not TOC headers)
+        if re.match(r'^(الفصل|الباب|Chapter|Part)\s*\d+$', line):
             return True
 
         return False
-    
-    def _clean_entries(self, entries: List[dict]) -> List[dict]:
+
+    def _fallback_section(self) -> SectionsReport:
         """
-        Validate and clean TOC entries by checking page number sequences.
-        
-        Problem: When we extract generously, we sometimes capture body text
-        after the real TOC ends. Body text often has page numbers that don't
-        follow the TOC's sequential pattern.
-        
-        Detection Strategy:
-        1. Page numbers should increase monotonically (or stay same for sub-sections)
-        2. Backward jumps indicate contamination from another part of the book
-        3. Large backward jumps (e.g., 147 → 14) are definitely body text
-        4. Small numbers after large ones (e.g., 147 → 15) suggest page reset
-        
-        Args:
-            entries: List of parsed TOC entries
-        
-        Returns:
-            Cleaned list with invalid entries removed
+        Create a fallback section when TOC extraction fails.
+
+        Returns a single section covering the entire book.
+        The caller should fix the page_end based on actual PDF page count.
         """
-        if not entries:
-            return entries
-        
-        clean = []
-        prev_page = 0
-        
-        for entry in entries:
-            current_page = entry["page"]
-            
-            # Check 1: Page numbers must not go backward
-            if current_page < prev_page:
-                logger.warning(
-                    f"Page went backward: {prev_page} -> {current_page}. "
-                    f"Stopping TOC extraction."
-                )
-                break
-            
-            # Check 2: Detect large backward jumps (body text contamination)
-            if prev_page > 0 and current_page < prev_page - 5:
-                logger.warning(
-                    f"Large backward jump: {prev_page} -> {current_page}. Stopping."
-                )
-                break
-            
-            # Check 3: Detect suspicious resets (large page → small page)
-            # Example: TOC ends at page 147, then body text has page 14
-            if prev_page > 100 and current_page < 50:
-                logger.warning(
-                    f"Suspicious reset: {prev_page} -> {current_page}. Stopping."
-                )
-                break
-            
-            # Entry passed all checks
-            clean.append(entry)
-            prev_page = current_page
-        
-        logger.info(f"Cleaned: {len(entries)} -> {len(clean)} entries")
-        return clean
+        logger.warning("Creating fallback section (entire book)")
+
+        fallback = SectionInfo(
+            section_id="1",
+            title="Full Book",
+            level=1,
+            page_start=1,
+            page_end=9999  # Placeholder, caller will fix
+        )
+
+        return SectionsReport(
+            bookmarks_found=False,
+            sections=[fallback]
+        )

@@ -532,6 +532,89 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Function to generate and save all files
+function generateAndSaveAll() {
+    const button = event.target;
+    const statusDiv = document.getElementById('save-status');
+
+    // Disable button and show loading
+    button.disabled = true;
+    button.classList.add('loading');
+    button.innerHTML = '<span class="spinner"></span>Generating & Saving Files...';
+    statusDiv.innerHTML = '<span style="color: var(--muted);">⏳ Please wait, this may take 10-30 seconds...</span>';
+
+    // Call the /generate/both endpoint
+    fetch('/generate/both', {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Generation failed');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Success! Show results
+        button.classList.remove('loading');
+        button.innerHTML = '✅ Success! Files Generated & Saved';
+        button.style.background = '#16a34a';
+
+        // Display success message with file details
+        const fileList = data.files.map(f => {
+            const sizeKB = (f.size_bytes / 1024).toFixed(1);
+            return `<li><strong>${f.format}</strong>: ${f.filename} (${sizeKB} KB)</li>`;
+        }).join('');
+
+        statusDiv.innerHTML = `
+            <div style="padding: 12px; background: #f0fdf4; border: 1px solid #4ade80; border-radius: 8px; text-align: left; margin-top: 12px;">
+                <p style="margin: 0 0 8px; color: #166534; font-weight: 600;">✅ Success! All files saved to database</p>
+                <p style="margin: 0 0 8px; font-size: 12px; color: #166534;">
+                    <strong>Book ID:</strong> ${data.book_id} |
+                    <strong>Sections:</strong> ${data.sections_count}
+                </p>
+                <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 12px; color: #166534;">
+                    ${fileList}
+                </ul>
+                <p style="margin: 8px 0 0; font-size: 11px; color: #166534;">
+                    📁 Files saved to: <code>outputs/books/${data.book_id}/</code>
+                </p>
+            </div>
+        `;
+
+        // Re-enable button after 5 seconds
+        setTimeout(() => {
+            button.disabled = false;
+            button.innerHTML = '💾 Generate All Files & Save to Database';
+            button.style.background = '#16a34a';
+        }, 5000);
+    })
+    .catch(error => {
+        // Error handling
+        button.classList.remove('loading');
+        button.disabled = false;
+        button.innerHTML = '❌ Generation Failed - Try Again';
+        button.style.background = '#dc2626';
+
+        statusDiv.innerHTML = `
+            <div style="padding: 12px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; text-align: left;">
+                <p style="margin: 0; color: #dc2626; font-weight: 600;">❌ Error: ${error.message}</p>
+                <p style="margin: 8px 0 0; font-size: 12px; color: #dc2626;">
+                    Make sure you uploaded a PDF first, then try again.
+                </p>
+            </div>
+        `;
+
+        // Reset button after 5 seconds
+        setTimeout(() => {
+            button.innerHTML = '💾 Generate All Files & Save to Database';
+            button.style.background = '#16a34a';
+        }, 5000);
+    });
+}
 </script>
 """
 
@@ -601,6 +684,17 @@ def render_home() -> str:
           📄 Select PDF File <span class="required">*</span>
         </label>
         <input name="file" type="file" accept=".pdf" required />
+      </div>
+
+      <!-- Cover Image Upload Section (Optional) -->
+      <div class="form-section">
+        <label>
+          🖼️ Book Cover Image (Optional)
+        </label>
+        <input name="cover_image" type="file" accept="image/*" />
+        <p style="font-size: 12px; color: var(--muted); margin: 6px 0 0;">
+          Upload a cover image (JPG, PNG, etc.). If not provided, you can add it later.
+        </p>
       </div>
 
       <!-- Book Metadata Section -->
@@ -691,6 +785,33 @@ def render_home() -> str:
         </div>
       </div>
 
+      <!-- TOC Extraction Parameters (Advanced) -->
+      <div class="form-section metadata-section">
+        <h3>⚙️ Advanced TOC Extraction (Optional)</h3>
+
+        <div class="info-box" style="margin-top: 0; margin-bottom: 16px; background: #f0f9ff;">
+          <strong>💡 When to use these options:</strong><br>
+          • <strong>TOC Page Number</strong>: If the Table of Contents is in a specific location (enables table-based extraction)<br>
+          • <strong>Page Offset</strong>: If the book's page 1 doesn't match PDF page 1 (e.g., if book page 1 is on PDF page 15, use offset 14)
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>TOC Page Number</label>
+            <input type="number" name="toc_page" placeholder="e.g., 345 (optional)" min="1" />
+            <div class="help-text">Page number where the Table of Contents is located (enables Azure table-based extraction)</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>Page Offset</label>
+            <input type="number" name="page_offset" placeholder="e.g., 14 (optional)" min="0" value="0" />
+            <div class="help-text">Offset between book page numbers and PDF page numbers (default: 0)</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Submit Button -->
       <button type="submit">🚀 Upload & Analyze</button>
     </form>
@@ -758,28 +879,40 @@ def render_report(filename: str, report: AnalysisReport, language: str = "unknow
       <h3>🎨 Generate Book Formats</h3>
       <p style="color: var(--muted); margin: 0 0 20px;">Transform your PDF into beautiful, readable formats</p>
 
-      <!-- PRIMARY: Web Page Generation -->
-      <form action="/generate/html" method="post" style="margin: 0;">
-        <button type="submit" class="gen-button-primary">
-          🌐 Generate Web Page
-        </button>
-      </form>
-      <p style="font-size: 13px; color: var(--muted); margin: 8px 0 0; text-align: center;">
-        Creates an SEO-friendly HTML version for web publishing
-      </p>
-
-      <!-- SECONDARY: Markdown (Advanced) -->
-      <div class="divider-section">
-        <h4 style="font-size: 14px; color: var(--muted); margin: 0 0 12px; font-weight: 600;">
-          Advanced: Developer Format
+      <!-- NEW PRIMARY: Generate & Save All Files -->
+      <div style="padding: 16px; background: #f0fdf4; border: 2px solid #4ade80; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="font-size: 15px; color: #166534; margin: 0 0 8px; font-weight: 700;">
+          ✨ Recommended: Generate & Save All Files
         </h4>
-        <form action="/generate/markdown" method="post" style="margin: 0;">
+        <p style="font-size: 13px; color: #166534; margin: 0 0 12px;">
+          Generates HTML, Markdown, and data exports • Saves to database • Ready for deployment
+        </p>
+        <button type="button" onclick="generateAndSaveAll()" class="gen-button-primary" style="background: #16a34a; width: 100%;">
+          💾 Generate All Files & Save to Database
+        </button>
+        <div id="save-status" style="margin-top: 12px; font-size: 13px; text-align: center;"></div>
+      </div>
+
+      <!-- Quick Preview Options -->
+      <div style="padding: 16px; background: #fef9f3; border: 1px solid var(--border); border-radius: 12px;">
+        <h4 style="font-size: 14px; color: var(--muted); margin: 0 0 12px; font-weight: 600;">
+          Quick Preview (Browser Only - Not Saved)
+        </h4>
+
+        <form action="/generate/html" method="post" style="margin: 0 0 12px;">
           <button type="submit" class="gen-button-secondary">
-            📝 Generate Markdown
+            🌐 Preview Web Page
           </button>
         </form>
-        <p style="font-size: 12px; color: var(--muted); margin: 8px 0 0;">
-          For developers and content editors - includes YAML frontmatter & structured TOC
+
+        <form action="/generate/markdown" method="post" style="margin: 0;">
+          <button type="submit" class="gen-button-secondary">
+            📝 Download Markdown
+          </button>
+        </form>
+
+        <p style="font-size: 12px; color: var(--warning); margin: 12px 0 0; text-align: center;">
+          ⚠️ These options do NOT save to database
         </p>
       </div>
     </div>
