@@ -42,13 +42,6 @@ from .upload import (
 )
 
 
-def _ensure_output_dir():
-    """Ensure output directory exists."""
-    output_dir = "/mnt/user-data/outputs"
-    os.makedirs(output_dir, exist_ok=True)
-    return output_dir
-
-
 def _check_state():
     """Check if we have required state from upload."""
     from .upload import _last_report, _last_book_metadata, _last_sections_report, _last_book_id
@@ -173,7 +166,7 @@ async def generate_markdown(
 ):
     """
     Generate Markdown file from uploaded PDF and trigger download.
-    
+
     Query params:
         include_toc: Include table of contents
         include_metadata: Include YAML frontmatter
@@ -198,15 +191,11 @@ async def generate_markdown(
         include_toc=include_toc,
         include_metadata=include_metadata
     )
-    
-    # Save to output directory
-    output_dir = _ensure_output_dir()
+
+    # Return file for download (no local save needed - Phase 3 uses Azure Blob Storage)
     base_name = _last_filename.rsplit(".", 1)[0]
     output_filename = f"{base_name}.md"
-    output_path = os.path.join(output_dir, output_filename)
-    
-    md_generator.save_to_file(markdown_content, output_path)
-    
+
     # Return file for download
     from fastapi.responses import Response
     return Response(
@@ -224,7 +213,7 @@ async def generate_html(
 ):
     """
     Generate HTML file from uploaded PDF and display in browser.
-    
+
     Query params:
         include_toc: Include navigation sidebar with table of contents
     """
@@ -247,16 +236,8 @@ async def generate_html(
         language=_last_language,
         include_toc=include_toc
     )
-    
-    # Save to output directory
-    output_dir = _ensure_output_dir()
-    base_name = _last_filename.rsplit(".", 1)[0]
-    output_filename = f"{base_name}.html"
-    output_path = os.path.join(output_dir, output_filename)
-    
-    html_generator.save_to_file(html_content, output_path)
-    
-    # Return HTML directly - will open in same tab
+
+    # Return HTML directly - will open in same tab (no local save needed - Phase 3 uses Azure Blob Storage)
     return HTMLResponse(content=html_content)
 
 
