@@ -69,6 +69,12 @@ class OCRDetector:
 
                 # Extract text
                 text = page.get_text("text").strip()
+                
+                # Check if text is gibberish
+                if self._is_gibberish(text):
+                    # Treat gibberish as no text
+                    continue
+                
                 total_chars += len(text)
                 total_words += len(text.split())
 
@@ -117,6 +123,47 @@ class OCRDetector:
             logger.error(f"OCR detection failed: {e}")
             # Default to not scanned if detection fails
             return False, {"error": str(e)}
+
+    def _is_gibberish(self, text: str) -> bool:
+        """
+        Detect if extracted text is gibberish/corrupted.
+        
+        Signs of gibberish:
+        - Very high ratio of non-alphabetic characters
+        - Very short average word length
+        - Low ratio of actual words vs special chars
+        """
+        if not text or len(text) < 20:
+            return False
+        
+        # Count character types
+        alpha_count = sum(c.isalpha() for c in text)
+        digit_count = sum(c.isdigit() for c in text)
+        space_count = sum(c.isspace() for c in text)
+        total_chars = len(text)
+        
+        # Calculate ratios
+        alpha_ratio = alpha_count / total_chars if total_chars > 0 else 0
+        
+        # Split into words
+        words = text.split()
+        if not words:
+            return True
+        
+        # Average word length
+        avg_word_len = sum(len(w) for w in words) / len(words)
+        
+        # Gibberish indicators:
+        # 1. Very low alphabetic ratio (< 30%)
+        # 2. Very short average word length (< 2 chars)
+        # 3. OR very long average word length (> 20 chars - no spaces)
+        is_gibberish = (
+            alpha_ratio < 0.5 or          # Increase to 50% (was 30%)
+            avg_word_len < 3 or            # Increase to 3 chars (was 2)
+            avg_word_len > 15              # Decrease to 15 chars (was 20)
+        )
+        
+        return is_gibberish
 
     def needs_azure_ocr(self, pdf_bytes: bytes) -> bool:
         """
