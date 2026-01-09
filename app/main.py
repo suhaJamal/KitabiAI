@@ -29,6 +29,22 @@ app = FastAPI(title=settings.APP_NAME)
 app.include_router(upload_router)
 app.include_router(generation_router)  # ADD THIS
 
+
+# Version endpoint to verify deployment
+@app.get("/version")
+async def get_version():
+    """Return app version to verify deployment"""
+    return {
+        "version": "2.0.0-gibberish-fix",
+        "features": [
+            "skip_first_3_pages",
+            "gibberish_detection",
+            "ocr_sampling_10_pages",
+            "unexpected_language_fallback"
+        ],
+        "deployed_at": "2026-01-08"
+    }
+
 # Health check endpoint for Docker
 @app.get("/health")
 async def health_check():
