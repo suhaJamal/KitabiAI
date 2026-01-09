@@ -296,86 +296,115 @@ async def generate_both(
 
     Returns URLs for all generated files.
     """
-    _check_state()
+    import logging
+    logger = logging.getLogger(__name__)
 
-    from .upload import (
-        _last_report, _last_filename,
-        _last_language, _last_book_metadata, _last_sections_report,
-        _last_book_id
-    )
+    try:
+        _check_state()
 
-    # Use cached TOC sections (already extracted during upload)
-    sections_report = _last_sections_report
-    base_name = _last_filename.rsplit(".", 1)[0]
+        from .upload import (
+            _last_report, _last_filename,
+            _last_language, _last_book_metadata, _last_sections_report,
+            _last_book_id
+        )
 
-    # Generate Markdown
-    markdown_content = md_generator.generate(
-        metadata=_last_book_metadata,
-        sections=sections_report.sections,
-        pages=_last_report.pages,
-        language=_last_language,
-        include_toc=include_toc,
-        include_metadata=include_metadata
-    )
+        logger.info(f"Starting generation for book_id={_last_book_id}, filename={_last_filename}")
 
-    # Generate HTML
-    html_content = html_generator.generate(
-        metadata=_last_book_metadata,
-        sections=sections_report.sections,
-        pages=_last_report.pages,
-        language=_last_language,
-        include_toc=include_toc
-    )
+        # Use cached TOC sections (already extracted during upload)
+        sections_report = _last_sections_report
+        base_name = _last_filename.rsplit(".", 1)[0]
 
-    # Generate JSONL files
-    pages_jsonl_content = _generate_pages_jsonl()
-    sections_jsonl_content = _generate_sections_jsonl()
+        # Generate Markdown
+        logger.info("Generating Markdown...")
+        markdown_content = md_generator.generate(
+            metadata=_last_book_metadata,
+            sections=sections_report.sections,
+            pages=_last_report.pages,
+            language=_last_language,
+            include_toc=include_toc,
+            include_metadata=include_metadata
+        )
+        logger.info(f"Markdown generated: {len(markdown_content)} chars")
 
-    # Save all files to Azure Blob Storage and get URLs
-    html_url = azure_storage.save_html(_last_book_id, html_content, f"{base_name}.html")
-    markdown_url = azure_storage.save_markdown(_last_book_id, markdown_content, f"{base_name}.md")
-    pages_jsonl_url = azure_storage.save_pages_jsonl(_last_book_id, pages_jsonl_content, f"{base_name}_pages.jsonl")
-    sections_jsonl_url = azure_storage.save_sections_jsonl(_last_book_id, sections_jsonl_content, f"{base_name}_sections.jsonl")
+        # Generate HTML
+        logger.info("Generating HTML...")
+        html_content = html_generator.generate(
+            metadata=_last_book_metadata,
+            sections=sections_report.sections,
+            pages=_last_report.pages,
+            language=_last_language,
+            include_toc=include_toc
+        )
+        logger.info(f"HTML generated: {len(html_content)} chars")
 
-    # Update database with URLs and timestamp
-    _update_book_urls(
-        book_id=_last_book_id,
-        html_url=html_url,
-        markdown_url=markdown_url,
-        pages_jsonl_url=pages_jsonl_url,
-        sections_jsonl_url=sections_jsonl_url
-    )
+        # Generate JSONL files
+        logger.info("Generating JSONL files...")
+        pages_jsonl_content = _generate_pages_jsonl()
+        sections_jsonl_content = _generate_sections_jsonl()
+        logger.info(f"JSONL generated: pages={len(pages_jsonl_content)} chars, sections={len(sections_jsonl_content)} chars")
 
-    return JSONResponse({
-        "ok": True,
-        "message": "Generated all files and saved to Azure Blob Storage",
-        "book_id": _last_book_id,
-        "files": [
-            {
-                "format": "html",
-                "filename": f"{base_name}.html",
-                "size_bytes": len(html_content.encode('utf-8')),
-                "url": html_url
-            },
-            {
-                "format": "markdown",
-                "filename": f"{base_name}.md",
-                "size_bytes": len(markdown_content.encode('utf-8')),
-                "url": markdown_url
-            },
-            {
-                "format": "pages_jsonl",
-                "filename": f"{base_name}_pages.jsonl",
-                "size_bytes": len(pages_jsonl_content.encode('utf-8')),
-                "url": pages_jsonl_url
-            },
-            {
-                "format": "sections_jsonl",
-                "filename": f"{base_name}_sections.jsonl",
-                "size_bytes": len(sections_jsonl_content.encode('utf-8')),
-                "url": sections_jsonl_url
-            }
-        ],
-        "sections_count": len(sections_report.sections),
-        "files_generated_at": datetime.utcnow().isoformat()
-    })
+        # Save all files to Azure Blob Storage and get URLs
+        logger.info("Uploading to Azure Blob Storage...")
+        html_url = azure_storage.save_html(_last_book_id, html_content, f"{base_name}.html")
+        logger.info(f"HTML uploaded: {html_url}")
+
+        markdown_url = azure_storage.save_markdown(_last_book_id, markdown_content, f"{base_name}.md")
+        logger.info(f"Markdown uploaded: {markdown_url}")
+
+        pages_jsonl_url = azure_storage.save_pages_jsonl(_last_book_id, pages_jsonl_content, f"{base_name}_pages.jsonl")
+        logger.info(f"Pages JSONL uploaded: {pages_jsonl_url}")
+
+        sections_jsonl_url = azure_storage.save_sections_jsonl(_last_book_id, sections_jsonl_content, f"{base_name}_sections.jsonl")
+        logger.info(f"Sections JSONL uploaded: {sections_jsonl_url}")
+
+        # Update database with URLs and timestamp
+        logger.info("Updating database...")
+        _update_book_urls(
+            book_id=_last_book_id,
+            html_url=html_url,
+            markdown_url=markdown_url,
+            pages_jsonl_url=pages_jsonl_url,
+            sections_jsonl_url=sections_jsonl_url
+        )
+        logger.info("Database updated successfully")
+
+        return JSONResponse({
+            "ok": True,
+            "message": "Generated all files and saved to Azure Blob Storage",
+            "book_id": _last_book_id,
+            "files": [
+                {
+                    "format": "html",
+                    "filename": f"{base_name}.html",
+                    "size_bytes": len(html_content.encode('utf-8')),
+                    "url": html_url
+                },
+                {
+                    "format": "markdown",
+                    "filename": f"{base_name}.md",
+                    "size_bytes": len(markdown_content.encode('utf-8')),
+                    "url": markdown_url
+                },
+                {
+                    "format": "pages_jsonl",
+                    "filename": f"{base_name}_pages.jsonl",
+                    "size_bytes": len(pages_jsonl_content.encode('utf-8')),
+                    "url": pages_jsonl_url
+                },
+                {
+                    "format": "sections_jsonl",
+                    "filename": f"{base_name}_sections.jsonl",
+                    "size_bytes": len(sections_jsonl_content.encode('utf-8')),
+                    "url": sections_jsonl_url
+                }
+            ],
+            "sections_count": len(sections_report.sections),
+            "files_generated_at": datetime.utcnow().isoformat()
+        })
+
+    except Exception as e:
+        logger.error(f"Generation failed: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate files: {str(e)}"
+        )
