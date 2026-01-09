@@ -7,6 +7,7 @@ PDF analysis service (business logic).
 - Supports pre-extracted text from Azure for Arabic PDFs to maintain quality.
 """
 
+
 import fitz  # PyMuPDF
 from typing import Optional
 from fastapi import HTTPException

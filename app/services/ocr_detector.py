@@ -7,6 +7,7 @@ because PyMuPDF extracts no text from image-only PDFs.
 EXACT COPY from arabic-books-engine/detectors/ocr_detector.py
 """
 
+
 import logging
 import fitz  # PyMuPDF
 

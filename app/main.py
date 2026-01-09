@@ -7,6 +7,7 @@ Entry point for the FastAPI app.
 - Registers the upload router (HTTP routes for home and /upload).
 """
 
+
 from fastapi import FastAPI
 from .core.config import settings
 from .core.logging import setup_logging

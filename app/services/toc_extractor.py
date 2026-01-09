@@ -12,6 +12,7 @@ Extraction strategy:
 4) Fallback: Single 'Document' section spanning all pages
 """
 
+
 import logging
 from typing import List, Tuple, Optional
 import fitz

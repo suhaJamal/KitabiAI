@@ -28,6 +28,7 @@ from ..core.config import settings
 from .ocr_detector import OCRDetector
 
 
+
 logger = logging.getLogger(__name__)
 
 

@@ -109,6 +109,7 @@ class ArabicTocExtractor:
             "beginning"
         )
 
+
         if toc_text:
             entries = self._parse_toc_entries(toc_text)
             entries = self._clean_entries(entries)  # Validate page sequences
