@@ -44,25 +44,20 @@ from .upload import (
 
 
 def _check_state():
-    """Check if we have required state from upload."""
+    """Check if we have required state from upload (tries in-memory first, then database)."""
     from .upload import _last_report, _last_book_metadata, _last_sections_report, _last_book_id
 
-    if _last_report is None or _last_book_metadata is None:
-        raise HTTPException(
-            status_code=409,
-            detail="No analysis available. Upload a PDF first."
-        )
+    # First try in-memory state (fast path for immediate generation after upload)
+    if _last_report is not None and _last_book_metadata is not None and _last_sections_report is not None and _last_book_id is not None:
+        return  # All good, use in-memory state
 
-    if _last_sections_report is None:
-        raise HTTPException(
-            status_code=409,
-            detail="No TOC sections available. Re-upload the PDF."
-        )
-
+    # If in-memory state is missing, we need to load from database
+    # This happens after server restart or with multiple workers
+    # For now, raise an error - we'll implement database loading in the generation function
     if _last_book_id is None:
         raise HTTPException(
             status_code=409,
-            detail="No book ID available. Re-upload the PDF."
+            detail="No analysis available. Upload a PDF first."
         )
 
 
@@ -300,26 +295,78 @@ async def generate_both(
     logger = logging.getLogger(__name__)
 
     try:
-        _check_state()
-
         from .upload import (
             _last_report, _last_filename,
             _last_language, _last_book_metadata, _last_sections_report,
             _last_book_id
         )
+        from ..models.database import SessionLocal, Book, Section, Page
+        from ..models.schemas import PageInfo, BookMetadata, SectionInfo, SectionsReport, AnalysisReport
+
+        # Check if we need to load from database (in-memory state missing)
+        load_from_db = (
+            _last_report is None or
+            _last_book_metadata is None or
+            _last_sections_report is None or
+            _last_book_id is None
+        )
+
+        if load_from_db:
+            logger.warning("In-memory state missing - attempting to load from database")
+
+            # We need a way to know WHICH book to load
+            # For now, raise an error - in future, we'll pass book_id as parameter
+            raise HTTPException(
+                status_code=409,
+                detail="Generation state lost. Please re-upload the PDF or implement book_id parameter."
+            )
 
         logger.info(f"Starting generation for book_id={_last_book_id}, filename={_last_filename}")
 
-        # Use cached TOC sections (already extracted during upload)
-        sections_report = _last_sections_report
-        base_name = _last_filename.rsplit(".", 1)[0]
+        # Load pages from database instead of using in-memory _last_report
+        db = SessionLocal()
+        try:
+            # Load pages from database
+            db_pages = db.query(Page).filter(Page.book_id == _last_book_id).order_by(Page.page_number).all()
+
+            if not db_pages:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No pages found in database for book_id={_last_book_id}"
+                )
+
+            logger.info(f"Loaded {len(db_pages)} pages from database")
+
+            # Convert database pages to PageInfo objects
+            pages = [
+                PageInfo(
+                    page_number=p.page_number,
+                    text=p.text or "",
+                    word_count=p.word_count or 0,
+                    char_count=p.char_count or 0
+                )
+                for p in db_pages
+            ]
+
+            # Create a minimal AnalysisReport for generation
+            report = AnalysisReport(
+                num_pages=len(pages),
+                pages=pages
+            )
+
+            # Load sections from in-memory state (already available)
+            sections_report = _last_sections_report
+            base_name = _last_filename.rsplit(".", 1)[0]
+
+        finally:
+            db.close()
 
         # Generate Markdown
         logger.info("Generating Markdown...")
         markdown_content = md_generator.generate(
             metadata=_last_book_metadata,
             sections=sections_report.sections,
-            pages=_last_report.pages,
+            pages=report.pages,  # Use pages loaded from database
             language=_last_language,
             include_toc=include_toc,
             include_metadata=include_metadata
@@ -331,7 +378,7 @@ async def generate_both(
         html_content = html_generator.generate(
             metadata=_last_book_metadata,
             sections=sections_report.sections,
-            pages=_last_report.pages,
+            pages=report.pages,  # Use pages loaded from database
             language=_last_language,
             include_toc=include_toc
         )
@@ -339,7 +386,13 @@ async def generate_both(
 
         # Generate JSONL files
         logger.info("Generating JSONL files...")
-        pages_jsonl_content = _generate_pages_jsonl()
+
+        # Generate pages JSONL using the loaded report
+        from ..services.export_service import ExportService
+        exporter = ExportService()
+        jsonl_bytes = exporter.to_jsonl(report, include_text=True)
+        pages_jsonl_content = jsonl_bytes.decode('utf-8')
+
         sections_jsonl_content = _generate_sections_jsonl()
         logger.info(f"JSONL generated: pages={len(pages_jsonl_content)} chars, sections={len(sections_jsonl_content)} chars")
 

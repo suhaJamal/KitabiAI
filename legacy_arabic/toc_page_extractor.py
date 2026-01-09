@@ -19,7 +19,7 @@ from typing import List, Optional, Tuple
 import re
 import fitz  # PyMuPDF
 from fastapi import HTTPException
-from ..models.schemas import SectionInfo, SectionsReport
+from .models.schemas import SectionInfo, SectionsReport
 from .arabic_normalizer import normalize_text, has_arabic
 
 # ---------- Config (tweak as needed) ----------

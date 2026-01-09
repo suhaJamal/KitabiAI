@@ -85,7 +85,7 @@ class Book(Base):
 
 class Section(Base):
     __tablename__ = "sections"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     book_id = Column(Integer, ForeignKey('books.id'), nullable=False)
     title = Column(String(500))
@@ -94,8 +94,25 @@ class Section(Base):
     page_end = Column(Integer)
     content = Column(Text)
     order_index = Column(Integer)
-    
+
     book = relationship("Book", back_populates="sections")
+
+
+class Page(Base):
+    """Page table - stores extracted text content for each page"""
+    __tablename__ = "pages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    book_id = Column(Integer, ForeignKey('books.id'), nullable=False)
+    page_number = Column(Integer, nullable=False)  # 1-indexed page number
+    text = Column(Text)  # Extracted text content
+    word_count = Column(Integer)  # Number of words on this page
+    char_count = Column(Integer)  # Number of characters
+    has_images = Column(Integer, default=0)  # Number of images on page
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationship
+    book = relationship("Book", backref="pages")
 
 
 def init_db():

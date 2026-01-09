@@ -272,8 +272,30 @@ async def upload(
             )
             db.add(new_section)
 
-        db.commit()
         logger.info(f"Saved {len(sections_report.sections)} new sections to database")
+
+        # 5. Save extracted page content to database
+        from ..models.database import Page
+
+        # Delete old pages if updating existing book
+        if existing_book:
+            deleted_pages = db.query(Page).filter(Page.book_id == book_id).delete()
+            logger.info(f"Deleted {deleted_pages} old pages for book ID: {book_id}")
+
+        # Save all pages
+        for page in report.pages:
+            new_page = Page(
+                book_id=book_id,
+                page_number=page.page_number,
+                text=page.text,
+                word_count=page.word_count,
+                char_count=len(page.text) if page.text else 0,
+                has_images=page.image_count if hasattr(page, 'image_count') else 0
+            )
+            db.add(new_page)
+
+        db.commit()
+        logger.info(f"Saved {len(report.pages)} pages to database")
 
         # Store book ID for later use
         _last_book_id = book_id
