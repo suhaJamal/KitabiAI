@@ -340,10 +340,10 @@ async def generate_both(
             # Convert database pages to PageInfo objects
             pages = [
                 PageInfo(
-                    page_number=p.page_number,
+                    page=p.page_number,  # PageInfo uses 'page', not 'page_number'
                     text=p.text or "",
-                    word_count=p.word_count or 0,
-                    char_count=p.char_count or 0
+                    has_text=bool(p.text and len(p.text.strip()) > 0),
+                    image_count=p.has_images or 0
                 )
                 for p in db_pages
             ]
@@ -351,7 +351,8 @@ async def generate_both(
             # Create a minimal AnalysisReport for generation
             report = AnalysisReport(
                 num_pages=len(pages),
-                pages=pages
+                pages=pages,
+                classification="mixed"  # Default classification
             )
 
             # Load sections from in-memory state (already available)

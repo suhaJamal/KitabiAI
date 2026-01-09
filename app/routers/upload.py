@@ -284,12 +284,15 @@ async def upload(
 
         # Save all pages
         for page in report.pages:
+            page_text = page.text or ""
+            word_count = len(page_text.split()) if page_text else 0
+
             new_page = Page(
                 book_id=book_id,
-                page_number=page.page_number,
-                text=page.text,
-                word_count=page.word_count,
-                char_count=len(page.text) if page.text else 0,
+                page_number=page.page,  # PageInfo uses 'page', not 'page_number'
+                text=page_text,
+                word_count=word_count,
+                char_count=len(page_text),
                 has_images=page.image_count if hasattr(page, 'image_count') else 0
             )
             db.add(new_page)
