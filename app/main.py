@@ -9,11 +9,14 @@ Entry point for the FastAPI app.
 
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from pathlib import Path
 from .core.config import settings
 from .core.logging import setup_logging
 from .core.tracing import setup_tracing
 from .routers.upload import router as upload_router
-from .routers.generation import router as generation_router  # ADD THIS
+from .routers.generation import router as generation_router
+from .routers.library import router as library_router
 
 # Setup logging
 logger = setup_logging()
@@ -27,7 +30,8 @@ app = FastAPI(title=settings.APP_NAME)
 
 # Include routers
 app.include_router(upload_router)
-app.include_router(generation_router)  # ADD THIS
+app.include_router(generation_router)
+app.include_router(library_router)
 
 
 # Version endpoint to verify deployment
@@ -50,6 +54,13 @@ async def get_version():
 async def health_check():
     """Health check endpoint for Docker."""
     return {"status": "healthy", "service": "kitabiai"}
+
+# Library homepage (index.html)
+@app.get("/library")
+async def library_home():
+    """Serve the library homepage."""
+    index_path = Path(__file__).parent / "index.html"
+    return FileResponse(index_path)
 
 @app.on_event("startup")
 async def startup_event():
