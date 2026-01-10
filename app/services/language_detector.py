@@ -291,15 +291,27 @@ class LanguageDetector:
         logger.info("Using legacy Azure-based detection strategy")
 
         # Try Azure first (better for Arabic)
-        # Use sample mode for language detection (only 10 pages, much faster!)
+        # Phase 1: Sample 10 pages for language detection (cost-efficient)
         if settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and settings.AZURE_DOCUMENT_INTELLIGENCE_KEY:
             try:
-                text, azure_result = self._extract_with_azure(pdf_bytes, sample_only=True, sample_pages=10)
-                if text:
-                    arabic_ratio = self.get_arabic_ratio(text)
+                sample_text, _ = self._extract_with_azure(pdf_bytes, sample_only=True, sample_pages=10)
+                if sample_text:
+                    arabic_ratio = self.get_arabic_ratio(sample_text)
                     language = "arabic" if arabic_ratio > self.arabic_threshold else "english"
                     logger.info(f"Language detected via Azure (sample): {language} (Arabic ratio: {arabic_ratio:.2%})")
-                    return language, text, azure_result
+
+                    # Phase 2: Extract ALL pages for the detected language
+                    if language == "arabic":
+                        # Use Azure for full Arabic extraction
+                        logger.info("Detected Arabic - extracting all pages with Azure...")
+                        full_text, azure_result = self._extract_with_azure(pdf_bytes, sample_only=False)
+                        logger.info(f"Full extraction complete: {len(full_text)} characters")
+                        return language, full_text, azure_result
+                    else:
+                        # Use PyMuPDF for English (fast & free)
+                        logger.info("Detected English - extracting all pages with PyMuPDF...")
+                        full_text = self._extract_full_with_pymupdf(pdf_bytes)
+                        return language, full_text, None
             except Exception as e:
                 logger.warning(f"Azure extraction failed, falling back to PyMuPDF: {e}")
 
