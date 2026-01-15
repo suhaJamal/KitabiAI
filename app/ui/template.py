@@ -384,6 +384,47 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Handle TOC method radio buttons toggle
+    const tocMethodRadios = document.querySelectorAll('input[name="toc_method"]');
+    const extractOptions = document.getElementById('extract-options');
+    const extractLabel = document.getElementById('toc-extract-label');
+    const generateLabel = document.getElementById('toc-generate-label');
+
+    if (tocMethodRadios.length > 0 && extractOptions) {
+        tocMethodRadios.forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                if (this.value === 'extract') {
+                    // Show extraction options
+                    extractOptions.style.display = 'block';
+                    extractOptions.style.opacity = '0';
+                    extractOptions.style.transform = 'translateY(-10px)';
+                    setTimeout(function() {
+                        extractOptions.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        extractOptions.style.opacity = '1';
+                        extractOptions.style.transform = 'translateY(0)';
+                    }, 10);
+                    // Update border colors
+                    if (extractLabel) extractLabel.style.borderColor = 'var(--accent)';
+                    if (generateLabel) generateLabel.style.borderColor = 'var(--border)';
+                } else {
+                    // Hide extraction options
+                    extractOptions.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                    extractOptions.style.opacity = '0';
+                    extractOptions.style.transform = 'translateY(-10px)';
+                    setTimeout(function() {
+                        extractOptions.style.display = 'none';
+                    }, 200);
+                    // Update border colors
+                    if (extractLabel) extractLabel.style.borderColor = 'var(--border)';
+                    if (generateLabel) generateLabel.style.borderColor = 'var(--accent)';
+                }
+            });
+        });
+
+        // Set initial state (extract is checked by default)
+        if (extractLabel) extractLabel.style.borderColor = 'var(--accent)';
+    }
+
     // Handle upload form
     const uploadForm = document.querySelector('form[action="/upload"]');
     if (uploadForm) {
@@ -785,29 +826,58 @@ def render_home() -> str:
         </div>
       </div>
 
-      <!-- TOC Extraction Parameters (Advanced) -->
+      <!-- TOC Method Selection -->
       <div class="form-section metadata-section">
-        <h3>⚙️ Advanced TOC Extraction (Optional)</h3>
+        <h3>📑 Table of Contents Method</h3>
 
         <div class="info-box" style="margin-top: 0; margin-bottom: 16px; background: #f0f9ff;">
-          <strong>💡 When to use these options:</strong><br>
-          • <strong>TOC Page Number</strong>: If the Table of Contents is in a specific location (enables table-based extraction)<br>
-          • <strong>Page Offset</strong>: If the book's page 1 doesn't match PDF page 1 (e.g., if book page 1 is on PDF page 15, use offset 14)
+          <strong>💡 Choose how to build the Table of Contents:</strong><br>
+          • <strong>Extract from book</strong>: Uses existing TOC page in the book (best for books with clear TOC)<br>
+          • <strong>Generate from headings</strong>: Detects chapter titles throughout the book (best for books without TOC or old scans)
         </div>
 
-        <div class="form-row">
-          <div>
-            <label>TOC Page Number</label>
-            <input type="number" name="toc_page" placeholder="e.g., 345 (optional)" min="1" />
-            <div class="help-text">Page number where the Table of Contents is located (enables Azure table-based extraction)</div>
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+          <label style="display: flex; align-items: flex-start; cursor: pointer; padding: 12px; border: 2px solid var(--border); border-radius: 8px; transition: all 0.2s;" class="toc-method-option" id="toc-extract-label">
+            <input type="radio" name="toc_method" value="extract" checked style="width: auto; margin-right: 12px; margin-top: 2px;" />
+            <div>
+              <span style="font-weight: 600; color: var(--ink);">Extract TOC from book</span>
+              <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                Searches for existing Table of Contents page and extracts chapter titles with page numbers.
+                Works best for modern printed books with clear TOC structure.
+              </div>
+            </div>
+          </label>
+
+          <label style="display: flex; align-items: flex-start; cursor: pointer; padding: 12px; border: 2px solid var(--border); border-radius: 8px; transition: all 0.2s;" class="toc-method-option" id="toc-generate-label">
+            <input type="radio" name="toc_method" value="generate" style="width: auto; margin-right: 12px; margin-top: 2px;" />
+            <div>
+              <span style="font-weight: 600; color: var(--ink);">Generate TOC from headings</span>
+              <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                Detects chapter titles and section headings throughout the document using AI.
+                Best for books without formal TOC, old scans, or when page numbers don't match.
+              </div>
+            </div>
+          </label>
+        </div>
+
+        <!-- Extraction-specific options (shown when "extract" is selected) -->
+        <div id="extract-options" style="margin-top: 16px; padding: 16px; background: var(--bg); border-radius: 8px;">
+          <h4 style="margin: 0 0 12px; font-size: 14px; color: var(--muted);">Extraction Options</h4>
+
+          <div class="form-row">
+            <div>
+              <label>TOC Page Number</label>
+              <input type="number" name="toc_page" placeholder="e.g., 345 (optional)" min="1" />
+              <div class="help-text">Page number where the Table of Contents is located (enables table-based extraction)</div>
+            </div>
           </div>
-        </div>
 
-        <div class="form-row">
-          <div>
-            <label>Page Offset</label>
-            <input type="number" name="page_offset" placeholder="e.g., 14 (optional)" min="0" value="0" />
-            <div class="help-text">Offset between book page numbers and PDF page numbers (default: 0)</div>
+          <div class="form-row" style="margin-top: 12px;">
+            <div>
+              <label>Page Offset</label>
+              <input type="number" name="page_offset" placeholder="e.g., 14 (optional)" min="0" value="0" />
+              <div class="help-text">Offset between book page numbers and PDF page numbers (default: 0)</div>
+            </div>
           </div>
         </div>
       </div>

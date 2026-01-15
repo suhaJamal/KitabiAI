@@ -80,6 +80,7 @@ async def upload(
     keywords: str = Form(None),  # Optional - SEO
     publication_date: str = Form(None),  # Optional - SEO/Cataloging
     isbn: str = Form(None),  # Optional - SEO/Cataloging
+    toc_method: str = Form("extract"),  # TOC method: "extract" or "generate"
     toc_page: int = Form(None),  # Optional - TOC page number for table-based extraction
     page_offset: int = Form(0),  # Optional - Page offset (default: 0)
     cover_image: UploadFile = File(None),  # Optional - Book cover image
@@ -99,7 +100,8 @@ async def upload(
         keywords: Comma-separated keywords/tags (optional)
         publication_date: Publication date (optional)
         isbn: ISBN number (optional)
-        toc_page: TOC page number for table-based extraction (optional)
+        toc_method: TOC method - "extract" (from TOC page) or "generate" (from headings)
+        toc_page: TOC page number for table-based extraction (optional, used with extract method)
         page_offset: Page offset between book and PDF page numbers (optional, default: 0)
 
     Query params:
@@ -122,8 +124,9 @@ async def upload(
     
     logger.info(f"Upload request - Book: '{metadata.title}', File: {file.filename}")
 
-    # Log TOC extraction parameters
-    if toc_page or page_offset:
+    # Log TOC method and parameters
+    logger.info(f"TOC method: {toc_method}")
+    if toc_method == "extract" and (toc_page or page_offset):
         logger.info(f"TOC extraction params - Page: {toc_page}, Offset: {page_offset}")
 
     # Validate PDF signature
@@ -141,31 +144,55 @@ async def upload(
     # Analyze PDF with pre-extracted text (for Arabic) to maintain quality
     report = analyzer.analyze(pdf_bytes, extracted_text, detected_language)
 
-    # Extract TOC sections immediately (to cache and avoid re-extraction during generation)
-    logger.info(f"Extracting TOC for {detected_language} PDF during upload")
-    if detected_language == "arabic" and extracted_text:
-        from ..services.arabic_toc_extractor import ArabicTocExtractor
-        arabic_extractor = ArabicTocExtractor()
-        # Pass TOC page, Azure result, and page offset to the extractor
-        sections_report = arabic_extractor.extract(
-            extracted_text,
-            toc_page_number=toc_page,
-            azure_result=azure_result,
-            page_offset=page_offset
-        )
+    # Process TOC based on selected method
+    import fitz
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    num_pages = doc.page_count
 
-        # Fix page ranges based on actual PDF page count
-        import fitz
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        for section in sections_report.sections:
-            if section.page_end > doc.page_count or section.page_end == 9999:
-                section.page_end = doc.page_count
-        doc.close()
-        logger.info(f"Arabic extraction result: {len(sections_report.sections)} sections")
+    if toc_method == "generate":
+        # GENERATE: Build TOC from detected headings throughout the document
+        logger.info(f"Generating TOC from headings for {detected_language} PDF")
+        from ..services.toc_generator import TocGenerator
+        toc_generator = TocGenerator()
+
+        if azure_result:
+            sections_report = toc_generator.generate(
+                azure_result=azure_result,
+                num_pages=num_pages,
+                store_content=True
+            )
+            logger.info(f"Generated TOC with {len(sections_report.sections)} sections from headings")
+        else:
+            # No Azure result available (English PDF extracted with PyMuPDF)
+            # Fall back to extraction method
+            logger.warning("TOC generation requires Azure result. Falling back to extraction.")
+            sections_report = toc_extractor.extract(pdf_bytes)
+            logger.info(f"Fallback extraction result: {len(sections_report.sections)} sections")
     else:
-        # For English (or if no cached text), use unified extractor
-        sections_report = toc_extractor.extract(pdf_bytes)
-        logger.info(f"English extraction result: {len(sections_report.sections)} sections")
+        # EXTRACT: Use existing TOC extraction logic
+        logger.info(f"Extracting TOC for {detected_language} PDF during upload")
+        if detected_language == "arabic" and extracted_text:
+            from ..services.arabic_toc_extractor import ArabicTocExtractor
+            arabic_extractor = ArabicTocExtractor()
+            # Pass TOC page, Azure result, and page offset to the extractor
+            sections_report = arabic_extractor.extract(
+                extracted_text,
+                toc_page_number=toc_page,
+                azure_result=azure_result,
+                page_offset=page_offset
+            )
+
+            # Fix page ranges based on actual PDF page count
+            for section in sections_report.sections:
+                if section.page_end > num_pages or section.page_end == 9999:
+                    section.page_end = num_pages
+            logger.info(f"Arabic extraction result: {len(sections_report.sections)} sections")
+        else:
+            # For English (or if no cached text), use unified extractor
+            sections_report = toc_extractor.extract(pdf_bytes)
+            logger.info(f"English extraction result: {len(sections_report.sections)} sections")
+
+    doc.close()
 
     # Save to database
     db = SessionLocal()
