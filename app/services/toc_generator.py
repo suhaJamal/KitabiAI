@@ -23,7 +23,10 @@ from ..models.schemas import SectionInfo, SectionsReport
 
 
 logger = logging.getLogger(__name__)
+import re
 
+# Minimum font size to consider as heading (in points)
+MIN_HEADING_FONT_SIZE = 16.0
 
 class TocGenerator:
     """
@@ -141,7 +144,21 @@ class TocGenerator:
 
             # Get heading content
             content = getattr(paragraph, 'content', '').strip()
+            # Skip if content is purely numeric (page numbers)
+            if re.match(r'^[\d\u0660-\u0669\s\.\-]+$', content):
+                continue
 
+            # Check font size from paragraph styles/spans
+            font_size = None
+            if hasattr(paragraph, 'spans') and paragraph.spans:
+                span = paragraph.spans[0]
+                if hasattr(span, 'font') and hasattr(span.font, 'size'):
+                    font_size = span.font.size
+
+            # Skip if font size is too small (and we have font info)
+            if font_size is not None and font_size < self.MIN_HEADING_FONT_SIZE:
+                continue
+            
             # Validate heading length
             if len(content) < self.MIN_HEADING_LENGTH:
                 continue
