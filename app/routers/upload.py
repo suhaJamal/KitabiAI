@@ -81,7 +81,7 @@ async def upload(
     publication_date: str = Form(None),  # Optional - SEO/Cataloging
     isbn: str = Form(None),  # Optional - SEO/Cataloging
     toc_method: str = Form("extract"),  # TOC method: "extract" or "generate"
-    toc_page: int = Form(None),  # Optional - TOC page number for table-based extraction
+    toc_page: str = Form(None),  # Optional - TOC page number for table-based extraction
     page_offset: int = Form(0),  # Optional - Page offset (default: 0)
     cover_image: UploadFile = File(None),  # Optional - Book cover image
     json: int = Query(default=0, ge=0, le=1)
@@ -122,12 +122,15 @@ async def upload(
         isbn=isbn.strip() if isbn else None
     )
     
+    # Convert toc_page to int if provided
+    toc_page_int = int(toc_page) if toc_page and toc_page.strip() else None
+
     logger.info(f"Upload request - Book: '{metadata.title}', File: {file.filename}")
 
     # Log TOC method and parameters
     logger.info(f"TOC method: {toc_method}")
-    if toc_method == "extract" and (toc_page or page_offset):
-        logger.info(f"TOC extraction params - Page: {toc_page}, Offset: {page_offset}")
+    if toc_method == "extract" and (toc_page_int  or page_offset):
+        logger.info(f"TOC extraction params - Page: {toc_page_int }, Offset: {page_offset}")
 
     # Validate PDF signature
     head = await file.read(5)
@@ -177,7 +180,7 @@ async def upload(
             # Pass TOC page, Azure result, and page offset to the extractor
             sections_report = arabic_extractor.extract(
                 extracted_text,
-                toc_page_number=toc_page,
+                toc_page_number=toc_page_int,
                 azure_result=azure_result,
                 page_offset=page_offset
             )
