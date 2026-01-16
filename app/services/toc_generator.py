@@ -158,7 +158,7 @@ class TocGenerator:
                     y_coords = [region.polygon[i] for i in range(1, len(region.polygon), 2)]
                     height = max(y_coords) - min(y_coords)
                     
-                    # logger.info(f"Heading: '{content[:40]}' | height: {height:.4f}")
+                    logger.info(f"Heading: '{content[:40]}' | height: {height:.4f}")
 
                     if height < MIN_HEIGHT:
                         logger.debug(f"Skipping small heading (height {height:.4f}): {content[:30]}")
