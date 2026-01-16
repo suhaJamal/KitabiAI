@@ -761,8 +761,8 @@ def render_home() -> str:
 
         <div class="form-row">
           <div>
-            <label>Author Name</label>
-            <input type="text" name="author" placeholder="e.g., John Doe (optional)" />
+            <label>Author Name <span class="required">*</span></label>
+            <input type="text" name="author" placeholder="e.g., John Doe " />
           </div>
         </div>
       </div>

@@ -145,8 +145,24 @@ class TocGenerator:
             # Get heading content
             content = getattr(paragraph, 'content', '').strip()
             # Skip if content is purely numeric (page numbers)
+            
             if re.match(r'^[\d\u0660-\u0669\s\.\-]+$', content):
                 continue
+            # Check bounding box height (filter small inline headings)
+            MIN_HEIGHT = 0.025  # Minimum height ratio - adjust as needed (0.02-0.03)
+
+            if hasattr(paragraph, 'bounding_regions') and paragraph.bounding_regions:
+                region = paragraph.bounding_regions[0]
+                if hasattr(region, 'polygon') and region.polygon:
+                    # polygon is list of points [x1,y1, x2,y2, x3,y3, x4,y4]
+                    y_coords = [region.polygon[i] for i in range(1, len(region.polygon), 2)]
+                    height = max(y_coords) - min(y_coords)
+                    
+                    logger.info(f"Heading: '{content[:40]}' | height: {height:.4f}")
+
+                    if height < MIN_HEIGHT:
+                        logger.debug(f"Skipping small heading (height {height:.4f}): {content[:30]}")
+                        continue
 
             # Check font size from paragraph styles/spans
             font_size = None
@@ -158,7 +174,7 @@ class TocGenerator:
             # Skip if font size is too small (and we have font info)
             if font_size is not None and font_size < self.MIN_HEADING_FONT_SIZE:
                 continue
-            
+
             # Validate heading length
             if len(content) < self.MIN_HEADING_LENGTH:
                 continue
