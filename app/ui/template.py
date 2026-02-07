@@ -671,7 +671,10 @@ def html_shell(body: str) -> str:
       <body>
         <div class="container">
           <div class="card">
-            <h1>📚 Book Converter – Unified (English & Arabic)</h1>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h1>📚 Book Converter – Unified (English & Arabic)</h1>
+              <a href="/admin" style="padding: 8px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--accent);">Manage Books</a>
+            </div>
             <div class="subtitle">Upload a PDF → we'll detect the language, verify content, and extract TOC automatically.</div>
 
             <!-- Collapsible: What Books Work Best -->
@@ -1017,3 +1020,378 @@ def render_report(filename: str, report: AnalysisReport, language: str = "unknow
       </div>
     """
     return body
+
+
+def render_admin(books_data: list) -> str:
+    """Render the admin management page with book list, edit, and delete."""
+
+    # Build table rows
+    rows = ""
+    for book in books_data:
+        lang_badge = f"<span class='badge {book['language']}'>{book['language'].upper()}</span>" if book['language'] != "—" else "—"
+        rows += f"""
+        <tr id="book-row-{book['id']}">
+          <td>{book['id']}</td>
+          <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{book['title']}">{book['title']}</td>
+          <td>{book['author']}</td>
+          <td>{lang_badge}</td>
+          <td>{book['page_count']}</td>
+          <td>{book['section_count']}</td>
+          <td>{book['created_at']}</td>
+          <td>
+            <div style="display: flex; gap: 6px;">
+              <button onclick="openEditModal({book['id']})" class="admin-btn admin-btn-edit" title="Edit">Edit</button>
+              <button onclick="confirmDelete({book['id']}, '{book['title'].replace(chr(39), chr(92)+chr(39))}')" class="admin-btn admin-btn-delete" title="Delete">Delete</button>
+            </div>
+          </td>
+        </tr>
+        """
+
+    return f"""
+    <style>
+      .admin-nav {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }}
+      .admin-table {{
+        width: 100%;
+        border-collapse: collapse;
+      }}
+      .admin-table th {{
+        background: var(--bg);
+        color: var(--muted);
+        font-weight: 600;
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 2px solid var(--border);
+        font-size: 13px;
+      }}
+      .admin-table td {{
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        font-size: 14px;
+      }}
+      .admin-table tr:hover {{
+        background: #fef9f3;
+      }}
+      .admin-btn {{
+        padding: 5px 12px;
+        border: none;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }}
+      .admin-btn-edit {{
+        background: #dbeafe;
+        color: #1e40af;
+      }}
+      .admin-btn-edit:hover {{
+        background: #bfdbfe;
+      }}
+      .admin-btn-delete {{
+        background: #fee2e2;
+        color: #991b1b;
+      }}
+      .admin-btn-delete:hover {{
+        background: #fecaca;
+      }}
+      .modal-overlay {{
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+      }}
+      .modal-overlay.active {{
+        display: flex;
+      }}
+      .modal {{
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      }}
+      .modal h3 {{
+        margin: 0 0 20px;
+        color: var(--accent);
+      }}
+      .modal label {{
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }}
+      .modal input, .modal textarea {{
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 14px;
+        margin-bottom: 12px;
+        font-family: inherit;
+        box-sizing: border-box;
+      }}
+      .modal textarea {{
+        min-height: 60px;
+        resize: vertical;
+      }}
+      .modal-actions {{
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 16px;
+      }}
+      .modal-actions button {{
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        border: none;
+      }}
+      .btn-save {{
+        background: var(--accent);
+        color: white;
+      }}
+      .btn-save:hover {{
+        background: var(--accent-light);
+      }}
+      .btn-cancel {{
+        background: #f3f1ed;
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }}
+      .btn-cancel:hover {{
+        background: #e8e4dd;
+      }}
+      .admin-stats {{
+        display: flex;
+        gap: 16px;
+        margin-bottom: 20px;
+      }}
+      .stat-card {{
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 20px;
+        text-align: center;
+        flex: 1;
+      }}
+      .stat-card .stat-value {{
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--accent);
+      }}
+      .stat-card .stat-label {{
+        font-size: 12px;
+        color: var(--muted);
+      }}
+      .admin-alert {{
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        font-size: 14px;
+        display: none;
+      }}
+      .admin-alert.success {{
+        background: #f0fdf4;
+        border: 1px solid #4ade80;
+        color: #166534;
+      }}
+      .admin-alert.error {{
+        background: #fef2f2;
+        border: 1px solid #fca5a5;
+        color: #dc2626;
+      }}
+    </style>
+
+    <div class="admin-nav">
+      <h2 style="margin: 0; font-size: 20px;">Manage Books</h2>
+      <a href="/" style="padding: 8px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--accent);">
+        Back to Upload
+      </a>
+    </div>
+
+    <div class="admin-stats">
+      <div class="stat-card">
+        <div class="stat-value">{len(books_data)}</div>
+        <div class="stat-label">Total Books</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{sum(1 for b in books_data if b['language'] == 'ar')}</div>
+        <div class="stat-label">Arabic</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{sum(1 for b in books_data if b['language'] == 'en')}</div>
+        <div class="stat-label">English</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{sum(b['page_count'] for b in books_data)}</div>
+        <div class="stat-label">Total Pages</div>
+      </div>
+    </div>
+
+    <div id="admin-alert" class="admin-alert"></div>
+
+    <div style="overflow-x: auto;">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Lang</th>
+            <th>Pages</th>
+            <th>Sections</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows if rows else '<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 40px;">No books found. Upload a book first.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal-overlay">
+      <div class="modal">
+        <h3>Edit Book</h3>
+        <input type="hidden" id="edit-book-id" />
+
+        <label>Book Title</label>
+        <input type="text" id="edit-title" placeholder="Book title" />
+
+        <label>Author Name</label>
+        <input type="text" id="edit-author" placeholder="Author name" />
+
+        <label>Description</label>
+        <textarea id="edit-description" placeholder="Book description"></textarea>
+
+        <label>Category</label>
+        <input type="text" id="edit-category" placeholder="Category / Subject" />
+
+        <label>Keywords</label>
+        <input type="text" id="edit-keywords" placeholder="Comma-separated keywords" />
+
+        <label>Publication Date</label>
+        <input type="text" id="edit-pub-date" placeholder="e.g., 2024" />
+
+        <label>ISBN</label>
+        <input type="text" id="edit-isbn" placeholder="e.g., 978-3-16-148410-0" />
+
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+          <button class="btn-save" onclick="saveBook()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    function showAlert(message, type) {{
+      const alert = document.getElementById('admin-alert');
+      alert.textContent = message;
+      alert.className = 'admin-alert ' + type;
+      alert.style.display = 'block';
+      setTimeout(() => {{ alert.style.display = 'none'; }}, 5000);
+    }}
+
+    function confirmDelete(bookId, bookTitle) {{
+      if (confirm('Are you sure you want to delete "' + bookTitle + '"?\\n\\nThis will permanently delete the book and all its sections and pages.')) {{
+        fetch('/admin/books/' + bookId, {{
+          method: 'DELETE'
+        }})
+        .then(r => {{
+          if (!r.ok) throw new Error('Delete failed');
+          return r.json();
+        }})
+        .then(data => {{
+          document.getElementById('book-row-' + bookId).remove();
+          showAlert(data.message, 'success');
+        }})
+        .catch(err => {{
+          showAlert('Failed to delete book: ' + err.message, 'error');
+        }});
+      }}
+    }}
+
+    function openEditModal(bookId) {{
+      fetch('/admin/books/' + bookId)
+        .then(r => {{
+          if (!r.ok) throw new Error('Failed to load book');
+          return r.json();
+        }})
+        .then(data => {{
+          document.getElementById('edit-book-id').value = data.id;
+          document.getElementById('edit-title').value = data.title;
+          document.getElementById('edit-author').value = data.author;
+          document.getElementById('edit-description').value = data.description;
+          document.getElementById('edit-category').value = data.category;
+          document.getElementById('edit-keywords').value = data.keywords;
+          document.getElementById('edit-pub-date').value = data.publication_date;
+          document.getElementById('edit-isbn').value = data.isbn;
+          document.getElementById('edit-modal').classList.add('active');
+        }})
+        .catch(err => {{
+          showAlert('Failed to load book data: ' + err.message, 'error');
+        }});
+    }}
+
+    function closeEditModal() {{
+      document.getElementById('edit-modal').classList.remove('active');
+    }}
+
+    function saveBook() {{
+      const bookId = document.getElementById('edit-book-id').value;
+      const data = {{
+        title: document.getElementById('edit-title').value,
+        author: document.getElementById('edit-author').value,
+        description: document.getElementById('edit-description').value,
+        category: document.getElementById('edit-category').value,
+        keywords: document.getElementById('edit-keywords').value,
+        publication_date: document.getElementById('edit-pub-date').value,
+        isbn: document.getElementById('edit-isbn').value
+      }};
+
+      fetch('/admin/books/' + bookId, {{
+        method: 'PUT',
+        headers: {{ 'Content-Type': 'application/json' }},
+        body: JSON.stringify(data)
+      }})
+      .then(r => {{
+        if (!r.ok) throw new Error('Update failed');
+        return r.json();
+      }})
+      .then(result => {{
+        closeEditModal();
+        showAlert(result.message, 'success');
+        // Reload page to reflect changes
+        setTimeout(() => {{ window.location.reload(); }}, 1000);
+      }})
+      .catch(err => {{
+        showAlert('Failed to update book: ' + err.message, 'error');
+      }});
+    }}
+
+    // Close modal on overlay click
+    document.getElementById('edit-modal').addEventListener('click', function(e) {{
+      if (e.target === this) closeEditModal();
+    }});
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {{
+      if (e.key === 'Escape') closeEditModal();
+    }});
+    </script>
+    """
