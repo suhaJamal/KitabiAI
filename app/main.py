@@ -17,6 +17,7 @@ from .core.tracing import setup_tracing
 from .routers.upload import router as upload_router
 from .routers.generation import router as generation_router
 from .routers.library import router as library_router
+from .routers.admin import router as admin_router
 
 # Setup logging
 logger = setup_logging()
@@ -32,6 +33,7 @@ app = FastAPI(title=settings.APP_NAME)
 app.include_router(upload_router)
 app.include_router(generation_router)
 app.include_router(library_router)
+app.include_router(admin_router)
 
 
 # Version endpoint to verify deployment
