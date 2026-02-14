@@ -1027,12 +1027,27 @@ def render_admin(books_data: list) -> str:
 
     # Build table rows
     rows = ""
+    method_suffixes = {'-auto': 'Auto Detect', '-extract': 'Extract', '-generate': 'Generate'}
     for book in books_data:
         lang_badge = f"<span class='badge {book['language']}'>{book['language'].upper()}</span>" if book['language'] != "—" else "—"
+
+        # Detect method from title suffix and compute display title
+        raw_title = book['title']
+        toc_method = '—'
+        display_title = raw_title
+        method_class = ''
+        for suffix, method_name in method_suffixes.items():
+            if raw_title.endswith(suffix):
+                toc_method = method_name
+                display_title = raw_title[:-len(suffix)].strip()
+                method_class = suffix[1:]  # 'auto', 'extract', 'generate'
+                break
+
+        method_badge = f"<span class='method-badge method-{method_class}'>{toc_method}</span>" if method_class else f"<span class='method-badge'>{toc_method}</span>"
+
         rows += f"""
-        <tr id="book-row-{book['id']}">
-          <td>{book['id']}</td>
-          <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{book['title']}">{book['title']}</td>
+        <tr id="book-row-{book['id']}" class="book-main-row" onclick="toggleExpand({book['id']})" style="cursor: pointer;">
+          <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{raw_title}">{display_title}</td>
           <td>{book['author']}</td>
           <td>{lang_badge}</td>
           <td>{book['page_count']}</td>
@@ -1040,8 +1055,19 @@ def render_admin(books_data: list) -> str:
           <td>{book['created_at']}</td>
           <td>
             <div style="display: flex; gap: 6px;">
-              <button onclick="openEditModal({book['id']})" class="admin-btn admin-btn-edit" title="Edit">Edit</button>
-              <button onclick="confirmDelete({book['id']}, '{book['title'].replace(chr(39), chr(92)+chr(39))}')" class="admin-btn admin-btn-delete" title="Delete">Delete</button>
+              <button onclick="event.stopPropagation(); openEditModal({book['id']})" class="admin-btn admin-btn-edit" title="Edit">Edit</button>
+              <button onclick="event.stopPropagation(); confirmDelete({book['id']}, '{raw_title.replace(chr(39), chr(92)+chr(39))}')" class="admin-btn admin-btn-delete" title="Delete">Delete</button>
+            </div>
+          </td>
+        </tr>
+        <tr id="book-expand-{book['id']}" class="book-expand-row" style="display: none;">
+          <td colspan="7">
+            <div class="expand-content">
+              <div class="expand-item"><span class="expand-label">Book ID:</span> <span class="expand-value">{book['id']}</span></div>
+              <div class="expand-item"><span class="expand-label">TOC Method:</span> {method_badge}</div>
+              <div class="expand-item"><span class="expand-label">Full Title:</span> <span class="expand-value">{raw_title}</span></div>
+              <div class="expand-item"><span class="expand-label">Category:</span> <span class="expand-value">{book['category'] or '—'}</span></div>
+              <div class="expand-item"><span class="expand-label">Status:</span> <span class="expand-value">{book['status']}</span></div>
             </div>
           </td>
         </tr>
@@ -1214,6 +1240,53 @@ def render_admin(books_data: list) -> str:
         border: 1px solid #fca5a5;
         color: #dc2626;
       }}
+      /* Method badges */
+      .method-badge {{
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }}
+      .method-auto {{
+        background: #dbeafe;
+        color: #1e40af;
+      }}
+      .method-extract {{
+        background: #dcfce7;
+        color: #166534;
+      }}
+      .method-generate {{
+        background: #fef3c7;
+        color: #92400e;
+      }}
+      /* Expandable rows */
+      .book-main-row:hover {{
+        background: #fef9f3 !important;
+      }}
+      .book-expand-row td {{
+        padding: 0 !important;
+        border-bottom: 2px solid var(--border);
+      }}
+      .expand-content {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 12px 16px;
+        background: #faf9f7;
+      }}
+      .expand-item {{
+        font-size: 13px;
+      }}
+      .expand-label {{
+        font-weight: 600;
+        color: var(--muted);
+      }}
+      .expand-value {{
+        color: var(--fg);
+      }}
     </style>
 
     <div class="admin-nav">
@@ -1248,7 +1321,6 @@ def render_admin(books_data: list) -> str:
       <table class="admin-table">
         <thead>
           <tr>
-            <th>ID</th>
             <th>Title</th>
             <th>Author</th>
             <th>Lang</th>
@@ -1259,7 +1331,7 @@ def render_admin(books_data: list) -> str:
           </tr>
         </thead>
         <tbody>
-          {rows if rows else '<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 40px;">No books found. Upload a book first.</td></tr>'}
+          {rows if rows else '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 40px;">No books found. Upload a book first.</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -1307,6 +1379,16 @@ def render_admin(books_data: list) -> str:
       setTimeout(() => {{ alert.style.display = 'none'; }}, 5000);
     }}
 
+    function toggleExpand(bookId) {{
+      const row = document.getElementById('book-expand-' + bookId);
+      if (row.style.display === 'none') {{
+        document.querySelectorAll('.book-expand-row').forEach(r => r.style.display = 'none');
+        row.style.display = 'table-row';
+      }} else {{
+        row.style.display = 'none';
+      }}
+    }}
+
     function confirmDelete(bookId, bookTitle) {{
       if (confirm('Are you sure you want to delete "' + bookTitle + '"?\\n\\nThis will permanently delete the book and all its sections and pages.')) {{
         fetch('/admin/books/' + bookId, {{
@@ -1318,6 +1400,8 @@ def render_admin(books_data: list) -> str:
         }})
         .then(data => {{
           document.getElementById('book-row-' + bookId).remove();
+          const expandRow = document.getElementById('book-expand-' + bookId);
+          if (expandRow) expandRow.remove();
           showAlert(data.message, 'success');
         }})
         .catch(err => {{
