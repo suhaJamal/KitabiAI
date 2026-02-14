@@ -7,6 +7,7 @@ HTTP routes for the upload & analyze flow (unified English & Arabic support).
 - GET "/export/jsonl" streams page-level JSONL.
 - GET "/export/sections.jsonl" streams sections from unified TOC extraction (bookmarks or pattern-based).
 - GET "/info" returns metadata about last uploaded PDF (language, classification, etc.).
+
 """
 
 
