@@ -17,13 +17,19 @@ Date: October 2025
 """
 
 import re
+import json
+import os
 import logging
+from datetime import datetime
 from typing import List, Optional, Any
 
 from ..models.schemas import SectionInfo, SectionsReport
 
 
 logger = logging.getLogger(__name__)
+
+# Evaluation log directory
+EVAL_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'evaluation')
 
 
 class ArabicTocExtractor:
@@ -66,7 +72,8 @@ class ArabicTocExtractor:
         extracted_text: str,
         toc_page_number: Optional[int] = None,
         azure_result: Optional[Any] = None,
-        page_offset: int = 0
+        page_offset: int = 0,
+        book_title: str = "unknown"
     ) -> SectionsReport:
         """
         Extract TOC from pre-extracted Arabic text with hybrid approach.
@@ -83,14 +90,30 @@ class ArabicTocExtractor:
             azure_result: Optional full Azure result object (includes tables, paragraphs)
             page_offset: Offset to add to book page numbers to get PDF page numbers (default: 0)
                         Example: if book page 1 is on PDF page 15, offset = 14
+            book_title: Book title for evaluation logging
 
         Returns:
             SectionsReport containing list of extracted sections with page ranges
         """
         logger.info("Starting Arabic TOC extraction (hybrid approach)")
 
+        eval_data = {
+            'book_title': book_title,
+            'method': 'extract_arabic',
+            'timestamp': datetime.now().isoformat(),
+            'toc_page_provided': toc_page_number,
+            'page_offset': page_offset,
+            'strategy_used': None,
+            'entries_before_clean': 0,
+            'entries_after_clean': 0,
+            'sections_created': 0,
+            'final_sections': []
+        }
+
         if not extracted_text:
             logger.warning("No text provided. Returning fallback section.")
+            eval_data['strategy_used'] = 'fallback_no_text'
+            self._write_eval_log(eval_data)
             return self._fallback_section()
 
         # Step 1: Try Azure table-based extraction (if page hint provided)
@@ -99,6 +122,13 @@ class ArabicTocExtractor:
             sections = self._extract_from_table(toc_page_number, azure_result, page_offset)
             if sections:
                 logger.info(f"✅ Found valid TOC from Azure table with {len(sections)} sections")
+                eval_data['strategy_used'] = 'azure_table'
+                eval_data['sections_created'] = len(sections)
+                eval_data['final_sections'] = [
+                    {'title': s.title, 'page_start': s.page_start, 'page_end': s.page_end, 'level': s.level}
+                    for s in sections
+                ]
+                self._write_eval_log(eval_data)
                 return SectionsReport(bookmarks_found=True, sections=sections)
             else:
                 logger.info("No valid table found, falling back to text-based search")
@@ -109,9 +139,9 @@ class ArabicTocExtractor:
             "beginning"
         )
 
-
         if toc_text:
             entries = self._parse_toc_entries(toc_text)
+            raw_count = len(entries)
             entries = self._clean_entries(entries)  # Validate page sequences
 
             # Require at least 5 valid entries to accept TOC
@@ -119,6 +149,15 @@ class ArabicTocExtractor:
             if len(entries) >= 5:
                 sections = self._create_sections(entries, page_offset)
                 logger.info(f"✅ Found valid TOC at beginning with {len(sections)} sections")
+                eval_data['strategy_used'] = 'text_beginning'
+                eval_data['entries_before_clean'] = raw_count
+                eval_data['entries_after_clean'] = len(entries)
+                eval_data['sections_created'] = len(sections)
+                eval_data['final_sections'] = [
+                    {'title': s.title, 'page_start': s.page_start, 'page_end': s.page_end, 'level': s.level}
+                    for s in sections
+                ]
+                self._write_eval_log(eval_data)
                 return SectionsReport(bookmarks_found=True, sections=sections)
             else:
                 logger.warning(
@@ -132,15 +171,27 @@ class ArabicTocExtractor:
 
         if toc_text:
             entries = self._parse_toc_entries(toc_text)
+            raw_count = len(entries)
             entries = self._clean_entries(entries)
 
             if len(entries) >= 5:
                 sections = self._create_sections(entries, page_offset)
                 logger.info(f"✅ Found valid TOC at end with {len(sections)} sections")
+                eval_data['strategy_used'] = 'text_end'
+                eval_data['entries_before_clean'] = raw_count
+                eval_data['entries_after_clean'] = len(entries)
+                eval_data['sections_created'] = len(sections)
+                eval_data['final_sections'] = [
+                    {'title': s.title, 'page_start': s.page_start, 'page_end': s.page_end, 'level': s.level}
+                    for s in sections
+                ]
+                self._write_eval_log(eval_data)
                 return SectionsReport(bookmarks_found=True, sections=sections)
 
         # Step 4: No valid TOC found anywhere
         logger.warning("No valid TOC found anywhere. Returning fallback section.")
+        eval_data['strategy_used'] = 'fallback_none_found'
+        self._write_eval_log(eval_data)
         return self._fallback_section()
 
     def _extract_from_table(self, page_number: int, azure_result: Any, page_offset: int = 0, max_pages: int = 20) -> Optional[List[SectionInfo]]:
@@ -553,6 +604,21 @@ class ArabicTocExtractor:
             return True
 
         return False
+
+    def _write_eval_log(self, eval_data: dict):
+        """Write evaluation log for Arabic TOC extraction to JSON file."""
+        try:
+            os.makedirs(EVAL_DIR, exist_ok=True)
+            safe_title = re.sub(r'[^\w\s-]', '', eval_data.get('book_title', 'unknown'))[:50].strip().replace(' ', '_')
+            filename = f"toc_eval_extract_{safe_title}.json"
+            filepath = os.path.join(EVAL_DIR, filename)
+
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(eval_data, f, ensure_ascii=False, indent=2)
+
+            logger.info(f"Evaluation log written to {filepath}")
+        except Exception as e:
+            logger.warning(f"Failed to write evaluation log: {e}")
 
     def _fallback_section(self) -> SectionsReport:
         """

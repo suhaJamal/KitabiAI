@@ -162,14 +162,15 @@ async def upload(
             sections_report = toc_generator.generate(
                 azure_result=azure_result,
                 num_pages=num_pages,
-                store_content=True
+                store_content=True,
+                book_title=metadata.title
             )
             logger.info(f"Generated TOC with {len(sections_report.sections)} sections from headings")
         else:
             # No Azure result available (English PDF extracted with PyMuPDF)
             # Fall back to extraction method
             logger.warning("TOC generation requires Azure result. Falling back to extraction.")
-            sections_report = toc_extractor.extract(pdf_bytes)
+            sections_report = toc_extractor.extract(pdf_bytes, book_title=metadata.title)
             logger.info(f"Fallback extraction result: {len(sections_report.sections)} sections")
     else:
         # EXTRACT: Use existing TOC extraction logic
@@ -182,7 +183,8 @@ async def upload(
                 extracted_text,
                 toc_page_number=toc_page_int,
                 azure_result=azure_result,
-                page_offset=page_offset
+                page_offset=page_offset,
+                book_title=metadata.title
             )
 
             # Fix page ranges based on actual PDF page count
@@ -192,7 +194,7 @@ async def upload(
             logger.info(f"Arabic extraction result: {len(sections_report.sections)} sections")
         else:
             # For English (or if no cached text), use unified extractor
-            sections_report = toc_extractor.extract(pdf_bytes)
+            sections_report = toc_extractor.extract(pdf_bytes, book_title=metadata.title)
             logger.info(f"English extraction result: {len(sections_report.sections)} sections")
 
     doc.close()

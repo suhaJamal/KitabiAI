@@ -17,13 +17,19 @@ Date: January 2026
 """
 
 import logging
+import json
+import os
+import re
+from datetime import datetime
 from typing import List, Optional, Any, Dict, Tuple
 
 from ..models.schemas import SectionInfo, SectionsReport
 
 
 logger = logging.getLogger(__name__)
-import re
+
+# Evaluation log directory
+EVAL_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'evaluation')
 
 # Minimum font size to consider as heading (in points)
 MIN_HEADING_FONT_SIZE = 16.0
@@ -57,7 +63,8 @@ class TocGenerator:
         self,
         azure_result: Any,
         num_pages: int,
-        store_content: bool = True
+        store_content: bool = True,
+        book_title: str = "unknown"
     ) -> SectionsReport:
         """
         Generate TOC from Azure Document Intelligence result.
@@ -70,6 +77,7 @@ class TocGenerator:
             num_pages: Total number of pages in the PDF
             store_content: If True, store section content directly (recommended)
                           If False, only store page ranges
+            book_title: Book title for evaluation logging
 
         Returns:
             SectionsReport containing generated sections with accurate page numbers
@@ -85,11 +93,14 @@ class TocGenerator:
             logger.warning("No paragraphs in Azure result. Returning fallback section.")
             return self._fallback_section(num_pages)
 
-        # Step 1: Extract all headings with their positions
+        # Step 1: Extract all headings with their positions (with eval tracking)
+        self._eval_candidates = []
+        self._eval_filtered = []
         headings = self._extract_headings(azure_result)
 
         if not headings:
             logger.warning("No headings found in document. Returning fallback section.")
+            self._write_eval_log(book_title, num_pages, headings=[], sections=[])
             return self._fallback_section(num_pages)
 
         logger.info(f"Found {len(headings)} headings in document")
@@ -108,9 +119,13 @@ class TocGenerator:
 
         if not sections:
             logger.warning("Failed to create sections from headings. Returning fallback.")
+            self._write_eval_log(book_title, num_pages, headings=headings, sections=[])
             return self._fallback_section(num_pages)
 
         logger.info(f"Generated TOC with {len(sections)} sections")
+
+        # Write evaluation log
+        self._write_eval_log(book_title, num_pages, headings=headings, sections=sections)
 
         return SectionsReport(
             bookmarks_found=True,  # Using same field to indicate TOC was found/generated
@@ -144,27 +159,44 @@ class TocGenerator:
 
             # Get heading content
             content = getattr(paragraph, 'content', '').strip()
-            # Skip if content is purely numeric (page numbers)
-            
-            if re.match(r'^[\d\u0660-\u0669\s\.\-]+$', content):
-                continue
-            # Check bounding box height (filter small inline headings)
-            MIN_HEIGHT = 0.025  # Minimum height ratio - adjust as needed (0.02-0.03)
 
+            # Get page number from bounding regions (needed for eval logging)
+            page_number = None
+            if hasattr(paragraph, 'bounding_regions') and paragraph.bounding_regions:
+                page_number = paragraph.bounding_regions[0].page_number
+
+            # Get bounding box height
+            height = None
             if hasattr(paragraph, 'bounding_regions') and paragraph.bounding_regions:
                 region = paragraph.bounding_regions[0]
                 if hasattr(region, 'polygon') and region.polygon:
-                    # polygon is list of points [x1,y1, x2,y2, x3,y3, x4,y4]
                     y_coords = [region.polygon[i] for i in range(1, len(region.polygon), 2)]
                     height = max(y_coords) - min(y_coords)
-                    
-                    #logger.info(f"Heading: '{content[:40]}' | height: {height:.4f}")
 
-                    if height < MIN_HEIGHT:
-                        logger.debug(f"Skipping small heading (height {height:.4f}): {content[:30]}")
-                        continue
+            # Record this candidate for evaluation BEFORE any filtering
+            candidate = {
+                'content': content,
+                'page': page_number,
+                'role': role,
+                'height': round(height, 4) if height else None
+            }
+            self._eval_candidates.append(candidate)
 
-            # Check font size from paragraph styles/spans
+            # --- FILTERS START ---
+
+            # Filter 1: Skip if content is purely numeric (page numbers)
+            if re.match(r'^[\d\u0660-\u0669\s\.\-]+$', content):
+                self._eval_filtered.append({**candidate, 'reason': 'numeric_content'})
+                continue
+
+            # Filter 2: Check bounding box height (filter small inline headings)
+            MIN_HEIGHT = 0.025  # Minimum height ratio - adjust as needed (0.02-0.03)
+            if height is not None and height < MIN_HEIGHT:
+                self._eval_filtered.append({**candidate, 'reason': f'height_too_small ({height:.4f} < {MIN_HEIGHT})'})
+                logger.debug(f"Skipping small heading (height {height:.4f}): {content[:30]}")
+                continue
+
+            # Filter 3: Check font size from paragraph styles/spans
             font_size = None
             if hasattr(paragraph, 'spans') and paragraph.spans:
                 span = paragraph.spans[0]
@@ -173,23 +205,25 @@ class TocGenerator:
 
             # Skip if font size is too small (and we have font info)
             if font_size is not None and font_size < self.MIN_HEADING_FONT_SIZE:
+                self._eval_filtered.append({**candidate, 'reason': f'font_too_small ({font_size})'})
                 continue
 
-            # Validate heading length
+            # Filter 4: Validate heading length
             if len(content) < self.MIN_HEADING_LENGTH:
+                self._eval_filtered.append({**candidate, 'reason': f'too_short ({len(content)} chars)'})
                 continue
             if len(content) > self.MAX_HEADING_LENGTH:
+                self._eval_filtered.append({**candidate, 'reason': f'too_long ({len(content)} chars)'})
                 logger.debug(f"Skipping too-long heading: {content[:50]}...")
                 continue
 
-            # Get page number from bounding regions
-            page_number = None
-            if hasattr(paragraph, 'bounding_regions') and paragraph.bounding_regions:
-                page_number = paragraph.bounding_regions[0].page_number
-
+            # Filter 5: No page number
             if page_number is None:
+                self._eval_filtered.append({**candidate, 'reason': 'no_page_number'})
                 logger.debug(f"Skipping heading without page number: {content[:50]}...")
                 continue
+
+            # --- FILTERS END --- Heading accepted
 
             # Get character offset from spans (for precise content splitting)
             offset = None
@@ -363,6 +397,54 @@ class TocGenerator:
             content_parts.append(page_text.strip())
 
         return "\n\n".join(content_parts)
+
+    def _write_eval_log(self, book_title: str, num_pages: int, headings: list, sections: list):
+        """Write evaluation log for TOC generation to JSON file."""
+        try:
+            os.makedirs(EVAL_DIR, exist_ok=True)
+
+            # Count filter reasons
+            filter_reasons = {}
+            for item in self._eval_filtered:
+                reason = item['reason'].split(' (')[0]  # Group by reason type
+                filter_reasons[reason] = filter_reasons.get(reason, 0) + 1
+
+            eval_data = {
+                'book_title': book_title,
+                'method': 'generate',
+                'timestamp': datetime.now().isoformat(),
+                'total_pages': num_pages,
+                'candidates_before_filter': len(self._eval_candidates),
+                'candidates_after_filter': len(headings),
+                'sections_created': len(sections),
+                'filter_summary': filter_reasons,
+                'all_candidates': self._eval_candidates,
+                'filtered_out': self._eval_filtered,
+                'accepted_headings': [
+                    {'title': h['title'], 'page': h['page'], 'role': h['role']}
+                    for h in headings
+                ],
+                'final_sections': [
+                    {
+                        'title': s.title,
+                        'page_start': s.page_start,
+                        'page_end': s.page_end,
+                        'level': s.level
+                    }
+                    for s in sections
+                ]
+            }
+
+            safe_title = re.sub(r'[^\w\s-]', '', book_title)[:50].strip().replace(' ', '_')
+            filename = f"toc_eval_generate_{safe_title}.json"
+            filepath = os.path.join(EVAL_DIR, filename)
+
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(eval_data, f, ensure_ascii=False, indent=2)
+
+            logger.info(f"Evaluation log written to {filepath}")
+        except Exception as e:
+            logger.warning(f"Failed to write evaluation log: {e}")
 
     def _fallback_section(self, num_pages: int) -> SectionsReport:
         """
