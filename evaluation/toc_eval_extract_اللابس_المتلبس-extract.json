@@ -1,0 +1,379 @@
+{
+  "book_title": "اللابس المتلبس-extract",
+  "method": "extract_arabic",
+  "timestamp": "2026-02-14T13:53:45.609434",
+  "toc_page_provided": 177,
+  "page_offset": 0,
+  "strategy_used": "azure_table",
+  "entries_before_clean": 0,
+  "entries_after_clean": 0,
+  "sections_created": 61,
+  "final_sections": [
+    {
+      "title": "مقدمة",
+      "page_start": 5,
+      "page_end": 8,
+      "level": 1
+    },
+    {
+      "title": "1- المتنبي اللابس والمتلبّس",
+      "page_start": 9,
+      "page_end": 13,
+      "level": 1
+    },
+    {
+      "title": "2- هل تكره المتنبي",
+      "page_start": 14,
+      "page_end": 15,
+      "level": 1
+    },
+    {
+      "title": "3- ماذا لو أن المتنبي لم يكن مدّاحاً",
+      "page_start": 16,
+      "page_end": 18,
+      "level": 1
+    },
+    {
+      "title": "4- اشتعال الأفكار / وجع الكتابة",
+      "page_start": 19,
+      "page_end": 21,
+      "level": 1
+    },
+    {
+      "title": "5- هل ما زال المتنبي شاعرنا الأعظم",
+      "page_start": 22,
+      "page_end": 23,
+      "level": 1
+    },
+    {
+      "title": "6- المكان بوصفه ذاكرة",
+      "page_start": 24,
+      "page_end": 26,
+      "level": 1
+    },
+    {
+      "title": "7- المتنبي (وهل هو نحن بصيغةٍ موارٍبة)",
+      "page_start": 27,
+      "page_end": 29,
+      "level": 1
+    },
+    {
+      "title": "8- من فاتك الأسدي إلى فاتك التنمري",
+      "page_start": 30,
+      "page_end": 32,
+      "level": 1
+    },
+    {
+      "title": "9- الإنسان الكامل الناقص",
+      "page_start": 33,
+      "page_end": 35,
+      "level": 1
+    },
+    {
+      "title": "10- نهايات المتنبي",
+      "page_start": 36,
+      "page_end": 38,
+      "level": 1
+    },
+    {
+      "title": "11- متعة الكذب على النفس",
+      "page_start": 39,
+      "page_end": 42,
+      "level": 1
+    },
+    {
+      "title": "12- شكسبير معلقاً في الفضاء",
+      "page_start": 43,
+      "page_end": 44,
+      "level": 1
+    },
+    {
+      "title": "13- الطعام الفاسد / النص الفاسد",
+      "page_start": 45,
+      "page_end": 46,
+      "level": 1
+    },
+    {
+      "title": "14- هل أهل العقول في راحة",
+      "page_start": 47,
+      "page_end": 49,
+      "level": 1
+    },
+    {
+      "title": "15- أصحاب الواحدة وانحياز الذاكرة",
+      "page_start": 50,
+      "page_end": 52,
+      "level": 1
+    },
+    {
+      "title": "16- نزيف الكلمات",
+      "page_start": 53,
+      "page_end": 55,
+      "level": 1
+    },
+    {
+      "title": "17- هل الجسد سجنٌ للروح",
+      "page_start": 56,
+      "page_end": 58,
+      "level": 1
+    },
+    {
+      "title": "18- الجناية على النقد الثقافي",
+      "page_start": 59,
+      "page_end": 61,
+      "level": 1
+    },
+    {
+      "title": "19- الإنسان بوصفه غنياً وفقيراً في آن",
+      "page_start": 62,
+      "page_end": 64,
+      "level": 1
+    },
+    {
+      "title": "20- النسق بين الشعرنة والعقلنة",
+      "page_start": 65,
+      "page_end": 66,
+      "level": 1
+    },
+    {
+      "title": "21- أدونيس وهل هو من الضرورات",
+      "page_start": 67,
+      "page_end": 70,
+      "level": 1
+    },
+    {
+      "title": "22- رحلة الإنسان من الاسم إلى الصفة",
+      "page_start": 71,
+      "page_end": 72,
+      "level": 1
+    },
+    {
+      "title": "23- الإنسان بوصفه الطائر المحكي",
+      "page_start": 73,
+      "page_end": 75,
+      "level": 1
+    },
+    {
+      "title": "24- حين تكون المشقّة متعةً",
+      "page_start": 76,
+      "page_end": 77,
+      "level": 1
+    },
+    {
+      "title": "25- صورة الحداثي الصعلوك",
+      "page_start": 78,
+      "page_end": 80,
+      "level": 1
+    },
+    {
+      "title": "26- وشكسبير أيضاً كان سارقاً",
+      "page_start": 81,
+      "page_end": 84,
+      "level": 1
+    },
+    {
+      "title": "27- النص لقارئه",
+      "page_start": 85,
+      "page_end": 87,
+      "level": 1
+    },
+    {
+      "title": "28- السلفية اللغوية",
+      "page_start": 88,
+      "page_end": 90,
+      "level": 1
+    },
+    {
+      "title": "29- التباكي بوصفه فطرةً ثقافية",
+      "page_start": 91,
+      "page_end": 93,
+      "level": 1
+    },
+    {
+      "title": "30- اللسان وطن",
+      "page_start": 94,
+      "page_end": 96,
+      "level": 1
+    },
+    {
+      "title": "31- لماذا يسود الرديء",
+      "page_start": 97,
+      "page_end": 99,
+      "level": 1
+    },
+    {
+      "title": "32- أن لا ترى فأنت آمن (نظرية السراج)",
+      "page_start": 100,
+      "page_end": 102,
+      "level": 1
+    },
+    {
+      "title": "33- الجمهور عاوز كذا",
+      "page_start": 103,
+      "page_end": 104,
+      "level": 1
+    },
+    {
+      "title": "34- صويحبة المتنبي / الضيفة الشتوية",
+      "page_start": 105,
+      "page_end": 106,
+      "level": 1
+    },
+    {
+      "title": "35- العقل الشقي / العقل السعيد",
+      "page_start": 107,
+      "page_end": 108,
+      "level": 1
+    },
+    {
+      "title": "36- المواطن العالمي",
+      "page_start": 109,
+      "page_end": 110,
+      "level": 1
+    },
+    {
+      "title": "37- الكتابة بين القلم والألم",
+      "page_start": 111,
+      "page_end": 113,
+      "level": 1
+    },
+    {
+      "title": "38- شجاعة اللغة العربية وجبن حراسها",
+      "page_start": 114,
+      "page_end": 116,
+      "level": 1
+    },
+    {
+      "title": "39- حكاية الحكايات الثقافية",
+      "page_start": 117,
+      "page_end": 120,
+      "level": 1
+    },
+    {
+      "title": "40- ثقافتنا الضائعة",
+      "page_start": 121,
+      "page_end": 123,
+      "level": 1
+    },
+    {
+      "title": "41- القفص الثقافي",
+      "page_start": 124,
+      "page_end": 126,
+      "level": 1
+    },
+    {
+      "title": "42- سجن الأفكار",
+      "page_start": 127,
+      "page_end": 129,
+      "level": 1
+    },
+    {
+      "title": "43- الفصحى المحكية",
+      "page_start": 130,
+      "page_end": 132,
+      "level": 1
+    },
+    {
+      "title": "44- تعميم الفصحى وتفصيح العامية",
+      "page_start": 133,
+      "page_end": 135,
+      "level": 1
+    },
+    {
+      "title": "45- لا يسلم الشرف الرفيع ... حتى",
+      "page_start": 136,
+      "page_end": 137,
+      "level": 1
+    },
+    {
+      "title": "46- شجرة في غابة إسمنت",
+      "page_start": 138,
+      "page_end": 139,
+      "level": 1
+    },
+    {
+      "title": "47- السيف الثقافي",
+      "page_start": 140,
+      "page_end": 142,
+      "level": 1
+    },
+    {
+      "title": "48- نحن والتراث",
+      "page_start": 143,
+      "page_end": 145,
+      "level": 1
+    },
+    {
+      "title": "49- عصر القارئ",
+      "page_start": 146,
+      "page_end": 147,
+      "level": 1
+    },
+    {
+      "title": "50- المتنبي بين (قوسين)",
+      "page_start": 148,
+      "page_end": 149,
+      "level": 1
+    },
+    {
+      "title": "51- مرآة المتنبي",
+      "page_start": 150,
+      "page_end": 151,
+      "level": 1
+    },
+    {
+      "title": "52- الجينات الثقافية",
+      "page_start": 152,
+      "page_end": 155,
+      "level": 1
+    },
+    {
+      "title": "53- المتنبي والزمن المستحيل",
+      "page_start": 156,
+      "page_end": 159,
+      "level": 1
+    },
+    {
+      "title": "54- جمالية النقص",
+      "page_start": 160,
+      "page_end": 162,
+      "level": 1
+    },
+    {
+      "title": "55- الحكمة أو لقاء الشعر والفلسفة",
+      "page_start": 163,
+      "page_end": 165,
+      "level": 1
+    },
+    {
+      "title": "56- شجرة النسق",
+      "page_start": 166,
+      "page_end": 168,
+      "level": 1
+    },
+    {
+      "title": "57- نوم العقل يوقظ الوحوش",
+      "page_start": 169,
+      "page_end": 171,
+      "level": 1
+    },
+    {
+      "title": "58- جماليات الهزيمة",
+      "page_start": 172,
+      "page_end": 173,
+      "level": 1
+    },
+    {
+      "title": "59- أبو الطيب / أبو محسِّد",
+      "page_start": 174,
+      "page_end": 175,
+      "level": 1
+    },
+    {
+      "title": "60- التوريقة الأخيرة",
+      "page_start": 176,
+      "page_end": 276,
+      "level": 1
+    }
+  ]
+}

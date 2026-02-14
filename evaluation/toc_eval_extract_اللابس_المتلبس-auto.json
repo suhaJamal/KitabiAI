@@ -1,0 +1,12 @@
+{
+  "book_title": "اللابس المتلبس-auto",
+  "method": "extract_arabic",
+  "timestamp": "2026-02-14T13:48:12.013987",
+  "toc_page_provided": null,
+  "page_offset": 0,
+  "strategy_used": "fallback_none_found",
+  "entries_before_clean": 0,
+  "entries_after_clean": 0,
+  "sections_created": 0,
+  "final_sections": []
+}
