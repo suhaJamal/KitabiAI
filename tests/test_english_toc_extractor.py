@@ -6,7 +6,7 @@ Tests pattern matching for various English TOC formats.
 """
 
 import pytest
-from app.services.english_toc_extractor import EnglishTocExtractor
+from app.services.extraction.english_toc_extractor import EnglishTocExtractor
 
 @pytest.mark.skip(reason="English extractor tests - Phase 2 WIP")
 class TestEnglishTocExtractor:

@@ -11,8 +11,8 @@ PDF analysis service (business logic).
 import fitz  # PyMuPDF
 from typing import Optional
 from fastapi import HTTPException
-from .typing import BytesLike
-from ..models.schemas import PageInfo, AnalysisReport
+from ..typing import BytesLike
+from ...models.schemas import PageInfo, AnalysisReport
 
 PDF_MAGIC = b"%PDF-"
 

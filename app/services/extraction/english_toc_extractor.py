@@ -12,7 +12,7 @@ Extracts chapter/section headings using common English patterns:
 import re
 import logging
 from typing import List, Optional
-from ..models.schemas import SectionInfo, SectionsReport
+from ...models.schemas import SectionInfo, SectionsReport
 
 
 logger = logging.getLogger(__name__)

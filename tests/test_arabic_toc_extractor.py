@@ -7,7 +7,7 @@ without manually uploading PDFs each time.
 
 import pytest
 from fastapi.testclient import TestClient
-from app.services.arabic_toc_extractor import ArabicTocExtractor
+from app.services.extraction.arabic_toc_extractor import ArabicTocExtractor
 
 
 class TestArabicTocExtractor:

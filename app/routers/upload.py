@@ -17,10 +17,10 @@ from fastapi import APIRouter, File, UploadFile, HTTPException, Query, Form
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from ..ui.template import html_shell, render_home, render_report
-from ..services.pdf_analyzer import PdfAnalyzer
-from ..services.export_service import ExportService
-from ..services.toc_extractor import TocExtractor
-from ..services.language_detector import LanguageDetector
+from ..services.extraction.pdf_analyzer import PdfAnalyzer
+from ..services.generation.export_service import ExportService
+from ..services.extraction.toc_extractor import TocExtractor
+from ..services.detection.language_detector import LanguageDetector
 from ..models.schemas import AnalysisReport, BookMetadata, BookInfo, SectionsReport
 from ..models.database import SessionLocal, Book, Section
 from ..models.database import SessionLocal, Book, Section, Author, Category
@@ -156,7 +156,7 @@ async def upload(
     if toc_method == "generate":
         # GENERATE: Build TOC from detected headings throughout the document
         logger.info(f"Generating TOC from headings for {detected_language} PDF")
-        from ..services.toc_generator import TocGenerator
+        from ..services.extraction.toc_generator import TocGenerator
         toc_generator = TocGenerator()
 
         if azure_result:
@@ -177,7 +177,7 @@ async def upload(
         # EXTRACT: Use existing TOC extraction logic
         logger.info(f"Extracting TOC for {detected_language} PDF during upload")
         if detected_language == "arabic" and extracted_text:
-            from ..services.arabic_toc_extractor import ArabicTocExtractor
+            from ..services.extraction.arabic_toc_extractor import ArabicTocExtractor
             arabic_extractor = ArabicTocExtractor()
             # Pass TOC page, Azure result, and page offset to the extractor
             sections_report = arabic_extractor.extract(
@@ -337,7 +337,7 @@ async def upload(
         _last_book_id = book_id
 
         # Save PDF and cover image to Azure Blob Storage
-        from ..services.azure_storage_service import azure_storage
+        from ..services.storage.azure_storage_service import azure_storage
 
         # Save PDF file
         pdf_url = azure_storage.save_pdf(book_id, pdf_bytes, file.filename)

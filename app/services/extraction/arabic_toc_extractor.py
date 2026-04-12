@@ -23,7 +23,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional, Any
 
-from ..models.schemas import SectionInfo, SectionsReport
+from ...models.schemas import SectionInfo, SectionsReport
 
 
 logger = logging.getLogger(__name__)
@@ -131,7 +131,32 @@ class ArabicTocExtractor:
                 self._write_eval_log(eval_data)
                 return SectionsReport(bookmarks_found=True, sections=sections)
             else:
-                logger.info("No valid table found, falling back to text-based search")
+                logger.info("No valid table found, trying text extraction from TOC page")
+
+        # Step 1.5: If table failed but we have a TOC page hint, extract text from that page range
+        if toc_page_number and azure_result and not eval_data.get('strategy_used'):
+            toc_page_text = self._extract_text_from_pages(azure_result, toc_page_number, max_pages=15)
+            if toc_page_text:
+                logger.info(f"Extracted {len(toc_page_text)} chars from TOC page {toc_page_number}+")
+                entries = self._parse_toc_entries(toc_page_text)
+                raw_count = len(entries)
+                entries = self._clean_entries(entries)
+
+                if len(entries) >= 3:
+                    sections = self._create_sections(entries, page_offset)
+                    logger.info(f"✅ Found valid TOC from page text with {len(sections)} sections")
+                    eval_data['strategy_used'] = 'page_text_extraction'
+                    eval_data['entries_before_clean'] = raw_count
+                    eval_data['entries_after_clean'] = len(entries)
+                    eval_data['sections_created'] = len(sections)
+                    eval_data['final_sections'] = [
+                        {'title': s.title, 'page_start': s.page_start, 'page_end': s.page_end, 'level': s.level}
+                        for s in sections
+                    ]
+                    self._write_eval_log(eval_data)
+                    return SectionsReport(bookmarks_found=True, sections=sections)
+                else:
+                    logger.info(f"Page text extraction found only {len(entries)} entries, continuing to text search")
 
         # Step 2: Try beginning of book (first third)
         toc_text = self._extract_toc_segment(
@@ -342,6 +367,40 @@ class ArabicTocExtractor:
 
         logger.info("No valid table with sufficient entries found")
         return None
+
+    def _extract_text_from_pages(self, azure_result: Any, start_page: int, max_pages: int = 15) -> Optional[str]:
+        """
+        Extract text from specific pages in the Azure result.
+
+        Used as fallback when table extraction fails but user provided a TOC page number.
+        Extracts text line by line from the TOC page and following pages.
+
+        Args:
+            azure_result: Full Azure Document Intelligence result object
+            start_page: Starting page number
+            max_pages: Maximum pages to extract from
+
+        Returns:
+            Extracted text from the pages, or None if no pages found
+        """
+        if not hasattr(azure_result, 'pages') or not azure_result.pages:
+            return None
+
+        text_parts = []
+        for page in azure_result.pages:
+            if page.page_number < start_page:
+                continue
+            if page.page_number >= start_page + max_pages:
+                break
+
+            if hasattr(page, 'lines') and page.lines:
+                for line in page.lines:
+                    text_parts.append(line.content)
+
+        if not text_parts:
+            return None
+
+        return "\n".join(text_parts)
 
     def _normalize_arabic_digits(self, text: str) -> str:
         """

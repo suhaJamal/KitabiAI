@@ -10,7 +10,7 @@ Strategies:
 
 import logging
 from typing import List, Optional
-from ..models.schemas import (
+from ...models.schemas import (
     ChunkInfo, 
     ChunkingReport, 
     SectionInfo, 

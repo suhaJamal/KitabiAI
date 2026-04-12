@@ -5,6 +5,8 @@ __pycache__/
 *.so
 .Python
 venv/
+venv*/
+.venv/
 env/
 ENV/
 
@@ -34,6 +36,14 @@ Thumbs.db
 # Database
 *.db
 *.sqlite3
+
+# Runtime data directories (volume-mounted in Docker)
+uploads/
+outputs/
+
+# Documentation and evaluation (internal/local only)
+docs/
+evaluation/
 
 # Temporary files
 *.tmp

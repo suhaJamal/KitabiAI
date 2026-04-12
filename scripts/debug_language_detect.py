@@ -1,4 +1,4 @@
-from app.services.language_detector import LanguageDetector
+from app.services.detection.language_detector import LanguageDetector
 
 # Create an instance of LanguageDetector
 detector = LanguageDetector()

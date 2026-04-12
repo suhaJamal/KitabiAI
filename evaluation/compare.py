@@ -202,6 +202,68 @@ def print_comparison(base_title, methods_data, ground_truth):
                 print(f"    ... and {len(result['extra']) - 5} more")
 
 
+def save_results(summary, tolerance):
+    """Save evaluation results to evaluation/results.json."""
+    from datetime import datetime
+
+    results_file = EVAL_DIR / "results.json"
+
+    # Build structured output
+    output = {
+        "timestamp": datetime.now().isoformat(),
+        "page_tolerance": tolerance,
+        "books": {},
+        "summary": {
+            "total_books": 0,
+            "avg_extract_f1": 0,
+            "avg_generate_f1": 0,
+        }
+    }
+
+    extract_f1s = []
+    generate_f1s = []
+
+    for row in summary:
+        book = row["book"]
+        method = row["method"]
+
+        if book not in output["books"]:
+            output["books"][book] = {}
+
+        output["books"][book][method] = {
+            "precision": row["precision"],
+            "recall": row["recall"],
+            "f1": row["f1"],
+            "system_sections": row["system_count"],
+            "ground_truth_sections": row["ground_truth_count"],
+            "true_positives": row["true_positives"],
+            "false_positives": row["false_positives"],
+            "false_negatives": row["false_negatives"],
+            "missed": [
+                {"title": ch.get("title", ""), "page": ch.get("page", 0)}
+                for ch in row.get("missed", [])
+            ],
+            "extra": [
+                {"title": sec.get("title", ""), "page": sec.get("page_start", 0)}
+                for sec in row.get("extra", [])
+            ],
+        }
+
+        if method == "extract":
+            extract_f1s.append(row["f1"])
+        elif method == "generate":
+            generate_f1s.append(row["f1"])
+
+    output["summary"]["total_books"] = len(output["books"])
+    output["summary"]["avg_extract_f1"] = round(sum(extract_f1s) / len(extract_f1s), 4) if extract_f1s else 0
+    output["summary"]["avg_generate_f1"] = round(sum(generate_f1s) / len(generate_f1s), 4) if generate_f1s else 0
+
+    with open(results_file, "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
+
+    print(f"\nResults saved to {results_file}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Compare TOC results against ground truth")
     parser.add_argument("--book", type=str, help="Filter to a specific book title")
@@ -259,6 +321,24 @@ def main():
         for row in summary:
             book_short = row["book"][:28]
             print(f"{book_short:<30} {row['method']:<10} {row['precision']:>7.1%} {row['recall']:>7.1%} {row['f1']:>7.1%} {row['system_count']:>5} {row['ground_truth_count']:>5}")
+
+        # Print averages
+        extract_rows = [r for r in summary if r["method"] == "extract"]
+        generate_rows = [r for r in summary if r["method"] == "generate"]
+        print("-" * 70)
+        if extract_rows:
+            avg_p = sum(r["precision"] for r in extract_rows) / len(extract_rows)
+            avg_r = sum(r["recall"] for r in extract_rows) / len(extract_rows)
+            avg_f1 = sum(r["f1"] for r in extract_rows) / len(extract_rows)
+            print(f"{'AVERAGE':<30} {'extract':<10} {avg_p:>7.1%} {avg_r:>7.1%} {avg_f1:>7.1%}")
+        if generate_rows:
+            avg_p = sum(r["precision"] for r in generate_rows) / len(generate_rows)
+            avg_r = sum(r["recall"] for r in generate_rows) / len(generate_rows)
+            avg_f1 = sum(r["f1"] for r in generate_rows) / len(generate_rows)
+            print(f"{'AVERAGE':<30} {'generate':<10} {avg_p:>7.1%} {avg_r:>7.1%} {avg_f1:>7.1%}")
+
+        # Save results to JSON
+        save_results(summary, args.tolerance)
 
 
 if __name__ == "__main__":

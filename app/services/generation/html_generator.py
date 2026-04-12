@@ -14,7 +14,7 @@ Features:
 import logging
 from typing import List, Optional
 from datetime import datetime
-from ..models.schemas import (
+from ...models.schemas import (
     BookMetadata,
     SectionInfo,
     PageInfo,
