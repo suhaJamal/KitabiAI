@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(python main.py:*)",
-      "Bash(python -m py_compile:*)"
+      "Bash(python -m py_compile:*)",
+      "Bash(python -m evaluation.compare:*)",
+      "Bash(sort grep:*)"
     ]
   }
 }

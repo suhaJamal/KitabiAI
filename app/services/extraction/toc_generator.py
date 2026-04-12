@@ -23,7 +23,7 @@ import re
 from datetime import datetime
 from typing import List, Optional, Any, Dict, Tuple
 
-from ..models.schemas import SectionInfo, SectionsReport
+from ...models.schemas import SectionInfo, SectionsReport
 
 
 logger = logging.getLogger(__name__)

@@ -17,7 +17,7 @@ from typing import Optional
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.core.exceptions import ResourceExistsError
 
-from ..core.config import settings
+from ...core.config import settings
 
 logger = logging.getLogger(__name__)
 

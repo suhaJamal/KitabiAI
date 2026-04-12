@@ -24,7 +24,7 @@ except ImportError:
     AZURE_AVAILABLE = False
     logging.warning("Azure SDK not installed. Azure features disabled.")
 
-from ..core.config import settings
+from ...core.config import settings
 from .ocr_detector import OCRDetector
 
 

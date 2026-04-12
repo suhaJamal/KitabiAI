@@ -24,9 +24,9 @@ from fastapi import HTTPException
 
 from opentelemetry import trace
 
-from ..models.schemas import SectionInfo, SectionsReport
-from ..core.config import settings
-from .language_detector import LanguageDetector
+from ...models.schemas import SectionInfo, SectionsReport
+from ...core.config import settings
+from ..detection.language_detector import LanguageDetector
 from .arabic_toc_extractor import ArabicTocExtractor
 from .english_toc_extractor import EnglishTocExtractor
 

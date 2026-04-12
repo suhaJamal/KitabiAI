@@ -15,10 +15,10 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 
-from ..services.chunker_service import ChunkerService
-from ..services.markdown_generator import MarkdownGenerator
-from ..services.html_generator import HtmlGenerator
-from ..services.azure_storage_service import azure_storage
+from ..services.generation.chunker_service import ChunkerService
+from ..services.generation.markdown_generator import MarkdownGenerator
+from ..services.generation.html_generator import HtmlGenerator
+from ..services.storage.azure_storage_service import azure_storage
 from ..models.schemas import GenerationRequest, GenerationResponse
 from ..models.database import SessionLocal, Book
 
@@ -64,7 +64,7 @@ def _check_state():
 def _generate_pages_jsonl() -> str:
     """Generate pages JSONL content (page-level analysis)."""
     from .upload import _last_report
-    from ..services.export_service import ExportService
+    from ..services.generation.export_service import ExportService
 
     exporter = ExportService()
     # ExportService returns bytes, we need to decode to string
@@ -389,7 +389,7 @@ async def generate_both(
         logger.info("Generating JSONL files...")
 
         # Generate pages JSONL using the loaded report
-        from ..services.export_service import ExportService
+        from ..services.generation.export_service import ExportService
         exporter = ExportService()
         jsonl_bytes = exporter.to_jsonl(report, include_text=True)
         pages_jsonl_content = jsonl_bytes.decode('utf-8')

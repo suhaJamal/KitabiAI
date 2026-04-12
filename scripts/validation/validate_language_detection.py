@@ -19,7 +19,7 @@ from typing import Literal
 # Add project root to path (scripts/validation -> root)
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from app.services.language_detector import LanguageDetector
+from app.services.detection.language_detector import LanguageDetector
 from app.core.config import settings
 
 logging.basicConfig(level=logging.INFO)

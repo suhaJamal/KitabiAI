@@ -7,7 +7,7 @@ Each line = one page record with page, has_text, image_count, and optional text.
 
 import json
 from typing import Iterable
-from ..models.schemas import AnalysisReport, PageInfo
+from ...models.schemas import AnalysisReport, PageInfo
 
 class ExportService:
     def to_jsonl(self, report: AnalysisReport, include_text: bool = True) -> bytes:
