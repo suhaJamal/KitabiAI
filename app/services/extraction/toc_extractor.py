@@ -22,8 +22,6 @@ from typing import List, Tuple, Optional
 import fitz
 from fastapi import HTTPException
 
-from opentelemetry import trace
-
 from ...models.schemas import SectionInfo, SectionsReport
 from ...core.config import settings
 from ..detection.language_detector import LanguageDetector
@@ -32,7 +30,6 @@ from .english_toc_extractor import EnglishTocExtractor
 
 
 logger = logging.getLogger(__name__)
-tracer = trace.get_tracer(__name__)
 
 # Evaluation log directory
 EVAL_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'evaluation')
@@ -45,67 +42,56 @@ class TocExtractor:
         self.english_extractor = EnglishTocExtractor()
     
     def extract(self, pdf_bytes: bytes, book_title: str = "unknown") -> SectionsReport:
-        """Extract TOC with tracing and evaluation logging."""
+        """Extract TOC with evaluation logging."""
+        eval_data = {
+            'book_title': book_title,
+            'method': 'auto_detect',
+            'timestamp': datetime.now().isoformat(),
+            'strategy_used': None,
+            'language_detected': None,
+            'bookmarks_found': 0,
+            'sections_created': 0,
+            'final_sections': []
+        }
 
-        with tracer.start_as_current_span("toc_extraction") as span:
-            eval_data = {
-                'book_title': book_title,
-                'method': 'auto_detect',
-                'timestamp': datetime.now().isoformat(),
-                'strategy_used': None,
-                'language_detected': None,
-                'bookmarks_found': 0,
-                'sections_created': 0,
-                'final_sections': []
-            }
+        # Detect language and extract text
+        language, extracted_text, _ = self.language_detector.detect(pdf_bytes)
+        logger.info(f"Detected language: {language}")
+        eval_data['language_detected'] = language
 
-            # Detect language and extract text
-            with tracer.start_as_current_span("language_detection"):
-                language, extracted_text, _ = self.language_detector.detect(pdf_bytes)
-                span.set_attribute("language", language)
-                logger.info(f"Detected language: {language}")
-                eval_data['language_detected'] = language
+        # Open PDF
+        try:
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            num_pages = doc.page_count
+            eval_data['total_pages'] = num_pages
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid PDF: {e}")
 
-            # Open PDF
-            with tracer.start_as_current_span("open_pdf"):
-                try:
-                    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-                    num_pages = doc.page_count
-                    span.set_attribute("num_pages", num_pages)
-                    eval_data['total_pages'] = num_pages
-                except Exception as e:
-                    span.record_exception(e)
-                    raise HTTPException(status_code=400, detail=f"Invalid PDF: {e}")
-
-            # Extract based on language
-            if language == "arabic":
-                with tracer.start_as_current_span("extract_arabic_toc"):
-                    if extracted_text:
-                        report = self.arabic_extractor.extract(extracted_text, book_title=book_title)
-                        eval_data['strategy_used'] = 'arabic_text_extraction'
-                    else:
-                        report = self._fallback_section(num_pages)
-                        eval_data['strategy_used'] = 'fallback_no_text'
+        # Extract based on language
+        if language == "arabic":
+            if extracted_text:
+                report = self.arabic_extractor.extract(extracted_text, book_title=book_title)
+                eval_data['strategy_used'] = 'arabic_text_extraction'
             else:
-                with tracer.start_as_current_span("extract_english_toc"):
-                    # Pass extracted_text to English extraction for pattern-based fallback
-                    report, strategy = self._extract_english(doc, extracted_text, num_pages)
-                    eval_data['strategy_used'] = strategy
+                report = self._fallback_section(num_pages)
+                eval_data['strategy_used'] = 'fallback_no_text'
+        else:
+            report, strategy = self._extract_english(doc, extracted_text, num_pages)
+            eval_data['strategy_used'] = strategy
 
-            # Fix page ranges
-            report = self._fix_page_ranges(report, num_pages)
-            span.set_attribute("sections_extracted", len(report.sections))
+        # Fix page ranges
+        report = self._fix_page_ranges(report, num_pages)
 
-            # Write evaluation log
-            eval_data['sections_created'] = len(report.sections)
-            eval_data['final_sections'] = [
-                {'title': s.title, 'page_start': s.page_start, 'page_end': s.page_end, 'level': s.level}
-                for s in report.sections
-            ]
-            self._write_eval_log(eval_data)
+        # Write evaluation log
+        eval_data['sections_created'] = len(report.sections)
+        eval_data['final_sections'] = [
+            {'title': s.title, 'page_start': s.page_start, 'page_end': s.page_end, 'level': s.level}
+            for s in report.sections
+        ]
+        self._write_eval_log(eval_data)
 
-            doc.close()
-            return report
+        doc.close()
+        return report
     
     def _extract_english(
         self,

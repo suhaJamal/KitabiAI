@@ -32,9 +32,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # Build the venv here and ship it in the artifact.
-      # Oryx is disabled in the deploy job so Azure uses this pre-built venv
-      # instead of running pip install from scratch on the server (which took 5+ min).
+      # Validate dependencies install correctly before deploying.
+      # antenv is excluded from artifact — Oryx installs on the server and caches
+      # the result in output.tar.zst. Subsequent deploys reuse that cache (~1-2 min)
+      # and only rebuild when requirements.txt changes.
       - name: Create virtual environment and install dependencies
         run: |
           python -m venv antenv
@@ -45,7 +46,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: .
+          path: |
+            .
+            !antenv/
 
   deploy:
     runs-on: ubuntu-latest
@@ -66,17 +69,6 @@ jobs:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_62045EA8F99E40BDB580F213DB313BAD }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_576B94F1D6E44E34A3121A1DC4A79D96 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_EC864A33FD3B4DAE85EC9890C72D0E92 }}
-
-      - name: Disable Oryx server-side build
-        run: |
-          RG=$(az webapp list --query "[?name=='kitabiai-app'].resourceGroup" -o tsv)
-          az webapp config appsettings set \
-            --name kitabiai-app \
-            --resource-group "$RG" \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
-          # App Setting changes restart the SCM (Kudu) container.
-          # Wait for it to come back before starting ZIP deploy.
-          sleep 60
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
