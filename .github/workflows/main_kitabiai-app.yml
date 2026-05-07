@@ -74,6 +74,9 @@ jobs:
             --name kitabiai-app \
             --resource-group "$RG" \
             --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
+          # App Setting changes restart the SCM (Kudu) container.
+          # Wait for it to come back before starting ZIP deploy.
+          sleep 60
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
