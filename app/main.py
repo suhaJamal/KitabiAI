@@ -13,7 +13,6 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 from .core.config import settings
 from .core.logging import setup_logging
-from .core.tracing import setup_tracing
 from .routers.upload import router as upload_router
 from .routers.generation import router as generation_router
 from .routers.library import router as library_router
@@ -25,9 +24,6 @@ logger.info("🚀 Starting KitabiAI application")
 
 # Create app
 app = FastAPI(title=settings.APP_NAME)
-
-# Setup tracing
-# tracer = setup_tracing(app)
 
 # Include routers
 app.include_router(upload_router)

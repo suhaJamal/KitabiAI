@@ -32,28 +32,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # Validates requirements install correctly before deploying.
-      # antenv is excluded from the artifact — Azure Oryx installs on the server side.
-      - name: Create and Start virtual environment and Install dependencies
+      # Build the venv here and ship it in the artifact.
+      # Oryx is disabled in the deploy job so Azure uses this pre-built venv
+      # instead of running pip install from scratch on the server (which took 5+ min).
+      - name: Create virtual environment and install dependencies
         run: |
           python -m venv antenv
           source antenv/bin/activate
           pip install -r requirements.txt
-                
-      # By default, when you enable GitHub CI/CD integration through the Azure portal, the platform automatically sets the SCM_DO_BUILD_DURING_DEPLOYMENT application setting to true. This triggers the use of Oryx, a build engine that handles application compilation and dependency installation (e.g., pip install) directly on the platform during deployment. Hence, we exclude the antenv virtual environment directory from the deployment artifact to reduce the payload size. 
+
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: |
-            .
-            !antenv/
-
-      # 🚫 Opting Out of Oryx Build
-      # If you prefer to disable the Oryx build process during deployment, follow these steps:
-      # 1. Remove the SCM_DO_BUILD_DURING_DEPLOYMENT app setting from your Azure App Service Environment variables.
-      # 2. Refer to sample workflows for alternative deployment strategies: https://github.com/Azure/actions-workflow-samples/tree/master/AppService
-      
+          path: .
 
   deploy:
     runs-on: ubuntu-latest
@@ -67,7 +59,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: python-app
-      
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -75,10 +67,17 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_576B94F1D6E44E34A3121A1DC4A79D96 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_EC864A33FD3B4DAE85EC9890C72D0E92 }}
 
-      - name: 'Deploy to Azure Web App'
+      - name: Disable Oryx server-side build
+        run: |
+          RG=$(az webapp list --query "[?name=='kitabiai-app'].resourceGroup" -o tsv)
+          az webapp config appsettings set \
+            --name kitabiai-app \
+            --resource-group "$RG" \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false
+
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'kitabiai-app'
           slot-name: 'Production'
-          
