@@ -1045,16 +1045,23 @@ def render_admin(books_data: list) -> str:
 
         method_badge = f"<span class='method-badge method-{method_class}'>{toc_method}</span>" if method_class else f"<span class='method-badge'>{toc_method}</span>"
 
+        is_visible = book.get('is_visible', True)
+        hidden_reason = book.get('hidden_reason', '') or ''
+        row_opacity = "1" if is_visible else "0.45"
+        visibility_icon = "👁️" if is_visible else "🚫"
+        visibility_title = "Click to hide" if is_visible else "Click to show"
+
         rows += f"""
-        <tr id="book-row-{book['id']}" class="book-main-row" onclick="toggleExpand({book['id']})" style="cursor: pointer;">
-          <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{raw_title}">{display_title}</td>
+        <tr id="book-row-{book['id']}" class="book-main-row" onclick="toggleExpand({book['id']})" style="cursor: pointer; opacity: {row_opacity};">
+          <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{raw_title}">{display_title}</td>
           <td>{book['author']}</td>
           <td>{lang_badge}</td>
           <td>{book['page_count']}</td>
           <td>{book['section_count']}</td>
           <td>{book['created_at']}</td>
           <td>
-            <div style="display: flex; gap: 6px;">
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button onclick="event.stopPropagation(); toggleVisibility({book['id']}, {str(is_visible).lower()})" class="admin-btn admin-btn-visibility" title="{visibility_title}">{visibility_icon}</button>
               <button onclick="event.stopPropagation(); openEditModal({book['id']})" class="admin-btn admin-btn-edit" title="Edit">Edit</button>
               <button onclick="event.stopPropagation(); confirmDelete({book['id']}, '{raw_title.replace(chr(39), chr(92)+chr(39))}')" class="admin-btn admin-btn-delete" title="Delete">Delete</button>
             </div>
@@ -1068,6 +1075,8 @@ def render_admin(books_data: list) -> str:
               <div class="expand-item"><span class="expand-label">Full Title:</span> <span class="expand-value">{raw_title}</span></div>
               <div class="expand-item"><span class="expand-label">Category:</span> <span class="expand-value">{book['category'] or '—'}</span></div>
               <div class="expand-item"><span class="expand-label">Status:</span> <span class="expand-value">{book['status']}</span></div>
+              <div class="expand-item"><span class="expand-label">Visible:</span> <span class="expand-value">{'Yes' if is_visible else 'No'}</span></div>
+              {f'<div class="expand-item" style="width:100%;"><span class="expand-label">Hidden reason:</span> <span class="expand-value">{hidden_reason}</span></div>' if hidden_reason else ''}
             </div>
           </td>
         </tr>
@@ -1124,6 +1133,19 @@ def render_admin(books_data: list) -> str:
       }}
       .admin-btn-delete:hover {{
         background: #fecaca;
+      }}
+      .admin-btn-visibility {{
+        background: #f3f4f6;
+        color: #374151;
+        font-size: 14px;
+        padding: 4px 8px;
+      }}
+      .admin-btn-visibility:hover {{
+        background: #e5e7eb;
+      }}
+      .hidden-reason-row {{
+        background: #fef9f3;
+        border-left: 3px solid #f59e0b;
       }}
       .modal-overlay {{
         display: none;
@@ -1291,9 +1313,14 @@ def render_admin(books_data: list) -> str:
 
     <div class="admin-nav">
       <h2 style="margin: 0; font-size: 20px;">Manage Books</h2>
-      <a href="/" style="padding: 8px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--accent);">
-        Back to Upload
-      </a>
+      <div style="display: flex; gap: 10px;">
+        <a href="/library" target="_blank" style="padding: 8px 16px; background: var(--accent); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: white;">
+          📚 Open Library
+        </a>
+        <a href="/" style="padding: 8px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--accent);">
+          Back to Upload
+        </a>
+      </div>
     </div>
 
     <div class="admin-stats">
@@ -1302,12 +1329,12 @@ def render_admin(books_data: list) -> str:
         <div class="stat-label">Total Books</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{sum(1 for b in books_data if b['language'] == 'ar')}</div>
-        <div class="stat-label">Arabic</div>
+        <div class="stat-value">{sum(1 for b in books_data if b.get('is_visible', True))}</div>
+        <div class="stat-label">Visible</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{sum(1 for b in books_data if b['language'] == 'en')}</div>
-        <div class="stat-label">English</div>
+        <div class="stat-value">{sum(1 for b in books_data if not b.get('is_visible', True))}</div>
+        <div class="stat-label">Hidden</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">{sum(b['page_count'] for b in books_data)}</div>
@@ -1328,6 +1355,11 @@ def render_admin(books_data: list) -> str:
             <th>Sections</th>
             <th>Created</th>
             <th>Actions</th>
+          </tr>
+          <tr>
+            <th colspan="7" style="padding: 4px 12px; font-size: 11px; font-weight: 400; color: var(--muted); background: var(--bg);">
+              👁️ = visible in library &nbsp;|&nbsp; 🚫 = hidden &nbsp;|&nbsp; Click 👁️ or 🚫 to toggle. Hidden books stay in the database but won't appear in the library.
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -1371,6 +1403,36 @@ def render_admin(books_data: list) -> str:
     </div>
 
     <script>
+    function toggleVisibility(bookId, currentlyVisible) {{
+      if (currentlyVisible) {{
+        // Hiding — ask for reason
+        const reason = prompt('Why are you hiding this book? (optional)\\nLeave blank to skip.');
+        if (reason === null) return;  // user cancelled
+        setVisibility(bookId, false, reason);
+      }} else {{
+        // Showing — no reason needed
+        setVisibility(bookId, true, '');
+      }}
+    }}
+
+    function setVisibility(bookId, isVisible, reason) {{
+      fetch('/admin/books/' + bookId + '/visibility', {{
+        method: 'PATCH',
+        headers: {{ 'Content-Type': 'application/json' }},
+        body: JSON.stringify({{ is_visible: isVisible, hidden_reason: reason }})
+      }})
+      .then(r => {{
+        if (!r.ok) throw new Error('Failed');
+        return r.json();
+      }})
+      .then(() => {{
+        window.location.reload();
+      }})
+      .catch(err => {{
+        showAlert('Failed to update visibility: ' + err.message, 'error');
+      }});
+    }}
+
     function showAlert(message, type) {{
       const alert = document.getElementById('admin-alert');
       alert.textContent = message;
