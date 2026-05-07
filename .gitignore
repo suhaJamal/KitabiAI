@@ -45,6 +45,9 @@ outputs/
 docs/
 evaluation/
 
+# Experiments (local research — not for open-source release)
+experiments/
+
 # Temporary files
 *.tmp
 temp/

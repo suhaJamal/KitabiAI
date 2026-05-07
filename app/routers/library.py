@@ -50,8 +50,10 @@ async def list_books(
     """
     db = SessionLocal()
     try:
-        # Start with base query
-        query = db.query(Book).join(Author)
+        # Start with base query — only show visible books in the library
+        query = db.query(Book).join(Author).filter(
+            (Book.is_visible == True) | (Book.is_visible == None)
+        )
 
         # Apply filters
         if language:
@@ -366,12 +368,14 @@ async def get_stats():
     """
     db = SessionLocal()
     try:
-        # Total books
-        total_books = db.query(func.count(Book.id)).scalar()
+        visible = (Book.is_visible == True) | (Book.is_visible == None)
 
-        # Books by language
-        arabic_books = db.query(func.count(Book.id)).filter(Book.language == 'ar').scalar()
-        english_books = db.query(func.count(Book.id)).filter(Book.language == 'en').scalar()
+        # Total books (visible only)
+        total_books = db.query(func.count(Book.id)).filter(visible).scalar()
+
+        # Books by language (visible only)
+        arabic_books = db.query(func.count(Book.id)).filter(visible, Book.language == 'ar').scalar()
+        english_books = db.query(func.count(Book.id)).filter(visible, Book.language == 'en').scalar()
 
         # Total authors
         total_authors = db.query(func.count(Author.id)).scalar()

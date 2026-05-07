@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime
 import os
@@ -76,6 +76,8 @@ class Book(Base):
 
     view_count = Column(Integer, default=0)
     status = Column(String(20), default='published')
+    is_visible = Column(Boolean, default=True)
+    hidden_reason = Column(Text, nullable=True)
     
     # Relationships
     author = relationship("Author", back_populates="books")

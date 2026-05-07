@@ -53,6 +53,8 @@ def admin_page():
                 "publication_date": book.publication_date or "",
                 "isbn": book.isbn or "",
                 "status": book.status or "published",
+                "is_visible": book.is_visible if book.is_visible is not None else True,
+                "hidden_reason": book.hidden_reason or "",
                 "created_at": book.created_at.strftime("%Y-%m-%d") if book.created_at else "—",
             })
 
@@ -144,6 +146,31 @@ async def update_book(book_id: int, data: dict):
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to update book {book_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+@router.patch("/books/{book_id}/visibility")
+async def update_visibility(book_id: int, data: dict):
+    """Toggle book visibility and set optional hidden reason."""
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter(Book.id == book_id).first()
+        if not book:
+            raise HTTPException(status_code=404, detail="Book not found")
+
+        book.is_visible = bool(data.get("is_visible", True))
+        book.hidden_reason = data.get("hidden_reason", "").strip() or None
+        db.commit()
+
+        state = "visible" if book.is_visible else "hidden"
+        logger.info(f"Book {book_id} set to {state}")
+        return {"ok": True, "is_visible": book.is_visible}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
