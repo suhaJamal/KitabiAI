@@ -207,18 +207,21 @@ class MarkdownGenerator:
 
         # Extract content only for leaf sections
         if is_leaf:
-            # Get section content
-            section_pages = [
-                p for p in pages
-                if section.page_start <= p.page <= section.page_end
-            ]
+            if section.content is not None:
+                # Use pre-extracted content (Y-position accurate, starts from heading)
+                text = self._clean_text(section.content, language)
+                lines.append(text)
+            else:
+                # Fall back to page-range assembly (English / bookmark-based)
+                section_pages = [
+                    p for p in pages
+                    if section.page_start <= p.page <= section.page_end
+                ]
 
-            # Join page content
-            for page in section_pages:
-                if page.has_text and page.text:
-                    # Clean and format text
-                    text = self._clean_text(page.text, language)
-                    lines.append(text)
+                for page in section_pages:
+                    if page.has_text and page.text:
+                        text = self._clean_text(page.text, language)
+                        lines.append(text)
 
         return "\n\n".join(lines)
 

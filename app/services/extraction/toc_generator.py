@@ -105,16 +105,16 @@ class TocGenerator:
 
         logger.info(f"Found {len(headings)} headings in document")
 
-        # Step 2: Build page content map for content extraction
-        page_content_map = {}
+        # Step 2: Build page paragraphs map for Y-position-based content extraction
+        page_paragraphs_map = {}
         if store_content:
-            page_content_map = self._build_page_content_map(azure_result)
+            page_paragraphs_map = self._build_page_paragraphs_map(azure_result)
 
         # Step 3: Create sections from headings
         sections = self._create_sections_from_headings(
             headings,
             num_pages,
-            page_content_map if store_content else None
+            page_paragraphs_map if store_content else None
         )
 
         if not sections:
@@ -165,13 +165,17 @@ class TocGenerator:
             if hasattr(paragraph, 'bounding_regions') and paragraph.bounding_regions:
                 page_number = paragraph.bounding_regions[0].page_number
 
-            # Get bounding box height
+            # Get bounding box height and Y position
             height = None
+            y_top = None
+            y_bottom = None
             if hasattr(paragraph, 'bounding_regions') and paragraph.bounding_regions:
                 region = paragraph.bounding_regions[0]
                 if hasattr(region, 'polygon') and region.polygon:
                     y_coords = [region.polygon[i] for i in range(1, len(region.polygon), 2)]
-                    height = max(y_coords) - min(y_coords)
+                    y_top = min(y_coords)
+                    y_bottom = max(y_coords)
+                    height = y_bottom - y_top
 
             # Record this candidate for evaluation BEFORE any filtering
             candidate = {
@@ -237,7 +241,9 @@ class TocGenerator:
                 'page': page_number,
                 'role': role,
                 'offset': offset,
-                'length': length
+                'length': length,
+                'y_top': y_top,
+                'y_bottom': y_bottom,
             }
 
             headings.append(heading)
@@ -248,49 +254,74 @@ class TocGenerator:
 
         return headings
 
-    def _build_page_content_map(self, azure_result: Any) -> Dict[int, str]:
+    def _build_page_paragraphs_map(self, azure_result: Any) -> Dict[int, List[Dict]]:
         """
-        Build a map of page number to page content.
+        Build a map of page number to list of paragraphs with Y-positions.
 
-        This is used for extracting section content.
+        Each paragraph entry: {'content': str, 'y_top': float, 'y_bottom': float}
+        Y values are in inches from the top of the page.
 
         Args:
             azure_result: Azure Document Intelligence result
 
         Returns:
-            Dictionary mapping page number to full page text
+            Dictionary mapping page number to ordered list of paragraph dicts
         """
-        page_content = {}
+        page_paragraphs: Dict[int, List[Dict]] = {}
 
-        for page in azure_result.pages:
-            page_num = page.page_number
-            page_text = ""
+        if not hasattr(azure_result, 'paragraphs') or not azure_result.paragraphs:
+            return page_paragraphs
 
-            # Extract text from lines
-            if hasattr(page, 'lines') and page.lines:
-                for line in page.lines:
-                    page_text += line.content + "\n"
+        for paragraph in azure_result.paragraphs:
+            content = getattr(paragraph, 'content', '').strip()
+            if not content:
+                continue
 
-            page_content[page_num] = page_text
+            if not (hasattr(paragraph, 'bounding_regions') and paragraph.bounding_regions):
+                continue
 
-        logger.debug(f"Built content map for {len(page_content)} pages")
-        return page_content
+            region = paragraph.bounding_regions[0]
+            page_num = region.page_number
+
+            y_top = None
+            y_bottom = None
+            if hasattr(region, 'polygon') and region.polygon:
+                y_coords = [region.polygon[i] for i in range(1, len(region.polygon), 2)]
+                y_top = min(y_coords)
+                y_bottom = max(y_coords)
+
+            if page_num not in page_paragraphs:
+                page_paragraphs[page_num] = []
+
+            page_paragraphs[page_num].append({
+                'content': content,
+                'y_top': y_top,
+                'y_bottom': y_bottom,
+            })
+
+        # Sort each page's paragraphs by Y position (top to bottom)
+        for page_num in page_paragraphs:
+            page_paragraphs[page_num].sort(key=lambda p: p['y_top'] or 0)
+
+        logger.debug(f"Built paragraph map for {len(page_paragraphs)} pages")
+        return page_paragraphs
 
     def _create_sections_from_headings(
         self,
         headings: List[Dict],
         num_pages: int,
-        page_content_map: Optional[Dict[int, str]] = None
+        page_paragraphs_map: Optional[Dict[int, List[Dict]]] = None
     ) -> List[SectionInfo]:
         """
         Create SectionInfo objects from extracted headings.
 
-        Calculates page ranges and optionally extracts content for each section.
+        Calculates page ranges and extracts content using Y-position filtering
+        so that only text below the heading on the first page is included.
 
         Args:
-            headings: List of heading dictionaries
+            headings: List of heading dictionaries (must include y_top, y_bottom)
             num_pages: Total number of pages
-            page_content_map: Optional map of page number to content (for content extraction)
+            page_paragraphs_map: Optional per-page paragraph list with Y positions
 
         Returns:
             List of SectionInfo objects
@@ -319,82 +350,93 @@ class TocGenerator:
             # Determine level based on role
             level = 1 if heading['role'] == 'title' else 2
 
+            # Extract content using Y-position filtering if paragraphs map is available
+            content = None
+            if page_paragraphs_map:
+                content = self._extract_section_content_by_y(
+                    headings, idx, page_paragraphs_map, page_end
+                )
+
             # Create section
             section = SectionInfo(
                 section_id=str(idx + 1),
                 title=heading['title'],
                 level=level,
                 page_start=page_start,
-                page_end=page_end
+                page_end=page_end,
+                content=content
             )
 
             sections.append(section)
 
             logger.debug(
-                f"Created section: '{heading['title'][:30]}...' "
-                f"(pages {page_start}-{page_end}, level {level})"
+                f"Created section: '{heading['title'][:30]}' "
+                f"(pages {page_start}-{page_end}, level {level}, "
+                f"content={'yes' if content else 'no'})"
             )
 
         return sections
 
-    def _extract_section_content(
+    def _extract_section_content_by_y(
         self,
         headings: List[Dict],
         idx: int,
-        page_content_map: Dict[int, str]
+        page_paragraphs_map: Dict[int, List[Dict]],
+        page_end: int
     ) -> str:
         """
-        Extract content for a specific section.
+        Extract content for a section using Y-position filtering.
 
-        Uses character offsets to precisely split content at heading boundaries,
-        avoiding overlap between sections.
+        On the first page of a section, only paragraphs whose y_top is at or
+        below the heading's y_bottom are included (i.e. content after the heading).
+        On the last page (when the next heading starts there), only paragraphs
+        whose y_bottom is at or above the next heading's y_top are included.
+        All middle pages are included in full.
 
         Args:
-            headings: List of all headings
+            headings: List of all heading dicts (must include y_top, y_bottom)
             idx: Index of current heading
-            page_content_map: Map of page number to page content
+            page_paragraphs_map: Per-page list of {'content', 'y_top', 'y_bottom'}
+            page_end: Last page number of this section
 
         Returns:
             Section content text
         """
         heading = headings[idx]
         page_start = heading['page']
+        heading_y_bottom = heading.get('y_bottom')
 
-        # Determine where this section ends
-        if idx + 1 < len(headings):
-            next_heading = headings[idx + 1]
-            page_end = next_heading['page']
-            end_offset = next_heading['offset']
-        else:
-            page_end = max(page_content_map.keys()) if page_content_map else page_start
-            end_offset = None
+        # Determine Y cutoff for the last page (where next heading starts)
+        next_heading = headings[idx + 1] if idx + 1 < len(headings) else None
+        next_on_same_page = next_heading and next_heading['page'] == page_end
+        next_y_top = next_heading.get('y_top') if next_on_same_page else None
 
         content_parts = []
 
         for page_num in range(page_start, page_end + 1):
-            page_text = page_content_map.get(page_num, "")
-
-            if not page_text:
+            paragraphs = page_paragraphs_map.get(page_num, [])
+            if not paragraphs:
                 continue
 
-            # Handle first page of section
-            if page_num == page_start:
-                # Start after the heading
-                start_offset = (heading['offset'] or 0) + (heading['length'] or 0)
-                if page_num == page_end and end_offset is not None:
-                    # Section starts and ends on same page
-                    page_text = page_text[start_offset:end_offset]
-                else:
-                    # Section starts here but continues to next page
-                    page_text = page_text[start_offset:]
+            selected = []
+            for para in paragraphs:
+                y_top = para.get('y_top')
+                y_bottom = para.get('y_bottom')
 
-            # Handle last page of section (if different from first)
-            elif page_num == page_end and end_offset is not None:
-                page_text = page_text[:end_offset]
+                # First page: skip paragraphs above or overlapping the heading
+                if page_num == page_start and heading_y_bottom is not None and y_top is not None:
+                    if y_top < heading_y_bottom:
+                        continue  # above or is the heading — skip
 
-            # Middle pages get full content (no slicing needed)
+                # Last page of section when next heading is on same page: stop before it
+                if page_num == page_end and next_y_top is not None and y_top is not None:
+                    if y_top >= next_y_top:
+                        continue  # belongs to next section — skip
 
-            content_parts.append(page_text.strip())
+                selected.append(para['content'])
+
+            if selected:
+                content_parts.append("\n".join(selected))
 
         return "\n\n".join(content_parts)
 
