@@ -614,21 +614,27 @@ class HtmlGenerator:
         # Build paragraphs only for leaf sections
         paragraphs = []
         if is_leaf:
-            # Get section pages
-            section_pages = [
-                p for p in pages
-                if section.page_start <= p.page <= section.page_end
-            ]
+            if section.content is not None:
+                # Use pre-extracted content (Y-position accurate, starts from heading)
+                for para in section.content.split("\n\n"):
+                    para = para.strip()
+                    if len(para) > 10:
+                        para = self._escape_html(para)
+                        paragraphs.append(f"<p>{para}</p>")
+            else:
+                # Fall back to page-range assembly (English / bookmark-based)
+                section_pages = [
+                    p for p in pages
+                    if section.page_start <= p.page <= section.page_end
+                ]
 
-            for page in section_pages:
-                if page.has_text and page.text:
-                    # Split into paragraphs and wrap in <p> tags
-                    for para in page.text.split("\n\n"):
-                        para = para.strip()
-                        if len(para) > 10:  # Skip very short paragraphs
-                            # Escape HTML special characters
-                            para = self._escape_html(para)
-                            paragraphs.append(f"<p>{para}</p>")
+                for page in section_pages:
+                    if page.has_text and page.text:
+                        for para in page.text.split("\n\n"):
+                            para = para.strip()
+                            if len(para) > 10:
+                                para = self._escape_html(para)
+                                paragraphs.append(f"<p>{para}</p>")
 
         content_html = "\n".join(paragraphs)
 

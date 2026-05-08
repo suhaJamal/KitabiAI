@@ -301,6 +301,7 @@ async def upload(
                 level=section.level,
                 page_start=section.page_start,
                 page_end=section.page_end,
+                content=section.content if section.content else None,
                 order_index=idx
             )
             db.add(new_section)

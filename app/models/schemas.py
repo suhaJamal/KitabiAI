@@ -26,6 +26,7 @@ class SectionInfo(BaseModel):
     level: int
     page_start: int  # inclusive, 1-based
     page_end: int    # inclusive, 1-based
+    content: Optional[str] = None  # pre-extracted text starting from heading position
 
 class SectionsReport(BaseModel):  # note the "s" (plural)
     bookmarks_found: bool
