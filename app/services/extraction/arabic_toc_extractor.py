@@ -242,39 +242,51 @@ class ArabicTocExtractor:
             logger.info("No tables found in Azure result")
             return None
 
-        # Find ALL tables on the specified page AND following consecutive pages
-        # This handles multi-page TOCs (e.g., TOC spanning pages 345-349)
+        # Find ALL tables on the specified page AND following consecutive pages.
+        # Uses any() on bounding_regions so multi-page Azure tables (one object spanning
+        # several pages) are matched on every page they cover, not just the first.
+        # Deduplication via seen_table_ids ensures each table object is processed once.
         page_tables = []
+        seen_table_ids: set = set()
         total_pages = len(azure_result.pages)
+        pages_checked = 0
 
         for page_offset_check in range(max_pages):
             current_page = page_number + page_offset_check
+            pages_checked = page_offset_check + 1
 
             # Stop if we exceed the document page count
             if current_page > total_pages:
                 break
 
-            # Find tables on this page
-            tables_on_page = [
+            # Find tables that have ANY bounding region on this page (handles multi-page tables)
+            new_tables_on_page = [
                 t for t in azure_result.tables
-                if t.bounding_regions and t.bounding_regions[0].page_number == current_page
+                if t.bounding_regions
+                and any(br.page_number == current_page for br in t.bounding_regions)
+                and id(t) not in seen_table_ids
             ]
 
-            # If we find tables on this page, add them
-            if tables_on_page:
-                logger.info(f"Found {len(tables_on_page)} table(s) on page {current_page}")
-                page_tables.extend(tables_on_page)
-            # If this is NOT the first page and we find no tables, stop searching
-            # (TOC has ended)
+            if new_tables_on_page:
+                logger.info(f"Found {len(new_tables_on_page)} new table(s) on page {current_page}")
+                for t in new_tables_on_page:
+                    seen_table_ids.add(id(t))
+                page_tables.extend(new_tables_on_page)
             elif page_offset_check > 0:
-                logger.info(f"No tables on page {current_page}, TOC ends at page {current_page - 1}")
-                break
+                # No new tables — check if an already-found multi-page table still extends here
+                already_extends = any(
+                    any(br.page_number == current_page for br in t.bounding_regions)
+                    for t in page_tables
+                )
+                if not already_extends:
+                    logger.info(f"No tables on page {current_page}, TOC ends at page {current_page - 1}")
+                    break
 
         if not page_tables:
             logger.info(f"No tables found starting from page {page_number}")
             return None
 
-        logger.info(f"Processing {len(page_tables)} table(s) across {page_offset_check + 1} page(s)")
+        logger.info(f"Processing {len(page_tables)} table(s) across {pages_checked} page(s)")
 
         # Collect ALL entries from ALL tables across all pages
         all_entries = []
