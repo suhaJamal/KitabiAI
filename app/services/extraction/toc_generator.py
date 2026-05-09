@@ -348,10 +348,11 @@ class TocGenerator:
                 next_heading_y_top = self._find_heading_y_top(
                     next_section.title, next_section.page_start, page_paragraphs_map
                 )
-                next_heading = {
-                    'page': next_section.page_start,
-                    'y_top': next_heading_y_top,
-                }
+                if next_heading_y_top is not None:
+                    next_heading = {
+                        'page': next_section.page_start,
+                        'y_top': next_heading_y_top,
+                    }
 
             heading = {
                 'page': section.page_start,
