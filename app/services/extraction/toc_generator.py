@@ -353,8 +353,9 @@ class TocGenerator:
             # Extract content using Y-position filtering if paragraphs map is available
             content = None
             if page_paragraphs_map:
+                next_h = headings[idx + 1] if idx + 1 < len(headings) else None
                 content = self._extract_section_content_by_y(
-                    headings, idx, page_paragraphs_map, page_end
+                    heading, next_h, page_paragraphs_map, page_end
                 )
 
             # Create section
@@ -379,41 +380,53 @@ class TocGenerator:
 
     def _extract_section_content_by_y(
         self,
-        headings: List[Dict],
-        idx: int,
+        heading: Dict,
+        next_heading: Optional[Dict],
         page_paragraphs_map: Dict[int, List[Dict]],
         page_end: int
     ) -> str:
         """
         Extract content for a section using Y-position filtering.
 
-        On the first page of a section, only paragraphs whose y_top is at or
-        below the heading's y_bottom are included (i.e. content after the heading).
-        On the last page (when the next heading starts there), only paragraphs
-        whose y_bottom is at or above the next heading's y_top are included.
-        All middle pages are included in full.
+        - First page (page_start): only paragraphs whose y_top >= heading's y_bottom
+          (skips everything above and including the heading title itself).
+        - Middle pages: all paragraphs included.
+        - Boundary page (where next heading starts): only paragraphs whose
+          y_top < next heading's y_top — this captures content that sits above
+          the next heading on that shared page, which belongs to the current section.
+          This fixes two symptoms:
+            1. Previous section was missing its tail content above the next heading.
+            2. Current section was cut off before its actual end on the boundary page.
 
         Args:
-            headings: List of all heading dicts (must include y_top, y_bottom)
-            idx: Index of current heading
+            heading: Current heading dict (must include 'page', 'y_bottom')
+            next_heading: Next heading dict or None if last section
             page_paragraphs_map: Per-page list of {'content', 'y_top', 'y_bottom'}
-            page_end: Last page number of this section
+            page_end: page_end stored in SectionInfo (used only when there is no next heading)
 
         Returns:
             Section content text
         """
-        heading = headings[idx]
         page_start = heading['page']
         heading_y_bottom = heading.get('y_bottom')
 
-        # Determine Y cutoff for the last page (where next heading starts)
-        next_heading = headings[idx + 1] if idx + 1 < len(headings) else None
-        next_on_same_page = next_heading and next_heading['page'] == page_end
-        next_y_top = next_heading.get('y_top') if next_on_same_page else None
+        # Determine the last page to process and its Y cutoff
+        if next_heading is None:
+            # Last section in document — include all remaining pages
+            last_page = page_end
+            last_page_y_cutoff = None
+        elif next_heading['page'] == page_start:
+            # Both headings on the same page — one-page section
+            last_page = page_start
+            last_page_y_cutoff = next_heading.get('y_top')
+        else:
+            # Extend into next heading's page to capture content above that heading
+            last_page = next_heading['page']
+            last_page_y_cutoff = next_heading.get('y_top')
 
         content_parts = []
 
-        for page_num in range(page_start, page_end + 1):
+        for page_num in range(page_start, last_page + 1):
             paragraphs = page_paragraphs_map.get(page_num, [])
             if not paragraphs:
                 continue
@@ -421,17 +434,16 @@ class TocGenerator:
             selected = []
             for para in paragraphs:
                 y_top = para.get('y_top')
-                y_bottom = para.get('y_bottom')
 
-                # First page: skip paragraphs above or overlapping the heading
+                # First page: skip paragraphs at or above the heading's bottom edge
                 if page_num == page_start and heading_y_bottom is not None and y_top is not None:
                     if y_top < heading_y_bottom:
-                        continue  # above or is the heading — skip
+                        continue
 
-                # Last page of section when next heading is on same page: stop before it
-                if page_num == page_end and next_y_top is not None and y_top is not None:
-                    if y_top >= next_y_top:
-                        continue  # belongs to next section — skip
+                # Boundary page: stop before the next heading
+                if page_num == last_page and last_page_y_cutoff is not None and y_top is not None:
+                    if y_top >= last_page_y_cutoff:
+                        continue
 
                 selected.append(para['content'])
 
