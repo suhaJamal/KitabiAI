@@ -306,6 +306,103 @@ class TocGenerator:
         logger.debug(f"Built paragraph map for {len(page_paragraphs)} pages")
         return page_paragraphs
 
+    def fill_content_from_azure(
+        self,
+        sections: List[SectionInfo],
+        azure_result: Any
+    ) -> List[SectionInfo]:
+        """
+        Fill section.content for sections that don't already have it, using
+        Azure paragraph Y-positions to slice content at heading boundaries.
+
+        Used by the extract TOC path where sections have page ranges but no
+        content — the same Y-position logic used by the generate path is
+        applied by finding each heading's Y-position via title text matching.
+
+        Args:
+            sections: List of SectionInfo objects (page_start/page_end already set)
+            azure_result: Full Azure Document Intelligence result object
+
+        Returns:
+            The same list with section.content filled in where possible
+        """
+        if not azure_result:
+            return sections
+
+        page_paragraphs_map = self._build_page_paragraphs_map(azure_result)
+        if not page_paragraphs_map:
+            return sections
+
+        for idx, section in enumerate(sections):
+            if section.content is not None:
+                continue  # Already has content from generate path
+
+            next_section = sections[idx + 1] if idx + 1 < len(sections) else None
+
+            heading_y_bottom = self._find_heading_y(
+                section.title, section.page_start, page_paragraphs_map
+            )
+
+            next_heading = None
+            if next_section:
+                next_heading_y_top = self._find_heading_y_top(
+                    next_section.title, next_section.page_start, page_paragraphs_map
+                )
+                next_heading = {
+                    'page': next_section.page_start,
+                    'y_top': next_heading_y_top,
+                }
+
+            heading = {
+                'page': section.page_start,
+                'y_bottom': heading_y_bottom,
+            }
+
+            content = self._extract_section_content_by_y(
+                heading, next_heading, page_paragraphs_map, section.page_end
+            )
+            if content:
+                section.content = content
+
+        logger.info(f"Filled content for {len(sections)} sections using Azure Y-positions")
+        return sections
+
+    def _find_heading_y(
+        self,
+        title: str,
+        page_num: int,
+        page_paragraphs_map: Dict[int, List[Dict]]
+    ) -> Optional[float]:
+        """
+        Find the y_bottom of a heading paragraph by matching title text on a page.
+        Returns None if not found (caller will include the full page as fallback).
+        """
+        paragraphs = page_paragraphs_map.get(page_num, [])
+        title_normalized = title.strip()
+        for para in paragraphs:
+            para_content = para['content'].strip()
+            if title_normalized in para_content or para_content in title_normalized:
+                return para.get('y_bottom')
+        return None
+
+    def _find_heading_y_top(
+        self,
+        title: str,
+        page_num: int,
+        page_paragraphs_map: Dict[int, List[Dict]]
+    ) -> Optional[float]:
+        """
+        Find the y_top of a heading paragraph by matching title text on a page.
+        Returns None if not found (caller will include the full page as fallback).
+        """
+        paragraphs = page_paragraphs_map.get(page_num, [])
+        title_normalized = title.strip()
+        for para in paragraphs:
+            para_content = para['content'].strip()
+            if title_normalized in para_content or para_content in title_normalized:
+                return para.get('y_top')
+        return None
+
     def _create_sections_from_headings(
         self,
         headings: List[Dict],
