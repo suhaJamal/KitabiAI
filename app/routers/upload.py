@@ -201,6 +201,15 @@ async def upload(
             for section in sections_report.sections:
                 if section.page_end > num_pages or section.page_end == 9999:
                     section.page_end = num_pages
+
+            # Fill section content using Azure Y-positions (same fix as generate path)
+            # This ensures mid-page headings don't bleed content from above the heading
+            if azure_result:
+                from ..services.extraction.toc_generator import TocGenerator
+                toc_generator = TocGenerator()
+                toc_generator.fill_content_from_azure(sections_report.sections, azure_result)
+                logger.info("Filled section content using Y-position filtering (extract path)")
+
             logger.info(f"Arabic extraction result: {len(sections_report.sections)} sections")
         else:
             # For English (or if no cached text), use unified extractor

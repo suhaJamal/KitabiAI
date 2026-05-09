@@ -438,7 +438,30 @@ async def generate_both(
         jsonl_bytes = exporter.to_jsonl(report, include_text=True)
         pages_jsonl_content = jsonl_bytes.decode('utf-8')
 
-        sections_jsonl_content = _generate_sections_jsonl()
+        # Build sections JSONL inline using local variables (avoids dependency on
+        # _last_* globals which are None when loading from database)
+        sections_lines = []
+        sections_lines.append(json.dumps({
+            "type": "metadata",
+            "book_id": target_book_id,
+            "book_title": metadata.title,
+            "author": metadata.author,
+            "publication_date": metadata.publication_date,
+            "isbn": metadata.isbn,
+            "language": language,
+            "num_pages": len(report.pages),
+            "exported_at": datetime.utcnow().isoformat()
+        }, ensure_ascii=False))
+        for s in sections_report.sections:
+            sections_lines.append(json.dumps({
+                "type": "section",
+                "section_id": s.section_id,
+                "title": s.title,
+                "level": s.level,
+                "page_start": s.page_start,
+                "page_end": s.page_end,
+            }, ensure_ascii=False))
+        sections_jsonl_content = "\n".join(sections_lines) + "\n"
         logger.info(f"JSONL generated: pages={len(pages_jsonl_content)} chars, sections={len(sections_jsonl_content)} chars")
 
         # Save all files to Azure Blob Storage and get URLs
