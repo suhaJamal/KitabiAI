@@ -121,7 +121,8 @@ class ArabicTocExtractor:
         if toc_page_number and azure_result:
             logger.info(f"Trying Azure table extraction on page {toc_page_number} (page offset: {page_offset})")
             table_max_pages = (toc_page_end - toc_page_number + 1) if toc_page_end and toc_page_end >= toc_page_number else 20
-            sections = self._extract_from_table(toc_page_number, azure_result, page_offset, max_pages=table_max_pages)
+            explicit_range = toc_page_end is not None and toc_page_end >= toc_page_number
+            sections = self._extract_from_table(toc_page_number, azure_result, page_offset, max_pages=table_max_pages, stop_early=not explicit_range)
             if sections:
                 logger.info(f"✅ Found valid TOC from Azure table with {len(sections)} sections")
                 eval_data['strategy_used'] = 'azure_table'
@@ -222,7 +223,7 @@ class ArabicTocExtractor:
         self._write_eval_log(eval_data)
         return self._fallback_section()
 
-    def _extract_from_table(self, page_number: int, azure_result: Any, page_offset: int = 0, max_pages: int = 20) -> Optional[List[SectionInfo]]:
+    def _extract_from_table(self, page_number: int, azure_result: Any, page_offset: int = 0, max_pages: int = 20, stop_early: bool = True) -> Optional[List[SectionInfo]]:
         """
         Extract TOC from Azure-detected tables starting from specified page.
 
@@ -282,8 +283,11 @@ class ArabicTocExtractor:
                     for t in page_tables
                 )
                 if not already_extends:
-                    logger.info(f"No tables on page {current_page}, TOC ends at page {current_page - 1}")
-                    break
+                    if stop_early:
+                        logger.info(f"No tables on page {current_page}, TOC ends at page {current_page - 1}")
+                        break
+                    else:
+                        logger.info(f"No tables on page {current_page}, continuing to scan (explicit range)")
 
         if not page_tables:
             logger.info(f"No tables found starting from page {page_number}")
