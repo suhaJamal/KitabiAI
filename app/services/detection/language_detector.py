@@ -134,9 +134,23 @@ class LanguageDetector:
             if confidence < settings.FASTTEXT_CONFIDENCE_THRESHOLD:
                 logger.warning(
                     f"FastText confidence too low ({confidence:.2%} < "
-                    f"{settings.FASTTEXT_CONFIDENCE_THRESHOLD:.0%}), "
-                    f"falling back to legacy detection"
+                    f"{settings.FASTTEXT_CONFIDENCE_THRESHOLD:.0%})"
                 )
+                # If FastText hinted Arabic, skip the sample call and go straight to
+                # full Azure extraction — avoids calling Azure twice (sample + full)
+                # which causes request timeout on large books.
+                if language == "arabic" and settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and settings.AZURE_DOCUMENT_INTELLIGENCE_KEY:
+                    logger.info("FastText hinted Arabic — doing full Azure extraction directly (skipping sample)")
+                    try:
+                        text, azure_result = self._extract_with_azure(pdf_bytes)
+                        arabic_ratio = self.get_arabic_ratio(text)
+                        detected_language = "arabic" if arabic_ratio > self.arabic_threshold else "english"
+                        logger.info(f"Language confirmed via full extraction: {detected_language} (Arabic ratio: {arabic_ratio:.2%})")
+                        return detected_language, text, azure_result
+                    except Exception as e:
+                        logger.warning(f"Azure full extraction failed: {e}, falling back to legacy")
+
+                logger.info("Falling back to legacy detection")
                 return self._detect_legacy(pdf_bytes)
 
             logger.info(
