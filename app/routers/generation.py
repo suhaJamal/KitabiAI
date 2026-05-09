@@ -284,10 +284,14 @@ async def get_chunks(
 async def generate_both(
     include_toc: bool = Query(True, description="Include table of contents"),
     include_metadata: bool = Query(True, description="Include metadata"),
+    book_id: int = Query(None, description="Generate for a specific book ID (loads from database)"),
 ):
     """
     Generate both Markdown and HTML files, plus JSONL exports.
-    Saves files locally and updates database with file URLs.
+    Saves files to Azure Blob Storage and updates database with file URLs.
+
+    Pass book_id to generate for a book whose in-memory state was lost
+    (e.g. after a timeout or server restart) — all data is loaded from the database.
 
     Returns URLs for all generated files.
     """
@@ -300,64 +304,104 @@ async def generate_both(
             _last_language, _last_book_metadata, _last_sections_report,
             _last_book_id
         )
-        from ..models.database import SessionLocal, Book, Section, Page
+        from ..models.database import SessionLocal, Book, Section, Page, Author
         from ..models.schemas import PageInfo, BookMetadata, SectionInfo, SectionsReport, AnalysisReport
 
-        # Check if we need to load from database (in-memory state missing)
-        load_from_db = (
-            _last_report is None or
-            _last_book_metadata is None or
-            _last_sections_report is None or
-            _last_book_id is None
+        # Resolve which book to generate for
+        target_book_id = book_id or _last_book_id
+
+        # Determine whether to load from DB
+        use_memory = (
+            book_id is None and
+            _last_report is not None and
+            _last_book_metadata is not None and
+            _last_sections_report is not None and
+            _last_book_id is not None
         )
 
-        if load_from_db:
-            logger.warning("In-memory state missing - attempting to load from database")
-
-            # We need a way to know WHICH book to load
-            # For now, raise an error - in future, we'll pass book_id as parameter
+        if not use_memory and target_book_id is None:
             raise HTTPException(
                 status_code=409,
-                detail="Generation state lost. Please re-upload the PDF or implement book_id parameter."
+                detail="No book to generate. Pass book_id= or upload a PDF first."
             )
 
-        logger.info(f"Starting generation for book_id={_last_book_id}, filename={_last_filename}")
+        logger.info(f"Starting generation for book_id={target_book_id} (source={'memory' if use_memory else 'database'})")
 
-        # Load pages from database instead of using in-memory _last_report
         db = SessionLocal()
         try:
-            # Load pages from database
-            db_pages = db.query(Page).filter(Page.book_id == _last_book_id).order_by(Page.page_number).all()
+            if use_memory:
+                # Fast path: use in-memory state from upload
+                db_pages = db.query(Page).filter(Page.book_id == target_book_id).order_by(Page.page_number).all()
+                if not db_pages:
+                    raise HTTPException(status_code=404, detail=f"No pages found for book_id={target_book_id}")
 
-            if not db_pages:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"No pages found in database for book_id={_last_book_id}"
+                pages = [
+                    PageInfo(
+                        page=p.page_number,
+                        text=p.text or "",
+                        has_text=bool(p.text and len(p.text.strip()) > 0),
+                        image_count=p.has_images or 0
+                    )
+                    for p in db_pages
+                ]
+                report = AnalysisReport(num_pages=len(pages), pages=pages, classification="mixed")
+                sections_report = _last_sections_report
+                base_name = _last_filename.rsplit(".", 1)[0]
+                metadata = _last_book_metadata
+                language = _last_language
+
+            else:
+                # DB path: load everything from database (used when in-memory state is gone)
+                book = db.query(Book).filter(Book.id == target_book_id).first()
+                if not book:
+                    raise HTTPException(status_code=404, detail=f"Book {target_book_id} not found")
+
+                author = db.query(Author).filter(Author.id == book.author_id).first()
+
+                db_pages = db.query(Page).filter(Page.book_id == target_book_id).order_by(Page.page_number).all()
+                if not db_pages:
+                    raise HTTPException(status_code=404, detail=f"No pages found for book_id={target_book_id}")
+
+                db_sections = db.query(Section).filter(Section.book_id == target_book_id).order_by(Section.order_index).all()
+                if not db_sections:
+                    raise HTTPException(status_code=404, detail=f"No sections found for book_id={target_book_id}")
+
+                logger.info(f"Loaded from DB: {len(db_pages)} pages, {len(db_sections)} sections")
+
+                pages = [
+                    PageInfo(
+                        page=p.page_number,
+                        text=p.text or "",
+                        has_text=bool(p.text and len(p.text.strip()) > 0),
+                        image_count=p.has_images or 0
+                    )
+                    for p in db_pages
+                ]
+                report = AnalysisReport(num_pages=len(pages), pages=pages, classification="mixed")
+
+                section_infos = [
+                    SectionInfo(
+                        section_id=str(s.order_index + 1),
+                        title=s.title,
+                        level=s.level,
+                        page_start=s.page_start,
+                        page_end=s.page_end,
+                        content=s.content or None
+                    )
+                    for s in db_sections
+                ]
+                sections_report = SectionsReport(bookmarks_found=True, sections=section_infos)
+
+                metadata = BookMetadata(
+                    title=book.title,
+                    author=author.name if author else None,
+                    description=book.description,
+                    keywords=book.keywords,
+                    publication_date=book.publication_date,
+                    isbn=book.isbn
                 )
-
-            logger.info(f"Loaded {len(db_pages)} pages from database")
-
-            # Convert database pages to PageInfo objects
-            pages = [
-                PageInfo(
-                    page=p.page_number,  # PageInfo uses 'page', not 'page_number'
-                    text=p.text or "",
-                    has_text=bool(p.text and len(p.text.strip()) > 0),
-                    image_count=p.has_images or 0
-                )
-                for p in db_pages
-            ]
-
-            # Create a minimal AnalysisReport for generation
-            report = AnalysisReport(
-                num_pages=len(pages),
-                pages=pages,
-                classification="mixed"  # Default classification
-            )
-
-            # Load sections from in-memory state (already available)
-            sections_report = _last_sections_report
-            base_name = _last_filename.rsplit(".", 1)[0]
+                language = "arabic" if book.language == "ar" else "english"
+                base_name = book.title[:50].replace(" ", "_")
 
         finally:
             db.close()
@@ -365,10 +409,10 @@ async def generate_both(
         # Generate Markdown
         logger.info("Generating Markdown...")
         markdown_content = md_generator.generate(
-            metadata=_last_book_metadata,
+            metadata=metadata,
             sections=sections_report.sections,
-            pages=report.pages,  # Use pages loaded from database
-            language=_last_language,
+            pages=report.pages,
+            language=language,
             include_toc=include_toc,
             include_metadata=include_metadata
         )
@@ -377,10 +421,10 @@ async def generate_both(
         # Generate HTML
         logger.info("Generating HTML...")
         html_content = html_generator.generate(
-            metadata=_last_book_metadata,
+            metadata=metadata,
             sections=sections_report.sections,
-            pages=report.pages,  # Use pages loaded from database
-            language=_last_language,
+            pages=report.pages,
+            language=language,
             include_toc=include_toc
         )
         logger.info(f"HTML generated: {len(html_content)} chars")
@@ -399,22 +443,22 @@ async def generate_both(
 
         # Save all files to Azure Blob Storage and get URLs
         logger.info("Uploading to Azure Blob Storage...")
-        html_url = azure_storage.save_html(_last_book_id, html_content, f"{base_name}.html")
+        html_url = azure_storage.save_html(target_book_id, html_content, f"{base_name}.html")
         logger.info(f"HTML uploaded: {html_url}")
 
-        markdown_url = azure_storage.save_markdown(_last_book_id, markdown_content, f"{base_name}.md")
+        markdown_url = azure_storage.save_markdown(target_book_id, markdown_content, f"{base_name}.md")
         logger.info(f"Markdown uploaded: {markdown_url}")
 
-        pages_jsonl_url = azure_storage.save_pages_jsonl(_last_book_id, pages_jsonl_content, f"{base_name}_pages.jsonl")
+        pages_jsonl_url = azure_storage.save_pages_jsonl(target_book_id, pages_jsonl_content, f"{base_name}_pages.jsonl")
         logger.info(f"Pages JSONL uploaded: {pages_jsonl_url}")
 
-        sections_jsonl_url = azure_storage.save_sections_jsonl(_last_book_id, sections_jsonl_content, f"{base_name}_sections.jsonl")
+        sections_jsonl_url = azure_storage.save_sections_jsonl(target_book_id, sections_jsonl_content, f"{base_name}_sections.jsonl")
         logger.info(f"Sections JSONL uploaded: {sections_jsonl_url}")
 
         # Update database with URLs and timestamp
         logger.info("Updating database...")
         _update_book_urls(
-            book_id=_last_book_id,
+            book_id=target_book_id,
             html_url=html_url,
             markdown_url=markdown_url,
             pages_jsonl_url=pages_jsonl_url,
@@ -425,7 +469,7 @@ async def generate_both(
         return JSONResponse({
             "ok": True,
             "message": "Generated all files and saved to Azure Blob Storage",
-            "book_id": _last_book_id,
+            "book_id": target_book_id,
             "files": [
                 {
                     "format": "html",
