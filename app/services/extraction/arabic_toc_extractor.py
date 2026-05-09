@@ -122,9 +122,40 @@ class ArabicTocExtractor:
             logger.info(f"Trying Azure table extraction on page {toc_page_number} (page offset: {page_offset})")
             table_max_pages = (toc_page_end - toc_page_number + 1) if toc_page_end and toc_page_end >= toc_page_number else 20
             explicit_range = toc_page_end is not None and toc_page_end >= toc_page_number
-            sections = self._extract_from_table(toc_page_number, azure_result, page_offset, max_pages=table_max_pages, stop_early=not explicit_range)
+            table_sections = self._extract_from_table(toc_page_number, azure_result, page_offset, max_pages=table_max_pages, stop_early=not explicit_range)
+
+            if explicit_range:
+                # When the user gave an explicit end page, supplement table extraction with
+                # text extraction to catch pages Azure didn't detect as a table (e.g. a middle
+                # page between two table-detected pages).  No extra Azure API cost — all data
+                # is already in the downloaded azure_result.
+                text_max_pages = toc_page_end - toc_page_number + 1
+                toc_text = self._extract_text_from_pages(azure_result, toc_page_number, max_pages=text_max_pages)
+                text_entries = self._parse_toc_entries(toc_text) if toc_text else []
+                text_entries = self._clean_entries(text_entries)
+
+                if table_sections and text_entries:
+                    table_book_pages = {s.page_start - page_offset for s in table_sections}
+                    missing = [e for e in text_entries if e['page'] not in table_book_pages]
+                    if missing:
+                        logger.info(f"Text extraction found {len(missing)} entries missing from table — merging")
+                        table_entries = [{'title': s.title, 'page': s.page_start - page_offset} for s in table_sections]
+                        all_entries = sorted(table_entries + missing, key=lambda x: x['page'])
+                        all_entries = self._clean_entries(all_entries)
+                        sections = self._create_sections(all_entries, page_offset) if len(all_entries) >= 5 else table_sections
+                    else:
+                        sections = table_sections
+                elif table_sections:
+                    sections = table_sections
+                elif len(text_entries) >= 3:
+                    sections = self._create_sections(text_entries, page_offset)
+                else:
+                    sections = None
+            else:
+                sections = table_sections
+
             if sections:
-                logger.info(f"✅ Found valid TOC from Azure table with {len(sections)} sections")
+                logger.info(f"✅ Found valid TOC from Azure table/text with {len(sections)} sections")
                 eval_data['strategy_used'] = 'azure_table'
                 eval_data['sections_created'] = len(sections)
                 eval_data['final_sections'] = [
