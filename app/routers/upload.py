@@ -12,6 +12,7 @@ HTTP routes for the upload & analyze flow (unified English & Arabic support).
 
 
 import logging
+import time
 from datetime import datetime
 from fastapi import APIRouter, File, UploadFile, HTTPException, Query, Form
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -149,12 +150,13 @@ async def upload(
     # by replacing the block below with:
     #   detected_language, extracted_text, azure_result = language_detector.detect(pdf_bytes)
     detected_language = book_language
+    t_azure_start = time.time()
     if detected_language == "arabic":
         extracted_text, azure_result = language_detector._extract_with_azure(pdf_bytes)
     else:
         extracted_text = language_detector._extract_full_with_pymupdf(pdf_bytes)
         azure_result = None
-    logger.info(f"Language (user-selected): {detected_language}")
+    logger.info(f"[TIMING] Azure/text extraction: {time.time() - t_azure_start:.1f}s | Language (user-selected): {detected_language}")
 
     # Analyze PDF with pre-extracted text (for Arabic) to maintain quality
     report = analyzer.analyze(pdf_bytes, extracted_text, detected_language)
@@ -191,6 +193,7 @@ async def upload(
             from ..services.extraction.arabic_toc_extractor import ArabicTocExtractor
             arabic_extractor = ArabicTocExtractor()
             # Pass TOC page, Azure result, and page offset to the extractor
+            t_toc_start = time.time()
             sections_report = arabic_extractor.extract(
                 extracted_text,
                 toc_page_number=toc_page_int,
@@ -199,6 +202,7 @@ async def upload(
                 page_offset=page_offset,
                 book_title=metadata.title
             )
+            logger.info(f"[TIMING] TOC extraction: {time.time() - t_toc_start:.1f}s | {len(sections_report.sections)} sections")
 
             # Fix page ranges based on actual PDF page count
             for section in sections_report.sections:
@@ -210,8 +214,9 @@ async def upload(
             if azure_result:
                 from ..services.extraction.toc_generator import TocGenerator
                 toc_generator = TocGenerator()
+                t_fill_start = time.time()
                 toc_generator.fill_content_from_azure(sections_report.sections, azure_result)
-                logger.info("Filled section content using Y-position filtering (extract path)")
+                logger.info(f"[TIMING] fill_content_from_azure: {time.time() - t_fill_start:.1f}s")
 
             logger.info(f"Arabic extraction result: {len(sections_report.sections)} sections")
         else:
@@ -222,6 +227,7 @@ async def upload(
     doc.close()
 
     # Save to database
+    t_db_start = time.time()
     db = SessionLocal()
     try:
         # 1. Handle Author (get existing or create new)
@@ -353,7 +359,7 @@ async def upload(
             db.add(new_page)
 
         db.commit()
-        logger.info(f"Saved {len(report.pages)} pages to database")
+        logger.info(f"[TIMING] DB save ({len(report.pages)} pages, {len(sections_report.sections)} sections): {time.time() - t_db_start:.1f}s")
 
         # Store book ID for later use
         _last_book_id = book_id
@@ -362,15 +368,17 @@ async def upload(
         from ..services.storage.azure_storage_service import azure_storage
 
         # Save PDF file
+        t_blob_start = time.time()
         pdf_url = azure_storage.save_pdf(book_id, pdf_bytes, file.filename)
-        logger.info(f"Saved PDF to Azure Blob Storage: {pdf_url}")
+        logger.info(f"[TIMING] Blob PDF upload: {time.time() - t_blob_start:.1f}s | url: {pdf_url}")
 
         # Save cover image if provided
         cover_url = None
         if cover_image:
             cover_bytes = await cover_image.read()
+            t_cover_start = time.time()
             cover_url = azure_storage.save_cover_image(book_id, cover_bytes, cover_image.filename)
-            logger.info(f"Saved cover image to Azure Blob Storage: {cover_url}")
+            logger.info(f"[TIMING] Blob cover upload: {time.time() - t_cover_start:.1f}s")
 
         # Update database with PDF and cover URLs
         db2 = SessionLocal()
