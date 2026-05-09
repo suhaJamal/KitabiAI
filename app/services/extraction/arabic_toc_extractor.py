@@ -71,6 +71,7 @@ class ArabicTocExtractor:
         self,
         extracted_text: str,
         toc_page_number: Optional[int] = None,
+        toc_page_end: Optional[int] = None,
         azure_result: Optional[Any] = None,
         page_offset: int = 0,
         book_title: str = "unknown"
@@ -119,7 +120,8 @@ class ArabicTocExtractor:
         # Step 1: Try Azure table-based extraction (if page hint provided)
         if toc_page_number and azure_result:
             logger.info(f"Trying Azure table extraction on page {toc_page_number} (page offset: {page_offset})")
-            sections = self._extract_from_table(toc_page_number, azure_result, page_offset)
+            table_max_pages = (toc_page_end - toc_page_number + 1) if toc_page_end and toc_page_end >= toc_page_number else 20
+            sections = self._extract_from_table(toc_page_number, azure_result, page_offset, max_pages=table_max_pages)
             if sections:
                 logger.info(f"✅ Found valid TOC from Azure table with {len(sections)} sections")
                 eval_data['strategy_used'] = 'azure_table'
@@ -135,7 +137,8 @@ class ArabicTocExtractor:
 
         # Step 1.5: If table failed but we have a TOC page hint, extract text from that page range
         if toc_page_number and azure_result and not eval_data.get('strategy_used'):
-            toc_page_text = self._extract_text_from_pages(azure_result, toc_page_number, max_pages=15)
+            text_max_pages = (toc_page_end - toc_page_number + 1) if toc_page_end and toc_page_end >= toc_page_number else 15
+            toc_page_text = self._extract_text_from_pages(azure_result, toc_page_number, max_pages=text_max_pages)
             if toc_page_text:
                 logger.info(f"Extracted {len(toc_page_text)} chars from TOC page {toc_page_number}+")
                 entries = self._parse_toc_entries(toc_page_text)

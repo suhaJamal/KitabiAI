@@ -880,9 +880,14 @@ def render_home() -> str:
 
           <div class="form-row">
             <div>
-              <label>TOC Page Number</label>
-              <input type="number" name="toc_page" placeholder="e.g., 345 (optional)" min="1" />
-              <div class="help-text">Page number where the Table of Contents is located (enables table-based extraction)</div>
+              <label>TOC Start Page</label>
+              <input type="number" name="toc_page" placeholder="e.g., 264 (optional)" min="1" />
+              <div class="help-text">PDF page number where the Table of Contents begins</div>
+            </div>
+            <div>
+              <label>TOC End Page</label>
+              <input type="number" name="toc_page_end" placeholder="e.g., 267 (optional)" min="1" />
+              <div class="help-text">PDF page number where the Table of Contents ends (leave blank if single page)</div>
             </div>
           </div>
 

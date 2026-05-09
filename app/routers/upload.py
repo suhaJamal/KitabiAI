@@ -83,7 +83,8 @@ async def upload(
     isbn: str = Form(None),  # Optional - SEO/Cataloging
     book_language: str = Form("arabic"),  # User-selected language: "arabic" or "english"
     toc_method: str = Form("extract"),  # TOC method: "extract" or "generate"
-    toc_page: str = Form(None),  # Optional - TOC page number for table-based extraction
+    toc_page: str = Form(None),  # Optional - TOC start page number
+    toc_page_end: str = Form(None),  # Optional - TOC end page number
     page_offset: int = Form(0),  # Optional - Page offset (default: 0)
     cover_image: UploadFile = File(None),  # Optional - Book cover image
     json: int = Query(default=0, ge=0, le=1)
@@ -124,8 +125,9 @@ async def upload(
         isbn=isbn.strip() if isbn else None
     )
     
-    # Convert toc_page to int if provided
+    # Convert toc_page / toc_page_end to int if provided
     toc_page_int = int(toc_page) if toc_page and toc_page.strip() else None
+    toc_page_end_int = int(toc_page_end) if toc_page_end and toc_page_end.strip() else None
 
     logger.info(f"Upload request - Book: '{metadata.title}', File: {file.filename}")
 
@@ -192,6 +194,7 @@ async def upload(
             sections_report = arabic_extractor.extract(
                 extracted_text,
                 toc_page_number=toc_page_int,
+                toc_page_end=toc_page_end_int,
                 azure_result=azure_result,
                 page_offset=page_offset,
                 book_title=metadata.title
