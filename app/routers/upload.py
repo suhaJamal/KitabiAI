@@ -81,6 +81,7 @@ async def upload(
     keywords: str = Form(None),  # Optional - SEO
     publication_date: str = Form(None),  # Optional - SEO/Cataloging
     isbn: str = Form(None),  # Optional - SEO/Cataloging
+    book_language: str = Form("arabic"),  # User-selected language: "arabic" or "english"
     toc_method: str = Form("extract"),  # TOC method: "extract" or "generate"
     toc_page: str = Form(None),  # Optional - TOC page number for table-based extraction
     page_offset: int = Form(0),  # Optional - Page offset (default: 0)
@@ -141,9 +142,17 @@ async def upload(
     # Read PDF bytes
     pdf_bytes = await file.read()
 
-    # Detect language and extract text FIRST (returns 3 values: language, extracted_text, and azure_result)
-    detected_language, extracted_text, azure_result = language_detector.detect(pdf_bytes)
-    logger.info(f"Detected language: {detected_language}")
+    # Language is selected by the user on the upload form — no auto-detection.
+    # language_detector.detect() is kept in language_detector.py and can be re-enabled
+    # by replacing the block below with:
+    #   detected_language, extracted_text, azure_result = language_detector.detect(pdf_bytes)
+    detected_language = book_language
+    if detected_language == "arabic":
+        extracted_text, azure_result = language_detector._extract_with_azure(pdf_bytes)
+    else:
+        extracted_text = language_detector._extract_full_with_pymupdf(pdf_bytes)
+        azure_result = None
+    logger.info(f"Language (user-selected): {detected_language}")
 
     # Analyze PDF with pre-extracted text (for Arabic) to maintain quality
     report = analyzer.analyze(pdf_bytes, extracted_text, detected_language)

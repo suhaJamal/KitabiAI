@@ -80,7 +80,8 @@ label .required {
 }
 input[type="file"],
 input[type="text"],
-textarea {
+textarea,
+select {
     padding: 10px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -746,7 +747,6 @@ def render_home() -> str:
         <h3>📋 Book Metadata</h3>
         <div class="info-box" style="margin-top: 0; margin-bottom: 16px; background: #fef3e7;">
           <strong>ℹ️ What This Tool Does:</strong><br>
-          • Automatically detects language (English/Arabic)<br>
           • Extracts Table of Contents structure<br>
           • Identifies sections and page ranges<br>
           <br>
@@ -766,6 +766,17 @@ def render_home() -> str:
           <div>
             <label>Author Name <span class="required">*</span></label>
             <input type="text" name="author" placeholder="e.g., John Doe " />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div>
+            <label>Book Language <span class="required">*</span></label>
+            <select name="book_language" required>
+              <option value="arabic">Arabic</option>
+              <option value="english">English</option>
+            </select>
+            <div class="help-text">Select the primary language of the book.</div>
           </div>
         </div>
       </div>
