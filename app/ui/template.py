@@ -388,34 +388,41 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle TOC method radio buttons toggle
     const tocMethodRadios = document.querySelectorAll('input[name="toc_method"]');
     const extractOptions = document.getElementById('extract-options');
+    const generateOptions = document.getElementById('generate-options');
     const extractLabel = document.getElementById('toc-extract-label');
     const generateLabel = document.getElementById('toc-generate-label');
 
-    if (tocMethodRadios.length > 0 && extractOptions) {
+    function showPanel(panel) {
+        if (!panel) return;
+        panel.style.display = 'block';
+        panel.style.opacity = '0';
+        panel.style.transform = 'translateY(-10px)';
+        setTimeout(function() {
+            panel.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            panel.style.opacity = '1';
+            panel.style.transform = 'translateY(0)';
+        }, 10);
+    }
+
+    function hidePanel(panel) {
+        if (!panel) return;
+        panel.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+        panel.style.opacity = '0';
+        panel.style.transform = 'translateY(-10px)';
+        setTimeout(function() { panel.style.display = 'none'; }, 200);
+    }
+
+    if (tocMethodRadios.length > 0) {
         tocMethodRadios.forEach(function(radio) {
             radio.addEventListener('change', function() {
                 if (this.value === 'extract') {
-                    // Show extraction options
-                    extractOptions.style.display = 'block';
-                    extractOptions.style.opacity = '0';
-                    extractOptions.style.transform = 'translateY(-10px)';
-                    setTimeout(function() {
-                        extractOptions.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                        extractOptions.style.opacity = '1';
-                        extractOptions.style.transform = 'translateY(0)';
-                    }, 10);
-                    // Update border colors
+                    showPanel(extractOptions);
+                    hidePanel(generateOptions);
                     if (extractLabel) extractLabel.style.borderColor = 'var(--accent)';
                     if (generateLabel) generateLabel.style.borderColor = 'var(--border)';
                 } else {
-                    // Hide extraction options
-                    extractOptions.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-                    extractOptions.style.opacity = '0';
-                    extractOptions.style.transform = 'translateY(-10px)';
-                    setTimeout(function() {
-                        extractOptions.style.display = 'none';
-                    }, 200);
-                    // Update border colors
+                    hidePanel(extractOptions);
+                    showPanel(generateOptions);
                     if (extractLabel) extractLabel.style.borderColor = 'var(--border)';
                     if (generateLabel) generateLabel.style.borderColor = 'var(--accent)';
                 }
@@ -896,6 +903,19 @@ def render_home() -> str:
               <label>Page Offset</label>
               <input type="number" name="page_offset" placeholder="e.g., 14 (optional)" min="0" value="0" />
               <div class="help-text">Offset between book page numbers and PDF page numbers (default: 0)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Generate-specific options (shown when "generate" is selected) -->
+        <div id="generate-options" style="display: none; margin-top: 16px; padding: 16px; background: var(--bg); border-radius: 8px;">
+          <h4 style="margin: 0 0 12px; font-size: 14px; color: var(--muted);">Generation Options</h4>
+
+          <div class="form-row">
+            <div>
+              <label>Skip First N Pages</label>
+              <input type="number" name="generate_skip_pages" placeholder="e.g., 4 (optional)" min="0" value="0" />
+              <div class="help-text">Number of pages to skip at the start (cover, title page, license, etc.). Heading detection begins from page N+1.</div>
             </div>
           </div>
         </div>

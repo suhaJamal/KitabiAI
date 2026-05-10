@@ -87,6 +87,7 @@ async def upload(
     toc_page: str = Form(None),  # Optional - TOC start page number
     toc_page_end: str = Form(None),  # Optional - TOC end page number
     page_offset: int = Form(0),  # Optional - Page offset (default: 0)
+    generate_skip_pages: int = Form(0),  # Optional - pages to skip at start (generate path)
     cover_image: UploadFile = File(None),  # Optional - Book cover image
     json: int = Query(default=0, ge=0, le=1)
 ):
@@ -173,11 +174,13 @@ async def upload(
         toc_generator = TocGenerator()
 
         if azure_result:
+            content_start_page = generate_skip_pages + 1 if generate_skip_pages > 0 else 1
             sections_report = toc_generator.generate(
                 azure_result=azure_result,
                 num_pages=num_pages,
                 store_content=True,
-                book_title=metadata.title
+                book_title=metadata.title,
+                content_start_page=content_start_page
             )
             logger.info(f"Generated TOC with {len(sections_report.sections)} sections from headings")
         else:
@@ -271,9 +274,12 @@ async def upload(
             else:
                 logger.info(f"Using existing category: {metadata.category} (ID: {category_obj.id})")
         
-        # 3. Check if book already exists (same title + author)
+        # Append TOC method suffix so Manage Books can display it without a DB migration
+        stored_title = f"{metadata.title}-{toc_method}"
+
+        # 3. Check if book already exists (same stored title + author)
         existing_book = db.query(Book).filter(
-            Book.title == metadata.title,
+            Book.title == stored_title,
             Book.author_id == author_obj.id
         ).first()
 
@@ -301,7 +307,7 @@ async def upload(
         else:
             # Create new book record (first upload)
             new_book = Book(
-                title=metadata.title,
+                title=stored_title,
                 author_id=author_obj.id,
                 category_id=category_obj.id if category_obj else None,
                 language="ar" if detected_language == "arabic" else "en",

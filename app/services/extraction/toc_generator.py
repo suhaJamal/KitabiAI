@@ -64,7 +64,8 @@ class TocGenerator:
         azure_result: Any,
         num_pages: int,
         store_content: bool = True,
-        book_title: str = "unknown"
+        book_title: str = "unknown",
+        content_start_page: int = 1
     ) -> SectionsReport:
         """
         Generate TOC from Azure Document Intelligence result.
@@ -96,7 +97,7 @@ class TocGenerator:
         # Step 1: Extract all headings with their positions (with eval tracking)
         self._eval_candidates = []
         self._eval_filtered = []
-        headings = self._extract_headings(azure_result)
+        headings = self._extract_headings(azure_result, content_start_page)
 
         if not headings:
             logger.warning("No headings found in document. Returning fallback section.")
@@ -132,7 +133,7 @@ class TocGenerator:
             sections=sections
         )
 
-    def _extract_headings(self, azure_result: Any) -> List[Dict]:
+    def _extract_headings(self, azure_result: Any, content_start_page: int = 1) -> List[Dict]:
         """
         Extract all headings from Azure result.
 
@@ -251,6 +252,12 @@ class TocGenerator:
 
         # Sort by page number, then by offset within page
         headings.sort(key=lambda h: (h['page'], h['offset'] or 0))
+
+        # Skip pre-content pages (cover, license, table of contents, etc.)
+        if content_start_page > 1:
+            before = len(headings)
+            headings = [h for h in headings if h['page'] >= content_start_page]
+            logger.info(f"Skipped {before - len(headings)} headings before page {content_start_page}")
 
         # Merge consecutive heading paragraphs on the same page that are close
         # together vertically — these are two-line section titles split across spans
