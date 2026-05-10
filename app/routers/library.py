@@ -383,11 +383,11 @@ async def get_stats():
         # Total categories
         total_categories = db.query(func.count(Category.id)).scalar()
 
-        # Total pages
-        total_pages = db.query(func.sum(Book.page_count)).scalar() or 0
+        # Total pages (visible books only)
+        total_pages = db.query(func.sum(Book.page_count)).filter(visible).scalar() or 0
 
-        # Total sections
-        total_sections = db.query(func.sum(Book.section_count)).scalar() or 0
+        # Total sections (visible books only)
+        total_sections = db.query(func.sum(Book.section_count)).filter(visible).scalar() or 0
 
         # Recent books (last 7 days)
         from datetime import datetime, timedelta
