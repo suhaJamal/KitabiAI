@@ -1373,8 +1373,12 @@ def render_admin(books_data: list) -> str:
         <div class="stat-label">Hidden</div>
       </div>
       <div class="stat-card">
+        <div class="stat-value">{sum(b['page_count'] for b in books_data if b.get('is_visible', True))}</div>
+        <div class="stat-label">Pages (Visible)</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-value">{sum(b['page_count'] for b in books_data)}</div>
-        <div class="stat-label">Total Pages</div>
+        <div class="stat-label">Pages (All)</div>
       </div>
     </div>
 
