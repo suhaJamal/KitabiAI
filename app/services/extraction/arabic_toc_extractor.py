@@ -592,6 +592,24 @@ class ArabicTocExtractor:
                         i += 2
                         continue
 
+                elif (next_line
+                      and len(next_line) >= 2
+                      and not self._is_header_footer(next_line)
+                      and i + 2 < len(lines)):
+                    # Two-line title: next line is more title text, line after is the page number
+                    after_next = lines[i + 2].strip()
+                    after_next_normalized = self._normalize_arabic_digits(after_next)
+                    page_match2 = re.match(r'^(\d+)(?:-\d+)?$', after_next_normalized)
+                    if page_match2:
+                        page_num = int(page_match2.group(1))
+                        if 1 <= page_num <= 9999:
+                            entries.append({
+                                "title": line + " " + next_line,
+                                "page": page_num
+                            })
+                            i += 3
+                            continue
+
             # If no format matched, move to next line
             i += 1
 

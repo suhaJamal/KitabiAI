@@ -209,8 +209,17 @@ class MarkdownGenerator:
         if is_leaf:
             if section.content is not None:
                 # Use pre-extracted content (Y-position accurate, starts from heading)
-                text = self._clean_text(section.content, language)
-                lines.append(text)
+                content = section.content
+                # Skip first paragraph if it's a repeat of the section title
+                parts = content.split("\n\n", 1)
+                if parts:
+                    first_para = parts[0].strip().lower()
+                    title_norm = section.title.strip().lower()
+                    if title_norm and (title_norm == first_para or title_norm in first_para or first_para in title_norm):
+                        content = parts[1] if len(parts) > 1 else ""
+                text = self._clean_text(content, language)
+                if text:
+                    lines.append(text)
             else:
                 # Fall back to page-range assembly (English / bookmark-based)
                 section_pages = [

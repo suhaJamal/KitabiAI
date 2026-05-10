@@ -616,9 +616,16 @@ class HtmlGenerator:
         if is_leaf:
             if section.content is not None:
                 # Use pre-extracted content (Y-position accurate, starts from heading)
+                title_norm = section.title.strip().lower()
+                first_content_seen = False
                 for para in section.content.split("\n\n"):
                     para = para.strip()
                     if len(para) > 10:
+                        if not first_content_seen:
+                            first_content_seen = True
+                            para_norm = para.lower()
+                            if title_norm and (title_norm == para_norm or title_norm in para_norm or para_norm in title_norm):
+                                continue  # Skip repeated section title
                         para = self._escape_html(para)
                         paragraphs.append(f"<p>{para}</p>")
             else:
