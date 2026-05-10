@@ -252,7 +252,42 @@ class TocGenerator:
         # Sort by page number, then by offset within page
         headings.sort(key=lambda h: (h['page'], h['offset'] or 0))
 
+        # Merge consecutive heading paragraphs on the same page that are close
+        # together vertically — these are two-line section titles split across spans
+        if len(headings) > 1:
+            merged: List[Dict] = []
+            skip = False
+            for idx in range(len(headings)):
+                if skip:
+                    skip = False
+                    continue
+                h = headings[idx]
+                if idx + 1 < len(headings):
+                    nxt = headings[idx + 1]
+                    same_page = nxt['page'] == h['page']
+                    close_y = (
+                        h.get('y_bottom') is not None
+                        and nxt.get('y_top') is not None
+                        and (nxt['y_top'] - h['y_bottom']) < 0.5
+                    )
+                    if same_page and close_y:
+                        combined = dict(h)
+                        combined['title'] = h['title'] + " " + nxt['title']
+                        combined['y_bottom'] = nxt['y_bottom']
+                        merged.append(combined)
+                        skip = True
+                        logger.debug(f"Merged two-line heading: '{combined['title'][:60]}' on page {h['page']}")
+                        continue
+                merged.append(h)
+            headings = merged
+
         return headings
+
+    # Paragraph roles that represent structural/layout elements, not body content
+    _SKIP_ROLES = {'pageHeader', 'pageFooter', 'pageNumber', 'footnote'}
+
+    # Margin in inches — paragraphs within this distance from page top/bottom are skipped
+    _MARGIN_INCHES = 0.4
 
     def _build_page_paragraphs_map(self, azure_result: Any) -> Dict[int, List[Dict]]:
         """
@@ -260,6 +295,8 @@ class TocGenerator:
 
         Each paragraph entry: {'content': str, 'y_top': float, 'y_bottom': float}
         Y values are in inches from the top of the page.
+
+        Excludes headers, footers, page numbers, and footnotes (by role and Y-position).
 
         Args:
             azure_result: Azure Document Intelligence result
@@ -272,7 +309,19 @@ class TocGenerator:
         if not hasattr(azure_result, 'paragraphs') or not azure_result.paragraphs:
             return page_paragraphs
 
+        # Build page height map to enable Y-position margin filtering
+        page_heights: Dict[int, float] = {}
+        if hasattr(azure_result, 'pages') and azure_result.pages:
+            for page in azure_result.pages:
+                if hasattr(page, 'page_number') and hasattr(page, 'height') and page.height:
+                    page_heights[page.page_number] = page.height
+
         for paragraph in azure_result.paragraphs:
+            # Skip header/footer/page-number/footnote roles
+            role = getattr(paragraph, 'role', None)
+            if role in self._SKIP_ROLES:
+                continue
+
             content = getattr(paragraph, 'content', '').strip()
             if not content:
                 continue
@@ -289,6 +338,12 @@ class TocGenerator:
                 y_coords = [region.polygon[i] for i in range(1, len(region.polygon), 2)]
                 y_top = min(y_coords)
                 y_bottom = max(y_coords)
+
+            # Skip paragraphs inside top/bottom margin (catches unlabelled headers/footers)
+            page_height = page_heights.get(page_num)
+            if page_height and y_top is not None and y_bottom is not None:
+                if y_top < self._MARGIN_INCHES or y_bottom > (page_height - self._MARGIN_INCHES):
+                    continue
 
             if page_num not in page_paragraphs:
                 page_paragraphs[page_num] = []
