@@ -55,6 +55,7 @@ def admin_page():
                 "status": book.status or "published",
                 "is_visible": book.is_visible if book.is_visible is not None else True,
                 "hidden_reason": book.hidden_reason or "",
+                "summary_generated_at": book.summary_generated_at.strftime("%Y-%m-%d") if book.summary_generated_at else None,
                 "created_at": book.created_at.strftime("%Y-%m-%d") if book.created_at else "—",
             })
 

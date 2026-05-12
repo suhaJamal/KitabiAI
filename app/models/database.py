@@ -74,6 +74,9 @@ class Book(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     files_generated_at = Column(DateTime)      # When HTML/Markdown/JSON files were generated
 
+    summary = Column(Text)
+    summary_generated_at = Column(DateTime)
+
     view_count = Column(Integer, default=0)
     status = Column(String(20), default='published')
     is_visible = Column(Boolean, default=True)
@@ -95,6 +98,7 @@ class Section(Base):
     page_start = Column(Integer)
     page_end = Column(Integer)
     content = Column(Text)
+    summary = Column(Text)
     order_index = Column(Integer)
 
     book = relationship("Book", back_populates="sections")
