@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     FASTTEXT_CONFIDENCE_THRESHOLD: float = 0.5  # Min confidence (0.0-1.0)
     FASTTEXT_SAMPLE_PAGES: int = 15  # Number of pages to sample for detection
 
+    # Summarization (DeepSeek)
+    DEEPSEEK_API_KEY: Optional[str] = None
+    SUMMARIZATION_MODEL: str = "deepseek-chat"
+    SUMMARIZATION_BASE_URL: str = "https://api.deepseek.com/v1"
+
     # Tracing
     ENABLE_TRACING: bool = False  # Set to True to enable and run tracing.py or uncomment # tracer = setup_tracing(app) in the main.py 
     JAEGER_ENDPOINT: str = "http://localhost:4317"

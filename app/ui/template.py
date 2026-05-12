@@ -1113,6 +1113,10 @@ def render_admin(books_data: list) -> str:
               <div class="expand-item"><span class="expand-label">Status:</span> <span class="expand-value">{book['status']}</span></div>
               <div class="expand-item"><span class="expand-label">Visible:</span> <span class="expand-value">{'Yes' if is_visible else 'No'}</span></div>
               {f'<div class="expand-item" style="width:100%;"><span class="expand-label">Hidden reason:</span> <span class="expand-value">{hidden_reason}</span></div>' if hidden_reason else ''}
+              <div class="expand-item" style="width:100%; display:flex; align-items:center; gap:12px; margin-top:6px; flex-wrap:wrap;">
+                <button onclick="event.stopPropagation(); summarizeBook({book['id']})" class="admin-btn" id="summarize-btn-{book['id']}" style="background:#f3e8ff; color:#7c3aed; border:1px solid #ddd6fe;">Summarize</button>
+                <span id="summarize-status-{book['id']}" style="font-size:12px; color:var(--muted);">{'✅ Last run: ' + book['summary_generated_at'] if book['summary_generated_at'] else 'No summary yet'}</span>
+              </div>
             </div>
           </td>
         </tr>
@@ -1579,5 +1583,40 @@ def render_admin(books_data: list) -> str:
     document.addEventListener('keydown', function(e) {{
       if (e.key === 'Escape') closeEditModal();
     }});
+
+    function summarizeBook(bookId) {{
+      const btn = document.getElementById('summarize-btn-' + bookId);
+      const status = document.getElementById('summarize-status-' + bookId);
+      if (!btn || btn.disabled) return;
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Summarizing...';
+      status.textContent = 'Running — may take 1-3 minutes depending on book size';
+      status.style.color = 'var(--warning)';
+
+      fetch('/admin/books/' + bookId + '/summarize', {{ method: 'POST' }})
+        .then(r => {{
+          if (!r.ok) return r.json().then(d => {{ throw new Error(d.detail || 'Failed'); }});
+          return r.json();
+        }})
+        .then(data => {{
+          btn.disabled = false;
+          btn.textContent = 'Summarize';
+          const today = new Date().toISOString().slice(0, 10);
+          const extras = [];
+          if (data.description_set) extras.push('description set');
+          if (data.category_predicted) extras.push(`category: ${{data.category_predicted}}`);
+          if (data.keywords_set) extras.push('keywords set');
+          const extraText = extras.length ? ` | ${{extras.join(', ')}}` : '';
+          status.textContent = `✅ Done (${{data.sections_summarized}} sections)${{extraText}} — ${{today}}`;
+          status.style.color = 'var(--success)';
+        }})
+        .catch(err => {{
+          btn.disabled = false;
+          btn.textContent = 'Summarize';
+          status.textContent = '❌ ' + err.message;
+          status.style.color = '#dc2626';
+        }});
+    }}
     </script>
     """
