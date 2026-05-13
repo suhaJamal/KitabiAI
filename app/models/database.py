@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from pgvector.sqlalchemy import Vector
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -99,9 +100,22 @@ class Section(Base):
     page_end = Column(Integer)
     content = Column(Text)
     summary = Column(Text)
+    embedding = Column(Vector(1536))
     order_index = Column(Integer)
 
     book = relationship("Book", back_populates="sections")
+
+
+class SectionChunk(Base):
+    """Chunk-level embeddings for precise RAG retrieval."""
+    __tablename__ = "section_chunks"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    section_id  = Column(Integer, ForeignKey('sections.id', ondelete='CASCADE'), nullable=False)
+    book_id     = Column(Integer, ForeignKey('books.id',    ondelete='CASCADE'), nullable=False)
+    chunk_index = Column(Integer, nullable=False)
+    content     = Column(Text, nullable=False)
+    embedding   = Column(Vector(1536))
 
 
 class Page(Base):

@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     FASTTEXT_CONFIDENCE_THRESHOLD: float = 0.5  # Min confidence (0.0-1.0)
     FASTTEXT_SAMPLE_PAGES: int = 15  # Number of pages to sample for detection
 
+    # OpenAI (embeddings)
+    OPENAI_API_KEY: Optional[str] = None
+
     # Summarization (DeepSeek)
     DEEPSEEK_API_KEY: Optional[str] = None
     SUMMARIZATION_MODEL: str = "deepseek-chat"

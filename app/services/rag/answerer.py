@@ -1,0 +1,115 @@
+# app/services/rag/answerer.py
+"""
+Generate answers from retrieved sections using GPT-4o-mini.
+
+Builds a grounded prompt from the top-K retrieved sections and
+returns an answer with source citations (section title + page range).
+"""
+
+import logging
+from typing import Optional
+from openai import OpenAI
+
+from ...core.config import settings
+
+logger = logging.getLogger(__name__)
+
+_MODEL = "gpt-4o-mini"
+
+_PROMPTS = {
+    'ar': (
+        "أنت مساعد متخصص في الإجابة عن أسئلة الكتب. "
+        "أجب عن السؤال التالي بناءً فقط على المقاطع المستخرجة من كتاب \"{book_title}\".\n\n"
+        "المقاطع:\n{context}\n\n"
+        "السؤال: {question}\n\n"
+        "أجب باللغة العربية بشكل مختصر ومفيد. "
+        "إذا لم تجد الإجابة في المقاطع، قل ذلك بوضوح."
+    ),
+    'en': (
+        "You are an assistant specialized in answering questions about books. "
+        "Answer the following question based only on the passages extracted from \"{book_title}\".\n\n"
+        "Passages:\n{context}\n\n"
+        "Question: {question}\n\n"
+        "Answer concisely and helpfully in English. "
+        "If you can't find the answer in the passages, say so clearly."
+    ),
+}
+
+_NO_ANSWER = {
+    'ar': "لم أجد في هذا الكتاب معلومات كافية للإجابة على سؤالك.",
+    'en': "I couldn't find enough information in this book to answer your question.",
+}
+
+
+class Answerer:
+
+    def __init__(self):
+        self._client: Optional[OpenAI] = None
+
+    def _get_client(self) -> OpenAI:
+        if not settings.OPENAI_API_KEY:
+            raise RuntimeError("OPENAI_API_KEY is not configured in .env")
+        if self._client is None:
+            self._client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        return self._client
+
+    def answer(
+        self,
+        question: str,
+        sections: list,
+        book_title: str,
+        language: str,
+    ) -> dict:
+        """
+        Generate an answer with source citations.
+
+        Returns:
+            { "answer": str, "sources": [{ "section", "pages", "book" }] }
+        """
+        if not sections:
+            return {"answer": _NO_ANSWER.get(language, _NO_ANSWER['ar']), "sources": []}
+
+        context_parts = []
+        sources = []
+
+        for i, sec in enumerate(sections, 1):
+            # content is now a focused chunk (~400 words) — no truncation needed
+            snippet = sec.get("content") or sec.get("summary") or ""
+            if snippet:
+                context_parts.append(f"[{i}] {sec['title']}:\n{snippet}")
+                sources.append({
+                    "section": sec["title"],
+                    "pages": f"{sec['page_start']}-{sec['page_end']}",
+                    "book": sec["book_title"],
+                })
+
+        if not context_parts:
+            return {"answer": _NO_ANSWER.get(language, _NO_ANSWER['ar']), "sources": []}
+
+        context = "\n\n".join(context_parts)
+        prompt_template = _PROMPTS.get(language, _PROMPTS['ar'])
+        prompt = prompt_template.format(
+            book_title=book_title,
+            context=context,
+            question=question,
+        )
+
+        answer_text = self._call_llm(prompt)
+        return {
+            "answer": answer_text or _NO_ANSWER.get(language, _NO_ANSWER['ar']),
+            "sources": sources,
+        }
+
+    def _call_llm(self, prompt: str) -> Optional[str]:
+        try:
+            client = self._get_client()
+            response = client.chat.completions.create(
+                model=_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=800,
+                temperature=0.4,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Answerer LLM call failed: {e}")
+            return None
