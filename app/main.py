@@ -18,6 +18,7 @@ from .routers.generation import router as generation_router
 from .routers.library import router as library_router
 from .routers.admin import router as admin_router
 from .routers.summarization import router as summarization_router
+from .routers.rag import router as rag_router
 
 # Setup logging
 logger = setup_logging()
@@ -32,6 +33,7 @@ app.include_router(generation_router)
 app.include_router(library_router)
 app.include_router(admin_router)
 app.include_router(summarization_router)
+app.include_router(rag_router)
 
 
 # Version endpoint to verify deployment
