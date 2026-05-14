@@ -19,12 +19,22 @@
 
         [data-theme="dark"] {
             --bg-primary: #1c1410;
-            --bg-secondary: #2d1a0a;
+            --bg-secondary: #1c1410;
             --text-primary: #fdfaf7;
             --text-secondary: #c8b8a4;
             --accent: #e88d51;
             --accent-light: #c76a2d;
-            --border: #3d2a1a;
+            --border: rgba(255,255,255,.1);
+        }
+
+        [data-theme="dark"] .book-card {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        [data-theme="dark"] .stat-card {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.1);
         }
 
         * {
