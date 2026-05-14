@@ -6,28 +6,25 @@
     <title>مكتبة الذكاء الاصطناعي - KitabiAI Digital Library</title>
     <style>
         :root {
-            --bg-primary: #F5F3F7;
-            --bg-secondary: #FFFFFF;
-            --text-primary: #1F2937;
-            --text-secondary: #6B7280;
-            --accent: #7C3AED;
-            --accent-light: #A78BFA;
-            --border: #E5E7EB;
+            --bg-primary: #fdfaf7;
+            --bg-secondary: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b5d4d;
+            --accent: #c76a2d;
+            --accent-light: #e88d51;
+            --border: #e8d8c8;
             --success: #10B981;
             --warning: #F59E0B;
-
-
-            
         }
 
         [data-theme="dark"] {
-            --bg-primary: #1A1625;
-            --bg-secondary: #2D1B3D;
-            --text-primary: #F9FAFB;
-            --text-secondary: #D1D5DB;
-            --accent: #A78BFA;
-            --accent-light: #7C3AED;
-            --border: #3D2952;
+            --bg-primary: #1c1410;
+            --bg-secondary: #2d1a0a;
+            --text-primary: #fdfaf7;
+            --text-secondary: #c8b8a4;
+            --accent: #e88d51;
+            --accent-light: #c76a2d;
+            --border: #3d2a1a;
         }
 
         * {
@@ -37,7 +34,7 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Arabic Typesetting';
+            font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans Arabic', sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             transition: all 0.3s ease;
@@ -145,7 +142,7 @@
         .search-box input:focus {
             outline: none;
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+            box-shadow: 0 0 0 3px rgba(199, 106, 45, 0.12);
         }
 
         .search-icon {
@@ -178,7 +175,7 @@
 
         .stat-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(124, 58, 237, 0.1);
+            box-shadow: 0 10px 30px rgba(199, 106, 45, 0.12);
         }
 
         .stat-card h3 {
@@ -304,7 +301,7 @@
 
         .book-card:hover {
             transform: translateY(-8px);
-            box-shadow: 0 15px 40px rgba(124, 58, 237, 0.2);
+            box-shadow: 0 15px 40px rgba(199, 106, 45, 0.18);
             border-color: var(--accent);
         }
 
@@ -734,11 +731,7 @@
 
         // Open book
         function openBook(book) {
-            if (book.html_url) {
-                window.open(book.html_url, '_blank');
-            } else {
-                alert('الملف غير متاح حالياً');
-            }
+            window.open(`/books/${book.id}`, '_blank');
         }
 
         // Filter functions
