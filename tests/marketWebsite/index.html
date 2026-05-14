@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KitabiAI - Transform PDF Books into Interactive Digital Libraries</title>
+    <meta name="description" content="Convert Arabic and English PDF books into searchable, accessible, AI-enhanced digital libraries. Perfect for authors, universities, and libraries.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='50%' x='50%' text-anchor='middle' font-size='50'>📚</text></svg>">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Language Toggle -->
+    <div class="language-toggle">
+        <button class="lang-btn active" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="ar">AR</button>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-wrapper">
+                <div class="logo">
+
+                    <img src="images/logo-kitabiAI.png" alt="KitabiAI Logo" class="logo-image" width="180" height="60">
+                </div>
+                <ul class="nav-menu">
+                    <li><a href="#features" data-en="Features" data-ar="المميزات">Features</a></li>
+                    <li><a href="#use-cases" data-en="Use Cases" data-ar="حالات الاستخدام">Use Cases</a></li>
+                    <li><a href="https://kitabiai.azurewebsites.net/library" target="_blank" data-en="Live Library" data-ar="المكتبة الحية">Live Library</a></li>
+                    <li><a href="#contact" class="btn-nav" data-en="Request Access" data-ar="طلب الوصول">Request Access</a></li>
+                </ul>
+                <button class="mobile-menu-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title" data-en="Bring Arabic & English Books to Life on the Web" data-ar="أحيِ الكتب العربية والإنجليزية على الويب">
+                    Bring Arabic & English Books to Life on the Web
+                </h1>
+                <p class="hero-subtitle" data-en="Transform your PDF books into searchable, accessible, AI-enhanced digital libraries" data-ar="حوّل كتبك بصيغة PDF إلى مكتبات رقمية قابلة للبحث ومعززة بالذكاء الاصطناعي">
+                    Transform your PDF books into searchable, accessible, AI-enhanced digital libraries
+                </p>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-number">86+</span>
+                        <span class="stat-label" data-en="Books Digitized" data-ar="كتاب رقمي">Books Digitized</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">11K+</span>
+                        <span class="stat-label" data-en="Pages Processed" data-ar="صفحات معالجة">Pages Processed</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">2</span>
+                        <span class="stat-label" data-en="Languages" data-ar="لغات">Languages</span>
+                    </div>
+                </div>
+                <div class="hero-cta">
+                    <a href="https://kitabiai.azurewebsites.net/library" target="_blank" class="btn btn-primary" data-en="Browse Live Library" data-ar="تصفح المكتبة الحية">
+                        <i class="fas fa-book-open"></i> Browse Live Library
+                    </a>
+                    <a href="#contact" class="btn btn-secondary" data-en="Request Early Access" data-ar="طلب الوصول المبكر">
+                        Request Early Access <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <!-- Placeholder for demo video or animation -->
+                <div class="demo-placeholder">
+                    <i class="fas fa-book-open"></i>
+                    <p>Demo Video/Animation Placeholder</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Statement -->
+    <section class="problem">
+        <div class="container">
+            <h2 class="section-title" data-en="Your Knowledge is Trapped in PDFs" data-ar="معرفتك محبوسة في ملفات PDF">
+                Your Knowledge is Trapped in PDFs
+            </h2>
+            <div class="problem-grid">
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <h3 data-en="Inaccessible" data-ar="غير متاح">Inaccessible</h3>
+                    <p data-en="Millions can't find or read your valuable content" data-ar="الملايين لا يستطيعون العثور على محتواك القيّم أو قراءته">
+                        Millions can't find or read your valuable content
+                    </p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <i class="fas fa-search-minus"></i>
+                    </div>
+                    <h3 data-en="Unsearchable" data-ar="غير قابل للبحث">Unsearchable</h3>
+                    <p data-en="Google can't index PDFs effectively" data-ar="جوجل لا يستطيع فهرسة ملفات PDF بفعالية">
+                        Google can't index PDFs effectively
+                    </p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3 data-en="Poor Experience" data-ar="تجربة سيئة">Poor Experience</h3>
+                    <p data-en="PDFs don't work well on phones" data-ar="ملفات PDF لا تعمل بشكل جيد على الهواتف">
+                        PDFs don't work well on phones
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solution Showcase -->
+    <section class="solution">
+        <div class="container">
+            <h2 class="section-title" data-en="Make Your Books Discoverable & Interactive" data-ar="اجعل كتبك قابلة للاكتشاف والتفاعل">
+                Make Your Books Discoverable & Interactive
+            </h2>
+            <div class="solution-flow">
+                <div class="flow-step">
+                    <div class="step-icon">
+                        <i class="fas fa-upload"></i>
+                    </div>
+                    <h4 data-en="Upload PDF" data-ar="رفع PDF">Upload PDF</h4>
+                </div>
+                <div class="flow-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="flow-step">
+                    <div class="step-icon">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <h4 data-en="Extract & Structure" data-ar="استخراج وهيكلة">Extract & Structure</h4>
+                </div>
+                <div class="flow-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="flow-step">
+                    <div class="step-icon">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <h4 data-en="Beautiful Web Pages" data-ar="صفحات ويب جميلة">Beautiful Web Pages</h4>
+                </div>
+                <div class="flow-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+                <div class="flow-step">
+                    <div class="step-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h4 data-en="AI Assistant" data-ar="مساعد ذكي">AI Assistant</h4>
+                </div>
+            </div>
+            
+            <!-- Before/After Comparison -->
+            <div class="comparison">
+                <div class="comparison-container">
+                    <div class="before">
+                        <h4 data-en="Before: Static PDF" data-ar="قبل: PDF ثابت">Before: Static PDF</h4>
+                        <div class="preview-box">
+                            <!-- Placeholder for PDF preview -->
+                            <div class="placeholder-content">
+                                <i class="fas fa-file-pdf"></i>
+                                <p>Original PDF Preview</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="vs-divider">
+                        <span>VS</span>
+                    </div>
+                    <div class="after">
+                        <h4 data-en="After: Interactive Web" data-ar="بعد: ويب تفاعلي">After: Interactive Web</h4>
+                        <div class="preview-box">
+                            <!-- Placeholder for web preview -->
+                            <div class="placeholder-content">
+                                <i class="fas fa-desktop"></i>
+                                <p>Converted Web Version</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title" data-en="Everything You Need" data-ar="كل ما تحتاجه">Everything You Need</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-language"></i>
+                    </div>
+                    <h3 data-en="Bilingual Support" data-ar="دعم ثنائي اللغة">Bilingual Support</h3>
+                    <p data-en="Perfect Arabic RTL rendering with full language support" data-ar="عرض مثالي للنص العربي من اليمين لليسار">
+                        Perfect Arabic RTL rendering with full language support
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-list-ol"></i>
+                    </div>
+                    <h3 data-en="Smart TOC" data-ar="فهرس ذكي">Smart TOC</h3>
+                    <p data-en="Automatic chapter and section extraction" data-ar="استخراج تلقائي للفصول والأقسام">
+                        Automatic chapter and section extraction
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h3 data-en="RAG Chat — Ask the Book" data-ar="محادثة ذكية — اسأل الكتاب">RAG Chat — Ask the Book</h3>
+                    <p data-en="Readers ask questions, AI answers from the actual text with source citations — powered by GPT-4o-mini and pgvector" data-ar="يطرح القراء أسئلة والذكاء الاصطناعي يجيب من النص الفعلي مع مصادر مرجعية">
+                        Readers ask questions, AI answers from the actual text with source citations — powered by GPT-4o-mini and pgvector
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3 data-en="SEO Optimized" data-ar="محسّن لمحركات البحث">SEO Optimized</h3>
+                    <p data-en="Google-friendly pages for maximum visibility" data-ar="صفحات صديقة لجوجل لأقصى ظهور">
+                        Google-friendly pages for maximum visibility
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <h3 data-en="AI Summarization" data-ar="تلخيص ذكي">AI Summarization</h3>
+                    <p data-en="Auto-generates section and full-book summaries, then fills in metadata (description, category, keywords) automatically" data-ar="يولد تلخيصات لكل قسم وللكتاب كاملاً ويملأ البيانات الوصفية تلقائياً">
+                        Auto-generates section and full-book summaries, then fills in metadata (description, category, keywords) automatically
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-download"></i>
+                    </div>
+                    <h3 data-en="Multi-Format Export" data-ar="تصدير متعدد الصيغ">Multi-Format Export</h3>
+                    <p data-en="Exports structured content as HTML, Markdown, and JSONL — automatically stored in Azure Blob Storage" data-ar="يصدر المحتوى المنظم بصيغ HTML وMarkdown وJSONL ويخزنه تلقائياً في Azure Blob Storage">
+                        Exports structured content as HTML, Markdown, and JSONL — automatically stored in Azure Blob Storage
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases -->
+    <section id="use-cases" class="use-cases">
+        <div class="container">
+            <h2 class="section-title" data-en="Perfect For" data-ar="مثالي لـ">Perfect For</h2>
+            <div class="use-cases-grid">
+                <div class="use-case-card">
+                    <div class="use-case-icon">
+                        <i class="fas fa-pen-fancy"></i>
+                    </div>
+                    <h3 data-en="Authors" data-ar="المؤلفون">Authors</h3>
+                    <p data-en="Share your work globally and reach millions of new readers" data-ar="شارك عملك عالمياً واصل إلى ملايين القراء الجدد">
+                        Share your work globally and reach millions of new readers
+                    </p>
+                    <ul class="use-case-benefits">
+                        <li data-en="Increase book visibility" data-ar="زيادة ظهور الكتاب">Increase book visibility</li>
+                        <li data-en="Enable reader engagement" data-ar="تمكين تفاعل القراء">Enable reader engagement</li>
+                        <li data-en="Track reading analytics" data-ar="تتبع تحليلات القراءة">Track reading analytics</li>
+                    </ul>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-icon">
+                        <i class="fas fa-university"></i>
+                    </div>
+                    <h3 data-en="Universities" data-ar="الجامعات">Universities</h3>
+                    <p data-en="Digitize research archives and academic collections" data-ar="رقمنة الأرشيفات البحثية والمجموعات الأكاديمية">
+                        Digitize research archives and academic collections
+                    </p>
+                    <ul class="use-case-benefits">
+                        <li data-en="Preserve knowledge" data-ar="الحفاظ على المعرفة">Preserve knowledge</li>
+                        <li data-en="Improve accessibility" data-ar="تحسين إمكانية الوصول">Improve accessibility</li>
+                        <li data-en="Enable research" data-ar="تمكين البحث">Enable research</li>
+                    </ul>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-icon">
+                        <i class="fas fa-book-reader"></i>
+                    </div>
+                    <h3 data-en="Libraries" data-ar="المكتبات">Libraries</h3>
+                    <p data-en="Make collections accessible to the digital generation" data-ar="جعل المجموعات متاحة للجيل الرقمي">
+                        Make collections accessible to the digital generation
+                    </p>
+                    <ul class="use-case-benefits">
+                        <li data-en="24/7 access" data-ar="وصول على مدار الساعة">24/7 access</li>
+                        <li data-en="Cost-effective digitization" data-ar="رقمنة فعالة التكلفة">Cost-effective digitization</li>
+                        <li data-en="Global reach" data-ar="وصول عالمي">Global reach</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Social Proof -->
+    <section class="social-proof">
+        <div class="container">
+            <div class="proof-grid">
+                <div class="proof-item">
+                    <i class="fas fa-globe-americas"></i>
+                    <h4 data-en="Processing books in Arabic & English" data-ar="معالجة الكتب بالعربية والإنجليزية">
+                        Processing books in Arabic & English
+                    </h4>
+                </div>
+                <div class="proof-item">
+                    <i class="fab fa-microsoft"></i>
+                    <h4 data-en="Built with Microsoft Azure AI" data-ar="مبني بتقنية Microsoft Azure AI">
+                        Built with Microsoft Azure AI
+                    </h4>
+                </div>
+                <div class="proof-item">
+                    <i class="fas fa-robot"></i>
+                    <h4 data-en="Powered by OpenAI &amp; Azure AI" data-ar="مدعوم بـ OpenAI و Azure AI">
+                        Powered by OpenAI &amp; Azure AI
+                    </h4>
+                </div>
+            </div>
+            
+            <div class="testimonial">
+                <p style="font-size: 18px; font-weight: 600; margin-bottom: 20px; color: var(--text-dark);"
+                   data-en="86+ Arabic and English books are live today — with structured sections, AI summaries, and per-book chat."
+                   data-ar="أكثر من 86 كتاباً عربياً وإنجليزياً متاح الآن — مع أقسام منظمة وتلخيصات ذكية ومحادثة لكل كتاب.">
+                    86+ Arabic and English books are live today — with structured sections, AI summaries, and per-book chat.
+                </p>
+                <a href="https://kitabiai.azurewebsites.net/library" target="_blank" class="btn btn-outline" style="display: inline-flex;"
+                   data-en="Explore the Live Library →" data-ar="استكشف المكتبة الحية ←">
+                    Explore the Live Library →
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section id="contact" class="cta-section">
+        <div class="container">
+            <h2 class="section-title" data-en="Request Early Access" data-ar="طلب الوصول المبكر">
+                Request Early Access
+            </h2>
+            <p class="cta-subtitle" data-en="We're onboarding our first institutional partners. Reach out to digitize your collection."
+               data-ar="نحن نرحب بأولى شراكاتنا المؤسسية. تواصل معنا لرقمنة مجموعتك.">
+                We're onboarding our first institutional partners. Reach out to digitize your collection.
+            </p>
+            
+            <form class="contact-form" id="contactForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="name" data-en="Your Name" data-ar="اسمك">Your Name</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="organization" data-en="Organization" data-ar="المؤسسة">Organization</label>
+                        <input type="text" id="organization" name="organization">
+                    </div>
+                    <div class="form-group">
+                        <label for="email" data-en="Email Address" data-ar="البريد الإلكتروني">Email Address</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="books" data-en="Number of Books" data-ar="عدد الكتب">Number of Books</label>
+                        <select id="books" name="books">
+                            <option value="1-10">1-10</option>
+                            <option value="11-50">11-50</option>
+                            <option value="51-100">51-100</option>
+                            <option value="100+">100+</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="language" data-en="Book Language" data-ar="لغة الكتب">Book Language</label>
+                        <select id="language" name="language">
+                            <option value="arabic" data-en="Arabic" data-ar="العربية">Arabic</option>
+                            <option value="english" data-en="English" data-ar="الإنجليزية">English</option>
+                            <option value="both" data-en="Both" data-ar="كلاهما">Both</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-full">
+                        <label for="message" data-en="Tell us about your project" data-ar="أخبرنا عن مشروعك">Tell us about your project</label>
+                        <textarea id="message" name="message" rows="4"></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-large" data-en="Send Message" data-ar="إرسال الرسالة">
+                    Send Message <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+            
+            <div class="alternative-contact">
+                <p data-en="Or email us directly at" data-ar="أو راسلنا مباشرة على">Or email us directly at</p>
+                <a href="mailto:hello@kitabiai.com" class="email-link">hello@kitabiai.com</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4 data-en="About KitabiAI" data-ar="حول KitabiAI">About KitabiAI</h4>
+                    <p data-en="Transforming PDF books into accessible, searchable, and interactive digital libraries using AI technology." 
+                       data-ar="تحويل كتب PDF إلى مكتبات رقمية قابلة للوصول والبحث والتفاعل باستخدام تقنية الذكاء الاصطناعي.">
+                        Transforming PDF books into accessible, searchable, and interactive digital libraries using AI technology.
+                    </p>
+                    <div class="social-links">
+                        <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                        <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
+                        <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h4 data-en="Quick Links" data-ar="روابط سريعة">Quick Links</h4>
+                    <ul>
+                        <li><a href="#features" data-en="Features" data-ar="المميزات">Features</a></li>
+                        <li><a href="https://kitabiai.azurewebsites.net/library" target="_blank" data-en="Live Library" data-ar="المكتبة الحية">Live Library</a></li>
+                        <li><a href="#contact" data-en="Request Access" data-ar="طلب الوصول">Request Access</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4 data-en="Legal" data-ar="قانوني">Legal</h4>
+                    <ul>
+                        <li><a href="#" data-en="Privacy Policy" data-ar="سياسة الخصوصية">Privacy Policy</a></li>
+                        <li><a href="#" data-en="Terms of Service" data-ar="شروط الخدمة">Terms of Service</a></li>
+                        <li><a href="#" data-en="Data Security" data-ar="أمان البيانات">Data Security</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4 data-en="Contact" data-ar="اتصل بنا">Contact</h4>
+                    <ul>
+                        <li><i class="fas fa-envelope"></i> hello@kitabiai.com</li>
+                        <li><i class="fas fa-map-marker-alt"></i> <span data-en="Toronto, Canada" data-ar="تورونتو، كندا">Toronto, Canada</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 KitabiAI. <span data-en="All rights reserved." data-ar="جميع الحقوق محفوظة.">All rights reserved.</span></p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>

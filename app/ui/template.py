@@ -1114,7 +1114,7 @@ def render_admin(books_data: list) -> str:
               <div class="expand-item"><span class="expand-label">Visible:</span> <span class="expand-value">{'Yes' if is_visible else 'No'}</span></div>
               {f'<div class="expand-item" style="width:100%;"><span class="expand-label">Hidden reason:</span> <span class="expand-value">{hidden_reason}</span></div>' if hidden_reason else ''}
               <div class="expand-item" style="width:100%; display:flex; align-items:center; gap:12px; margin-top:6px; flex-wrap:wrap;">
-                <button onclick="event.stopPropagation(); summarizeBook({book['id']})" class="admin-btn" id="summarize-btn-{book['id']}" style="background:#f3e8ff; color:#7c3aed; border:1px solid #ddd6fe;">Summarize</button>
+                <button onclick="event.stopPropagation(); summarizeBook({book['id']})" class="admin-btn" id="summarize-btn-{book['id']}" style="background:#fef3e7; color:#c76a2d; border:1px solid #fad0a8;">Summarize</button>
                 <button onclick="event.stopPropagation(); embedBook({book['id']})" class="admin-btn" id="embed-btn-{book['id']}" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">Embed</button>
                 <a href="/books/{book['id']}" target="_blank" class="admin-btn" style="background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; text-decoration:none;">View Page</a>
                 <span id="summarize-status-{book['id']}" style="font-size:12px; color:var(--muted);">{'✅ Last run: ' + book['summary_generated_at'] if book['summary_generated_at'] else 'No summary yet'}</span>
