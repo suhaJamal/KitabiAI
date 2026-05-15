@@ -174,21 +174,26 @@ function initializeFormHandling() {
             submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
             submitButton.disabled = true;
             
-            // Simulate form submission (replace with actual API call)
-            setTimeout(() => {
-                // Show success message
-                showNotification('Thank you for your message! We will get back to you soon.', 'success');
-                
-                // Reset form
-                form.reset();
-                
-                // Restore button
+            fetch('contact.php', {
+                method: 'POST',
+                body: new URLSearchParams(data),
+            })
+            .then(res => res.json())
+            .then(result => {
+                if (result.success) {
+                    showNotification('Thank you! We will get back to you soon.', 'success');
+                    form.reset();
+                } else {
+                    showNotification('Something went wrong. Please try again or email hello@kitabiai.com', 'error');
+                }
+            })
+            .catch(() => {
+                showNotification('Could not send message. Please email hello@kitabiai.com', 'error');
+            })
+            .finally(() => {
                 submitButton.innerHTML = originalText;
                 submitButton.disabled = false;
-            }, 2000);
-            
-            // Log form data (for demonstration)
-            console.log('Form submitted with data:', data);
+            });
         });
         
         // Add floating label effect
