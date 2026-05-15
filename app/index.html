@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -467,22 +467,22 @@
     <header>
         <div class="logo">
             <span>📚</span>
-            <span>مكتبة الذكاء الاصطناعي</span>
+            <span data-en="KitabiAI Library" data-ar="مكتبة الذكاء الاصطناعي">KitabiAI Library</span>
         </div>
         <div class="header-actions">
-            <button class="lang-switch" onclick="toggleLanguage()">English</button>
-            <button class="theme-toggle" onclick="toggleTheme()">🌙 الوضع الليلي</button>
+            <button class="lang-switch" onclick="toggleLanguage()">عربي</button>
+            <button class="theme-toggle" onclick="toggleTheme()" data-en-light="🌙 Dark Mode" data-ar-light="🌙 الوضع الليلي" data-en-dark="☀️ Light Mode" data-ar-dark="☀️ الوضع النهاري">🌙 Dark Mode</button>
         </div>
     </header>
 
     <!-- Hero Section -->
     <div class="hero">
-        <h1>حفظ المعرفة العربية والإنجليزية</h1>
-        <p>مكتبة رقمية للكتب التاريخية، قابلة للبحث والوصول بالكامل</p>
+        <h1 data-en="Preserving Arabic Knowledge" data-ar="حفظ المعرفة العربية">Preserving Arabic Knowledge</h1>
+        <p data-en="A digital library of historical books, fully searchable and accessible" data-ar="مكتبة رقمية للكتب التاريخية، قابلة للبحث والوصول بالكامل">A digital library of historical books, fully searchable and accessible</p>
 
         <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" placeholder="ابحث عن كتب، مؤلفين، مواضيع..." onkeyup="handleSearch()">
+            <input type="text" id="searchInput" data-en="Search for books, authors, topics..." data-ar="ابحث عن كتب، مؤلفين، مواضيع..." placeholder="Search for books, authors, topics..." onkeyup="handleSearch()">
         </div>
     </div>
 
@@ -490,20 +490,20 @@
     <div class="stats" id="statsContainer">
         <div class="stat-card">
             <h3 id="totalBooks">-</h3>
-            <p>كتاب</p>
+            <p data-en="Books" data-ar="كتاب">Books</p>
         </div>
         <div class="stat-card">
             <h3 id="arabicBooks">-</h3>
-            <p>كتب عربية</p>
-            <span class="badge">متاح</span>
+            <p data-en="Arabic Books" data-ar="كتب عربية">Arabic Books</p>
+            <span class="badge" data-en="Available" data-ar="متاح">Available</span>
         </div>
         <div class="stat-card">
             <h3 id="totalPages">-</h3>
-            <p>صفحة</p>
+            <p data-en="Pages" data-ar="صفحة">Pages</p>
         </div>
         <div class="stat-card">
             <h3 id="totalAuthors">-</h3>
-            <p>مؤلف</p>
+            <p data-en="Authors" data-ar="مؤلف">Authors</p>
         </div>
     </div>
 
@@ -511,14 +511,14 @@
     <div class="container">
         <!-- Filters -->
         <div class="section-header">
-            <h2 class="section-title">📚 تصفح المكتبة</h2>
+            <h2 class="section-title" data-en="📚 Browse Library" data-ar="📚 تصفح المكتبة">📚 Browse Library</h2>
         </div>
 
         <div class="filters">
             <div class="filter-group">
-                <button class="filter-btn active" onclick="filterByLanguage('ar')">🇸🇦 الكتب العربية</button>
-                <button class="filter-btn coming-soon" onclick="filterByLanguage('en')" disabled>🇬🇧 الكتب الإنجليزية</button>
-                <button class="filter-btn" onclick="filterByLanguage('all')">📖 جميع الكتب</button>
+                <button class="filter-btn active" onclick="filterByLanguage('ar')" data-en="🇸🇦 Arabic Books" data-ar="🇸🇦 الكتب العربية">🇸🇦 Arabic Books</button>
+                <button class="filter-btn coming-soon" onclick="filterByLanguage('en')" disabled data-en="🇬🇧 English Books" data-ar="🇬🇧 الكتب الإنجليزية">🇬🇧 English Books</button>
+                <button class="filter-btn" onclick="filterByLanguage('all')" data-en="📖 All Books" data-ar="📖 جميع الكتب">📖 All Books</button>
             </div>
         </div>
 
@@ -531,7 +531,7 @@
         <div id="booksContainer">
             <div class="loading">
                 <div class="spinner"></div>
-                <p>جاري تحميل الكتب...</p>
+                <p data-en="Loading books..." data-ar="جاري تحميل الكتب...">Loading books...</p>
             </div>
         </div>
     </div>
@@ -553,6 +553,7 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
+            applyLanguage(currentLang);
             await Promise.all([
                 loadStats(),
                 loadAuthors(),
@@ -571,7 +572,9 @@
                 if (data.ok) {
                     document.getElementById('totalBooks').textContent = data.stats.books.total;
                     document.getElementById('arabicBooks').textContent = data.stats.books.arabic;
-                    document.getElementById('totalPages').textContent = data.stats.pages.total.toLocaleString('ar-EG');
+                    const pagesEl = document.getElementById('totalPages');
+                    pagesEl.dataset.raw = data.stats.pages.total;
+                    pagesEl.textContent = data.stats.pages.total.toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US');
                     document.getElementById('totalAuthors').textContent = data.stats.authors.total;
                 }
             } catch (error) {
@@ -614,7 +617,7 @@
             const container = document.getElementById('dynamicFilters');
             const authorGroup = document.createElement('div');
             authorGroup.className = 'filter-group';
-            authorGroup.innerHTML = '<h4 style="width: 100%; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">تصفية حسب المؤلف:</h4>';
+            authorGroup.innerHTML = `<h4 style="width: 100%; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">${currentLang === 'ar' ? 'تصفية حسب المؤلف:' : 'Filter by Author:'}</h4>`;
 
             allAuthors.slice(0, 10).forEach(author => {
                 const btn = document.createElement('button');
@@ -632,7 +635,7 @@
             const container = document.getElementById('dynamicFilters');
             const categoryGroup = document.createElement('div');
             categoryGroup.className = 'filter-group';
-            categoryGroup.innerHTML = '<h4 style="width: 100%; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem; margin-top: 1rem;">تصفية حسب الموضوع:</h4>';
+            categoryGroup.innerHTML = `<h4 style="width: 100%; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem; margin-top: 1rem;">${currentLang === 'ar' ? 'تصفية حسب الموضوع:' : 'Filter by Topic:'}</h4>`;
 
             allCategories.slice(0, 10).forEach(category => {
                 const btn = document.createElement('button');
@@ -730,8 +733,8 @@
                     </div>
                     <div class="book-tags">
                         <span class="tag language">${book.language === 'ar' ? 'عربي' : 'English'}</span>
-                        ${book.page_count ? `<span class="tag">${book.page_count} صفحة</span>` : ''}
-                        ${book.section_count ? `<span class="tag">${book.section_count} فصل</span>` : ''}
+                        ${book.page_count ? `<span class="tag">${book.page_count} ${currentLang === 'ar' ? 'صفحة' : 'pages'}</span>` : ''}
+                        ${book.section_count ? `<span class="tag">${book.section_count} ${currentLang === 'ar' ? 'فصل' : 'chapters'}</span>` : ''}
                     </div>
                 </div>
             `;
@@ -784,47 +787,63 @@
             }, 500);
         }
 
+        // Language state
+        let currentLang = localStorage.getItem('lang') || 'en';
+
+        function applyLanguage(lang) {
+            currentLang = lang;
+            const html = document.documentElement;
+            html.setAttribute('lang', lang);
+            html.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+            document.querySelector('.lang-switch').textContent = lang === 'en' ? 'عربي' : 'English';
+
+            document.querySelectorAll('[data-en]').forEach(el => {
+                const text = lang === 'en' ? el.dataset.en : el.dataset.ar;
+                if (el.tagName === 'INPUT') {
+                    el.placeholder = text;
+                } else {
+                    el.textContent = text;
+                }
+            });
+
+            const pagesEl = document.getElementById('totalPages');
+            if (pagesEl.dataset.raw) {
+                pagesEl.textContent = Number(pagesEl.dataset.raw).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US');
+            }
+            updateThemeButtonText();
+            if (allBooks.length > 0) renderBooks(allBooks);
+            localStorage.setItem('lang', lang);
+        }
+
+        function toggleLanguage() {
+            applyLanguage(currentLang === 'en' ? 'ar' : 'en');
+        }
+
         // Theme toggle
+        function updateThemeButtonText() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const btn = document.querySelector('.theme-toggle');
+            const key = (isDark ? 'dark' : 'light');
+            btn.textContent = btn.dataset[`${currentLang}${key.charAt(0).toUpperCase() + key.slice(1)}`];
+        }
+
         function toggleTheme() {
             const html = document.documentElement;
-            const button = document.querySelector('.theme-toggle');
-
             if (html.getAttribute('data-theme') === 'dark') {
                 html.removeAttribute('data-theme');
-                button.textContent = '🌙 الوضع الليلي';
                 localStorage.setItem('theme', 'light');
             } else {
                 html.setAttribute('data-theme', 'dark');
-                button.textContent = '☀️ الوضع النهاري';
                 localStorage.setItem('theme', 'dark');
             }
+            updateThemeButtonText();
         }
 
         function loadTheme() {
-            const savedTheme = localStorage.getItem('theme');
-            const button = document.querySelector('.theme-toggle');
-
-            if (savedTheme === 'dark') {
+            if (localStorage.getItem('theme') === 'dark') {
                 document.documentElement.setAttribute('data-theme', 'dark');
-                button.textContent = '☀️ الوضع النهاري';
             }
-        }
-
-        // Language toggle
-        function toggleLanguage() {
-            const html = document.documentElement;
-            const button = document.querySelector('.lang-switch');
-
-            if (html.getAttribute('lang') === 'ar') {
-                html.setAttribute('lang', 'en');
-                html.setAttribute('dir', 'ltr');
-                button.textContent = 'عربي';
-                // Update all Arabic text to English (implement based on needs)
-            } else {
-                html.setAttribute('lang', 'ar');
-                html.setAttribute('dir', 'rtl');
-                button.textContent = 'English';
-            }
+            updateThemeButtonText();
         }
     </script>
 </body>
