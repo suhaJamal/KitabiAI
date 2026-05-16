@@ -31,7 +31,7 @@ logger.info("🚀 Starting KitabiAI application")
 _PUBLIC_PREFIXES = (
     "/library",
     "/books/",
-    "/api/books",
+    "/api/",
     "/health",
     "/version",
     "/admin/login",
