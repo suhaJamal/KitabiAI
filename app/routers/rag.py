@@ -7,7 +7,7 @@ RAG endpoints:
 """
 
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from ..models.database import SessionLocal, Book, Section, SectionChunk, Page
@@ -174,13 +174,16 @@ def fix_book_content(book_id: int):
 
 # ── Admin: generate embeddings ─────────────────────────────────────────────────
 
-@router.post("/admin/books/{book_id}/embed")
-def embed_book(book_id: int):
-    """Generate and store embeddings for all sections of a book."""
+def _run_embedding(book_id: int) -> None:
     try:
-        return _embedder.embed_book(book_id)
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        result = _embedder.embed_book(book_id)
+        logger.info(f"Background embedding complete for book {book_id}: {result}")
     except Exception as e:
-        logger.error(f"Embedding failed for book {book_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Embedding failed: {str(e)}")
+        logger.error(f"Background embedding failed for book {book_id}: {e}")
+
+
+@router.post("/admin/books/{book_id}/embed")
+def embed_book(book_id: int, background_tasks: BackgroundTasks):
+    """Kick off embedding in the background and return immediately."""
+    background_tasks.add_task(_run_embedding, book_id)
+    return JSONResponse({"ok": True, "status": "started"})

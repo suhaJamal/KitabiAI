@@ -13,6 +13,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
+from sqlalchemy import or_
 
 from ..models.database import SessionLocal, Book, Author, Section, Page, Category
 from ..ui.template import html_shell, render_admin
@@ -22,15 +23,43 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+_ADMIN_PAGE_SIZE = 20
+
+
 @router.get("", response_class=HTMLResponse)
-def admin_page():
-    """Render the admin management page with all books."""
+def admin_page(search: str = Query(""), page: int = Query(1, ge=1)):
+    """Render the admin management page with paginated, searchable book list."""
     db = SessionLocal()
     try:
-        books = (
+        # Global stats (unaffected by search/pagination)
+        all_books_q = db.query(Book)
+        total_all = all_books_q.count()
+        total_visible = all_books_q.filter(
+            (Book.is_visible == True) | (Book.is_visible == None)
+        ).count()
+        total_hidden = total_all - total_visible
+
+        # Filtered query
+        query = (
             db.query(Book)
             .join(Author, Book.author_id == Author.id, isouter=True)
+        )
+        if search:
+            term = f"%{search}%"
+            query = query.filter(
+                or_(Book.title.ilike(term), Author.name.ilike(term))
+            )
+
+        total_filtered = query.count()
+        total_pages = max(1, (total_filtered + _ADMIN_PAGE_SIZE - 1) // _ADMIN_PAGE_SIZE)
+        page = min(page, total_pages)
+        offset = (page - 1) * _ADMIN_PAGE_SIZE
+
+        books = (
+            query
             .order_by(Book.created_at.desc())
+            .limit(_ADMIN_PAGE_SIZE)
+            .offset(offset)
             .all()
         )
 
@@ -63,7 +92,18 @@ def admin_page():
                 "needs_fix": needs_fix,
             })
 
-        return HTMLResponse(html_shell(render_admin(books_data)))
+        pagination = {
+            "page": page,
+            "page_size": _ADMIN_PAGE_SIZE,
+            "total": total_filtered,
+            "total_pages": total_pages,
+            "search": search,
+            "total_all": total_all,
+            "total_visible": total_visible,
+            "total_hidden": total_hidden,
+        }
+
+        return HTMLResponse(html_shell(render_admin(books_data, pagination)))
     finally:
         db.close()
 
