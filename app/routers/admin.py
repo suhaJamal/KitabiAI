@@ -38,6 +38,9 @@ def admin_page():
         for book in books:
             section_count = db.query(Section).filter(Section.book_id == book.id).count()
             page_count = db.query(Page).filter(Page.book_id == book.id).count()
+            needs_fix = section_count > 0 and db.query(Section).filter(
+                Section.book_id == book.id, Section.content.is_(None)
+            ).first() is not None
             books_data.append({
                 "id": book.id,
                 "title": book.title,
@@ -57,6 +60,7 @@ def admin_page():
                 "hidden_reason": book.hidden_reason or "",
                 "summary_generated_at": book.summary_generated_at.strftime("%Y-%m-%d") if book.summary_generated_at else None,
                 "created_at": book.created_at.strftime("%Y-%m-%d") if book.created_at else "—",
+                "needs_fix": needs_fix,
             })
 
         return HTMLResponse(html_shell(render_admin(books_data)))

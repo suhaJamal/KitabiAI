@@ -553,7 +553,7 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
-            applyLanguage(currentLang);
+            try { applyLanguage(currentLang); } catch(e) { console.error('applyLanguage error:', e); }
             await Promise.all([
                 loadStats(),
                 loadAuthors(),

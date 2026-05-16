@@ -24,6 +24,7 @@ def render_book_page(book, sections: list, has_embeddings: bool) -> str:
     keywords = book.keywords or ''
 
     # ── Labels ────────────────────────────────────────────────────────────────
+    summary_heading = "ملخص الفصل"           if is_rtl else "Section Summary"
     chat_heading    = "اسأل عن هذا الكتاب"  if is_rtl else "Ask About This Book"
     toc_heading     = "فهرس المحتويات"       if is_rtl else "Table of Contents"
     reader_heading  = "تصفح الكتاب"          if is_rtl else "Browse Book"
@@ -39,6 +40,7 @@ def render_book_page(book, sections: list, has_embeddings: bool) -> str:
 
     # ── TOC list ──────────────────────────────────────────────────────────────
     toc_items = ""
+    sum_lbl = "ملخص" if is_rtl else "Summary"
     for i, sec in enumerate(sections):
         title = sec.title or ''
         pages = ""
@@ -46,9 +48,14 @@ def render_book_page(book, sections: list, has_embeddings: bool) -> str:
             pages = f'<span class="sec-pages">ص {sec.page_start}–{sec.page_end}</span>' if is_rtl else f'<span class="sec-pages">pp. {sec.page_start}–{sec.page_end}</span>'
         elif sec.page_start:
             pages = f'<span class="sec-pages">ص {sec.page_start}</span>' if is_rtl else f'<span class="sec-pages">p. {sec.page_start}</span>'
+        summary_btn = (
+            f'<button class="summary-btn" onclick="showSummary({i},event)">{sum_lbl}</button>'
+            if sec.summary else ''
+        )
         toc_items += (
             f'<li class="toc-item" onclick="openReader({i})" title="{_esc(title)}">'
-            f'<span class="sec-title">{_esc(title)}</span>{pages}'
+            f'<span class="sec-title">{_esc(title)}</span>'
+            f'<div class="toc-right">{pages}{summary_btn}</div>'
             f'</li>\n'
         )
 
@@ -56,7 +63,7 @@ def render_book_page(book, sections: list, has_embeddings: bool) -> str:
     reader_sections_js = []   # list of JS objects {title, content}
     for sec in sections:
         title   = _esc(sec.title or '')
-        content = sec.content or sec.summary or ''
+        content = sec.content or ''
         if content:
             # Convert double newlines to paragraph breaks; single newlines to <br>
             paragraphs = content.strip().split('\n\n')
@@ -74,6 +81,16 @@ def render_book_page(book, sections: list, has_embeddings: bool) -> str:
 
     reader_sections_json = '[' + ',\n'.join(reader_sections_js) + ']'
     has_reader = len(sections) > 0
+
+    # ── Summaries JS array ────────────────────────────────────────────────────
+    summaries_js = []
+    for sec in sections:
+        if sec.summary:
+            s = sec.summary.replace('\\', '\\\\').replace('`', '\\`')
+            summaries_js.append(f'`{s}`')
+        else:
+            summaries_js.append('null')
+    summaries_json = '[' + ','.join(summaries_js) + ']'
 
     # ── Chat widget ───────────────────────────────────────────────────────────
     if has_embeddings:
@@ -132,7 +149,7 @@ document.getElementById('chatInput').addEventListener('keydown', function(e) {{
 }});
 """
     else:
-        notice = "الفهرس الذكي لهذا الكتاب لم يُنشأ بعد. يرجى التواصل مع المسؤول." if is_rtl else "Smart index not yet generated for this book. Please contact the administrator."
+        notice = "المساعد الذكي غير متاح لهذا الكتاب بعد." if is_rtl else "AI chat is not yet available for this book."
         chat_widget = f'<div class="chat-unavailable">{notice}</div>'
         chat_script = "const IS_RTL = " + ('true' if is_rtl else 'false') + ";"
 
@@ -373,9 +390,58 @@ html, body {{
   background: #fafafa; border-radius: 10px;
   border: 1px dashed var(--border); text-align: {text_align};
 }}
+
+/* ── Summary button & modal ── */
+.toc-right {{ display: flex; align-items: center; gap: 8px; flex-shrink: 0; }}
+.summary-btn {{
+  font-size: 11px; padding: 3px 10px;
+  border-radius: 20px; border: 1px solid var(--accent);
+  color: var(--accent); background: transparent;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+  transition: background .15s, color .15s;
+}}
+.summary-btn:hover {{ background: var(--accent); color: #fff; }}
+.summary-overlay {{
+  display: none; position: fixed; inset: 0;
+  background: rgba(44,36,21,.45); z-index: 200;
+  align-items: center; justify-content: center; padding: 24px 12px;
+}}
+.summary-overlay.open {{ display: flex; }}
+.summary-modal {{
+  background: var(--card); border-radius: 16px;
+  width: 100%; max-width: 640px;
+  box-shadow: 0 8px 32px rgba(44,36,21,.22); overflow: hidden;
+}}
+.summary-header {{
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--bg);
+}}
+.summary-header h3 {{ font-size: 15px; font-weight: 700; color: var(--ink); }}
+.summary-close {{
+  padding: 4px 12px; border-radius: 8px;
+  border: 1px solid #fca5a5; background: #fff5f5;
+  color: #dc2626; font-size: 13px; cursor: pointer; font-family: inherit;
+}}
+.summary-close:hover {{ background: #fee2e2; }}
+.summary-body {{
+  padding: 20px 24px 28px; font-size: 15px; line-height: 2;
+  color: var(--ink); max-height: 60vh; overflow-y: auto;
+  direction: {dir_attr}; text-align: {text_align};
+}}
 </style>
 </head>
 <body>
+
+<!-- Summary overlay -->
+<div class="summary-overlay" id="summaryOverlay" onclick="handleSummaryClick(event)">
+  <div class="summary-modal">
+    <div class="summary-header">
+      <h3 id="summaryTitle"></h3>
+      <button class="summary-close" onclick="closeSummary()">{close_lbl}</button>
+    </div>
+    <div class="summary-body" id="summaryBody"></div>
+  </div>
+</div>
 
 <!-- Reader overlay -->
 <div class="reader-overlay" id="readerOverlay" onclick="handleOverlayClick(event)">
@@ -414,6 +480,29 @@ html, body {{
 
 <script>
 {chat_script}
+
+// ── Section summaries ─────────────────────────────────────────────────────
+const SUMMARIES = {summaries_json};
+
+function showSummary(idx, e) {{
+  e.stopPropagation();
+  const text = SUMMARIES[idx];
+  if (!text) return;
+  document.getElementById('summaryTitle').textContent =
+    SECTIONS[idx] ? SECTIONS[idx].title : '{summary_heading}';
+  document.getElementById('summaryBody').textContent = text;
+  document.getElementById('summaryOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}}
+
+function closeSummary() {{
+  document.getElementById('summaryOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}}
+
+function handleSummaryClick(e) {{
+  if (e.target === document.getElementById('summaryOverlay')) closeSummary();
+}}
 
 // ── Reader ────────────────────────────────────────────────────────────────
 const SECTIONS = {reader_sections_json};

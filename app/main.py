@@ -9,8 +9,10 @@ Entry point for the FastAPI app.
 
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pathlib import Path
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 from .core.config import settings
 from .core.logging import setup_logging
 from .routers.upload import router as upload_router
@@ -19,15 +21,41 @@ from .routers.library import router as library_router
 from .routers.admin import router as admin_router
 from .routers.summarization import router as summarization_router
 from .routers.rag import router as rag_router
+from .routers.auth import router as auth_router, verify_session_token, SESSION_COOKIE
 
 # Setup logging
 logger = setup_logging()
 logger.info("🚀 Starting KitabiAI application")
 
+# Public path prefixes — no auth required
+_PUBLIC_PREFIXES = (
+    "/library",
+    "/books/",
+    "/api/books",
+    "/health",
+    "/version",
+    "/admin/login",
+    "/admin/logout",
+)
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if any(path == p or path.startswith(p) for p in _PUBLIC_PREFIXES):
+            return await call_next(request)
+        token = request.cookies.get(SESSION_COOKIE)
+        if not verify_session_token(token):
+            return RedirectResponse("/admin/login", status_code=303)
+        return await call_next(request)
+
+
 # Create app
 app = FastAPI(title=settings.APP_NAME)
+app.add_middleware(AuthMiddleware)
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(upload_router)
 app.include_router(generation_router)
 app.include_router(library_router)

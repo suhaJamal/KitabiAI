@@ -10,7 +10,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from ..models.database import SessionLocal, Book, Section, SectionChunk
+from ..models.database import SessionLocal, Book, Section, SectionChunk, Page
 from ..models.database import Author, Category
 from ..services.rag.embedder import Embedder
 from ..services.rag.retriever import Retriever
@@ -112,6 +112,64 @@ def ask(data: dict):
     # Generate answer
     result = _answerer.answer(question, sections, book_title, language)
     return JSONResponse(result)
+
+
+# ── Admin: fix missing section content from pages table ───────────────────────
+
+@router.post("/admin/books/{book_id}/fix-content")
+def fix_book_content(book_id: int):
+    """
+    Populate Section.content from the pages table for any section that has
+    NULL content. Uses the section's page_start/page_end range to concatenate
+    stored page text — no PDF re-upload or Azure DI call required.
+    """
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter(Book.id == book_id).first()
+        if not book:
+            raise HTTPException(status_code=404, detail="Book not found")
+
+        sections = (
+            db.query(Section)
+            .filter(Section.book_id == book_id, Section.content.is_(None))
+            .order_by(Section.order_index)
+            .all()
+        )
+
+        fixed = 0
+        skipped = 0
+        for section in sections:
+            if section.page_start is None:
+                skipped += 1
+                continue
+            page_end = section.page_end or section.page_start
+            pages = (
+                db.query(Page)
+                .filter(
+                    Page.book_id == book_id,
+                    Page.page_number >= section.page_start,
+                    Page.page_number <= page_end,
+                )
+                .order_by(Page.page_number)
+                .all()
+            )
+            text = '\n\n'.join(p.text for p in pages if p.text and p.text.strip())
+            if text:
+                section.content = text
+                fixed += 1
+            else:
+                skipped += 1
+
+        db.commit()
+        return JSONResponse({"ok": True, "fixed": fixed, "skipped": skipped})
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"fix-content failed for book {book_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
 
 
 # ── Admin: generate embeddings ─────────────────────────────────────────────────

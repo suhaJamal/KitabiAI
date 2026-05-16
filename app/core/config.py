@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     FASTTEXT_CONFIDENCE_THRESHOLD: float = 0.5  # Min confidence (0.0-1.0)
     FASTTEXT_SAMPLE_PAGES: int = 15  # Number of pages to sample for detection
 
+    # Admin authentication
+    SECRET_KEY: str = "change-me-in-production"
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "change-me-in-production"
+
     # OpenAI (embeddings)
     OPENAI_API_KEY: Optional[str] = None
 
