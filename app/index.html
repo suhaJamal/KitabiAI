@@ -464,6 +464,51 @@
         [dir="rtl"] .book-meta {
             text-align: right;
         }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 2rem 0 3rem;
+            flex-wrap: wrap;
+        }
+
+        .page-btn {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .page-btn:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .page-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .page-info {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            padding: 0 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -526,9 +571,11 @@
             </div>
         </div>
 
-        <!-- Authors & Categories Filters -->
+        <!-- Category Filters -->
         <div class="filters" id="dynamicFilters">
-            <!-- Will be populated by JavaScript -->
+            <h4 style="width:100%; color:var(--text-secondary); font-size:0.9rem; margin-bottom:0.25rem;"
+                data-en="Filter by Topic:" data-ar="تصفية حسب الموضوع:">Filter by Topic:</h4>
+            <div class="filter-group" id="categoryPills"></div>
         </div>
 
         <!-- Books Grid -->
@@ -541,38 +588,25 @@
     </div>
 
     <script>
-        // Global state
-        let allBooks = [];
-        let allAuthors = [];
-        let allCategories = [];
-        let currentFilters = {
-            language: 'ar',
-            author: null,
-            category: null,
-            search: ''
-        };
-
-        // API Base URL
         const API_BASE = window.location.origin;
+        const PAGE_SIZE = 12;
 
-        // Initialize
+        let allBooks = [];
+        let allCategories = [];
+        let currentPage = 1;
+        let totalBooks = 0;
+        let currentFilters = { language: 'ar', category: null, search: '' };
+        let currentLang = localStorage.getItem('lang') || 'en';
+
         document.addEventListener('DOMContentLoaded', async () => {
             try { applyLanguage(currentLang); } catch(e) { console.error('applyLanguage error:', e); }
-            await Promise.all([
-                loadStats(),
-                loadAuthors(),
-                loadCategories(),
-                loadBooks()
-            ]);
+            await Promise.all([loadStats(), loadCategories(), loadBooks()]);
             loadTheme();
         });
 
-        // Load statistics
         async function loadStats() {
             try {
-                const response = await fetch(`${API_BASE}/api/stats`);
-                const data = await response.json();
-
+                const data = await fetch(`${API_BASE}/api/stats`).then(r => r.json());
                 if (data.ok) {
                     document.getElementById('totalBooks').textContent = data.stats.books.total;
                     document.getElementById('arabicBooks').textContent = data.stats.books.arabic;
@@ -581,156 +615,136 @@
                     pagesEl.textContent = data.stats.pages.total.toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US');
                     document.getElementById('totalAuthors').textContent = data.stats.authors.total;
                 }
-            } catch (error) {
-                console.error('Error loading stats:', error);
-            }
+            } catch(e) { console.error('loadStats error:', e); }
         }
 
-        // Load authors
-        async function loadAuthors() {
-            try {
-                const response = await fetch(`${API_BASE}/api/authors?language=ar&limit=20`);
-                const data = await response.json();
-
-                if (data.ok) {
-                    allAuthors = data.authors;
-                    renderAuthorFilters();
-                }
-            } catch (error) {
-                console.error('Error loading authors:', error);
-            }
-        }
-
-        // Load categories
         async function loadCategories() {
             try {
-                const response = await fetch(`${API_BASE}/api/categories?language=ar&limit=20`);
-                const data = await response.json();
-
-                if (data.ok) {
-                    allCategories = data.categories;
-                    renderCategoryFilters();
-                }
-            } catch (error) {
-                console.error('Error loading categories:', error);
-            }
+                const data = await fetch(`${API_BASE}/api/categories?language=ar&limit=30`).then(r => r.json());
+                if (data.ok) { allCategories = data.categories; renderCategoryFilters(); }
+            } catch(e) { console.error('loadCategories error:', e); }
         }
 
-        // Render author filters
-        function renderAuthorFilters() {
-            const container = document.getElementById('dynamicFilters');
-            const authorGroup = document.createElement('div');
-            authorGroup.className = 'filter-group';
-            authorGroup.innerHTML = `<h4 style="width: 100%; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">${currentLang === 'ar' ? 'تصفية حسب المؤلف:' : 'Filter by Author:'}</h4>`;
-
-            allAuthors.slice(0, 10).forEach(author => {
-                const btn = document.createElement('button');
-                btn.className = 'filter-btn';
-                btn.textContent = `${author.name} (${author.book_count})`;
-                btn.onclick = () => filterByAuthor(author.id);
-                authorGroup.appendChild(btn);
-            });
-
-            container.appendChild(authorGroup);
-        }
-
-        // Render category filters
         function renderCategoryFilters() {
-            const container = document.getElementById('dynamicFilters');
-            const categoryGroup = document.createElement('div');
-            categoryGroup.className = 'filter-group';
-            categoryGroup.innerHTML = `<h4 style="width: 100%; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem; margin-top: 1rem;">${currentLang === 'ar' ? 'تصفية حسب الموضوع:' : 'Filter by Topic:'}</h4>`;
-
-            allCategories.slice(0, 10).forEach(category => {
+            const container = document.getElementById('categoryPills');
+            container.innerHTML = '';
+            const allBtn = document.createElement('button');
+            allBtn.className = 'filter-btn' + (currentFilters.category === null ? ' active' : '');
+            allBtn.id = 'cat-btn-all';
+            allBtn.dataset.en = 'All Topics';
+            allBtn.dataset.ar = 'جميع المواضيع';
+            allBtn.textContent = currentLang === 'ar' ? 'جميع المواضيع' : 'All Topics';
+            allBtn.onclick = () => filterByCategory(null);
+            container.appendChild(allBtn);
+            allCategories.forEach(cat => {
                 const btn = document.createElement('button');
-                btn.className = 'filter-btn';
-                btn.textContent = `${category.name} (${category.book_count})`;
-                btn.onclick = () => filterByCategory(category.id);
-                categoryGroup.appendChild(btn);
+                btn.className = 'filter-btn' + (currentFilters.category === cat.id ? ' active' : '');
+                btn.id = `cat-btn-${cat.id}`;
+                btn.textContent = `${cat.name} (${cat.book_count})`;
+                btn.onclick = () => filterByCategory(cat.id);
+                container.appendChild(btn);
             });
-
-            container.appendChild(categoryGroup);
         }
 
-        // Load books
         async function loadBooks() {
+            document.getElementById('booksContainer').innerHTML =
+                `<div class="loading"><div class="spinner"></div><p>${currentLang === 'ar' ? 'جاري تحميل الكتب...' : 'Loading books...'}</p></div>`;
             try {
                 const params = new URLSearchParams();
-                if (currentFilters.language && currentFilters.language !== 'all') {
+                if (currentFilters.language && currentFilters.language !== 'all')
                     params.append('language', currentFilters.language);
-                }
-                if (currentFilters.author) {
-                    params.append('author_id', currentFilters.author);
-                }
-                if (currentFilters.category) {
-                    params.append('category_id', currentFilters.category);
-                }
-                if (currentFilters.search) {
-                    params.append('search', currentFilters.search);
-                }
-                params.append('limit', '50');
+                if (currentFilters.category) params.append('category_id', currentFilters.category);
+                if (currentFilters.search) params.append('search', currentFilters.search);
+                params.append('limit', PAGE_SIZE);
+                params.append('offset', (currentPage - 1) * PAGE_SIZE);
 
-                const response = await fetch(`${API_BASE}/api/books?${params}`);
-                const data = await response.json();
-
+                const data = await fetch(`${API_BASE}/api/books?${params}`).then(r => r.json());
                 if (data.ok) {
                     allBooks = data.books;
+                    totalBooks = data.pagination.total;
                     renderBooks(allBooks);
+                    renderPagination(totalBooks);
                 }
-            } catch (error) {
-                console.error('Error loading books:', error);
-                document.getElementById('booksContainer').innerHTML = `
-                    <div class="empty-state">
-                        <h3>❌ خطأ في التحميل</h3>
-                        <p>حدث خطأ أثناء تحميل الكتب. يرجى المحاولة مرة أخرى.</p>
-                    </div>
-                `;
+            } catch(e) {
+                console.error('loadBooks error:', e);
+                document.getElementById('booksContainer').innerHTML =
+                    `<div class="empty-state"><h3>❌ خطأ في التحميل</h3><p>حدث خطأ أثناء تحميل الكتب.</p></div>`;
             }
         }
 
-        // Render books
         function renderBooks(books) {
             const container = document.getElementById('booksContainer');
-
             if (books.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <h3>📚 لا توجد كتب</h3>
-                        <p>لم يتم العثور على كتب تطابق معايير البحث الخاصة بك.</p>
-                    </div>
-                `;
+                container.innerHTML = `<div class="empty-state"><h3>📚 لا توجد كتب</h3><p>لم يتم العثور على كتب تطابق معايير البحث الخاصة بك.</p></div>`;
                 return;
             }
-
             const grid = document.createElement('div');
             grid.className = 'book-grid';
-
-            books.forEach(book => {
-                const card = createBookCard(book);
-                grid.appendChild(card);
-            });
-
+            books.forEach(book => grid.appendChild(createBookCard(book)));
             container.innerHTML = '';
             container.appendChild(grid);
         }
 
-        // Create book card
+        function renderPagination(total) {
+            const totalPages = Math.ceil(total / PAGE_SIZE);
+            if (totalPages <= 1) return;
+            const container = document.getElementById('booksContainer');
+            const div = document.createElement('div');
+            div.className = 'pagination';
+
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'page-btn';
+            prevBtn.textContent = currentLang === 'ar' ? 'السابق →' : '← Prev';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.onclick = () => goToPage(currentPage - 1);
+            div.appendChild(prevBtn);
+
+            const startP = Math.max(1, currentPage - 2);
+            const endP = Math.min(totalPages, startP + 4);
+            for (let i = startP; i <= endP; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'page-btn' + (i === currentPage ? ' active' : '');
+                btn.textContent = i;
+                btn.onclick = () => goToPage(i);
+                div.appendChild(btn);
+            }
+
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'page-btn';
+            nextBtn.textContent = currentLang === 'ar' ? '← التالي' : 'Next →';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.onclick = () => goToPage(currentPage + 1);
+            div.appendChild(nextBtn);
+
+            const info = document.createElement('span');
+            info.className = 'page-info';
+            const s = (currentPage - 1) * PAGE_SIZE + 1;
+            const e = Math.min(currentPage * PAGE_SIZE, total);
+            info.textContent = currentLang === 'ar'
+                ? `${s}–${e} من ${total} كتاب`
+                : `${s}–${e} of ${total} books`;
+            div.appendChild(info);
+
+            container.appendChild(div);
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            loadBooks();
+            window.scrollTo({ top: document.querySelector('.container').offsetTop - 20, behavior: 'smooth' });
+        }
+
         function createBookCard(book) {
             const card = document.createElement('div');
             card.className = 'book-card';
-            card.onclick = () => openBook(book);
-
-            const title = book.language === 'ar' ? book.title : book.title;
+            card.onclick = () => window.open(`/books/${book.id}`, '_blank');
             const coverImage = book.cover_image_url
-                ? `<img src="${book.cover_image_url}" alt="${title}">`
+                ? `<img src="${book.cover_image_url}" alt="${book.title}">`
                 : `<span class="placeholder">📖</span>`;
-
             card.innerHTML = `
-                <div class="book-cover">
-                    ${coverImage}
-                </div>
+                <div class="book-cover">${coverImage}</div>
                 <div class="book-info">
-                    <h3>${title}</h3>
+                    <h3>${book.title}</h3>
                     <div class="book-meta">
                         <span class="author">${book.author.name}</span>
                         ${book.category ? ` • ${book.category.name}` : ''}
@@ -740,113 +754,77 @@
                         ${book.page_count ? `<span class="tag">${book.page_count} ${currentLang === 'ar' ? 'صفحة' : 'pages'}</span>` : ''}
                         ${book.section_count ? `<span class="tag">${book.section_count} ${currentLang === 'ar' ? 'فصل' : 'chapters'}</span>` : ''}
                     </div>
-                </div>
-            `;
-
+                </div>`;
             return card;
         }
 
-        // Open book
-        function openBook(book) {
-            window.open(`/books/${book.id}`, '_blank');
-        }
-
-        // Filter functions
         function filterByLanguage(lang) {
             currentFilters.language = lang;
-            currentFilters.author = null;
             currentFilters.category = null;
-            updateActiveFilters();
-            loadBooks();
-        }
-
-        function filterByAuthor(authorId) {
-            currentFilters.author = currentFilters.author === authorId ? null : authorId;
-            updateActiveFilters();
+            currentPage = 1;
+            updateActiveCategoryBtn(null);
             loadBooks();
         }
 
         function filterByCategory(categoryId) {
-            currentFilters.category = currentFilters.category === categoryId ? null : categoryId;
-            updateActiveFilters();
+            currentFilters.category = (currentFilters.category === categoryId) ? null : categoryId;
+            currentPage = 1;
+            updateActiveCategoryBtn(currentFilters.category);
             loadBooks();
         }
 
-        function updateActiveFilters() {
-            // Update language buttons
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
+        function updateActiveCategoryBtn(categoryId) {
+            document.querySelectorAll('#categoryPills .filter-btn').forEach(b => b.classList.remove('active'));
+            const id = categoryId === null ? 'cat-btn-all' : `cat-btn-${categoryId}`;
+            const btn = document.getElementById(id);
+            if (btn) btn.classList.add('active');
         }
 
-        // Search
         let searchTimeout;
         function handleSearch() {
             clearTimeout(searchTimeout);
-            const query = document.getElementById('searchInput').value;
-
             searchTimeout = setTimeout(() => {
-                currentFilters.search = query;
+                currentFilters.search = document.getElementById('searchInput').value;
+                currentPage = 1;
                 loadBooks();
             }, 500);
         }
 
-        // Language state
-        let currentLang = localStorage.getItem('lang') || 'en';
-
         function applyLanguage(lang) {
             currentLang = lang;
-            const html = document.documentElement;
-            html.setAttribute('lang', lang);
-            html.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+            document.documentElement.setAttribute('lang', lang);
+            document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
             document.querySelector('.lang-switch').textContent = lang === 'en' ? 'عربي' : 'English';
-
             document.querySelectorAll('[data-en]').forEach(el => {
                 const text = lang === 'en' ? el.dataset.en : el.dataset.ar;
-                if (el.tagName === 'INPUT') {
-                    el.placeholder = text;
-                } else {
-                    el.textContent = text;
-                }
+                if (el.tagName === 'INPUT') el.placeholder = text;
+                else el.textContent = text;
             });
-
             const pagesEl = document.getElementById('totalPages');
-            if (pagesEl.dataset.raw) {
+            if (pagesEl && pagesEl.dataset.raw)
                 pagesEl.textContent = Number(pagesEl.dataset.raw).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US');
-            }
             updateThemeButtonText();
-            if (allBooks.length > 0) renderBooks(allBooks);
+            if (allBooks.length > 0) { renderBooks(allBooks); renderPagination(totalBooks); }
             localStorage.setItem('lang', lang);
         }
 
-        function toggleLanguage() {
-            applyLanguage(currentLang === 'en' ? 'ar' : 'en');
-        }
+        function toggleLanguage() { applyLanguage(currentLang === 'en' ? 'ar' : 'en'); }
 
-        // Theme toggle
         function updateThemeButtonText() {
             const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
             const btn = document.querySelector('.theme-toggle');
-            const key = (isDark ? 'dark' : 'light');
-            btn.textContent = btn.dataset[`${currentLang}${key.charAt(0).toUpperCase() + key.slice(1)}`];
+            btn.textContent = btn.dataset[`${currentLang}${isDark ? 'Dark' : 'Light'}`];
         }
 
         function toggleTheme() {
             const html = document.documentElement;
-            if (html.getAttribute('data-theme') === 'dark') {
-                html.removeAttribute('data-theme');
-                localStorage.setItem('theme', 'light');
-            } else {
-                html.setAttribute('data-theme', 'dark');
-                localStorage.setItem('theme', 'dark');
-            }
+            if (html.getAttribute('data-theme') === 'dark') { html.removeAttribute('data-theme'); localStorage.setItem('theme', 'light'); }
+            else { html.setAttribute('data-theme', 'dark'); localStorage.setItem('theme', 'dark'); }
             updateThemeButtonText();
         }
 
         function loadTheme() {
-            if (localStorage.getItem('theme') === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            }
+            if (localStorage.getItem('theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
             updateThemeButtonText();
         }
     </script>

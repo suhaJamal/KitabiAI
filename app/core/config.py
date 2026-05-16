@@ -12,7 +12,7 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "KitabiAI - Unified (English & Arabic)"
+    APP_NAME: str = "KitabiAI - Arabic"
 
     # Database
     DATABASE_URL: str  # PostgreSQL connection string

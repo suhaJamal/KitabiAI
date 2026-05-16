@@ -680,7 +680,7 @@ def html_shell(body: str) -> str:
         <div class="container">
           <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <h1>📚 Book Converter – Unified (English & Arabic)</h1>
+              <h1>📚 Book Converter – Arabic</h1>
               <a href="/admin" style="padding: 8px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--accent);">Manage Books</a>
             </div>
             <div class="subtitle">Upload a PDF → we'll detect the language, verify content, and extract TOC automatically.</div>
@@ -1058,8 +1058,37 @@ def render_report(filename: str, report: AnalysisReport, language: str = "unknow
     return body
 
 
-def render_admin(books_data: list) -> str:
+def _render_admin_pagination(p: dict) -> str:
+    if p['total_pages'] <= 1:
+        return ''
+    search_param = f"&search={p['search']}" if p['search'] else ''
+    def _link(pg: int, label: str, disabled: bool = False) -> str:
+        if disabled:
+            return f'<span style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:13px;">{label}</span>'
+        return (f'<a href="/admin?page={pg}{search_param}" style="padding:6px 12px;border:1px solid var(--border);'
+                f'border-radius:8px;font-size:13px;color:var(--accent);text-decoration:none;font-weight:600;">{label}</a>')
+    def _page_link(pg: int) -> str:
+        if pg == p['page']:
+            return (f'<span style="padding:6px 12px;border:1px solid var(--accent);border-radius:8px;'
+                    f'background:var(--accent);color:white;font-size:13px;font-weight:600;">{pg}</span>')
+        return (f'<a href="/admin?page={pg}{search_param}" style="padding:6px 12px;border:1px solid var(--border);'
+                f'border-radius:8px;font-size:13px;color:var(--fg);text-decoration:none;">{pg}</a>')
+    start = max(1, p['page'] - 2)
+    end = min(p['total_pages'], start + 4)
+    page_links = ' '.join(_page_link(i) for i in range(start, end + 1))
+    return (f'<div style="display:flex;gap:8px;align-items:center;justify-content:center;padding:20px 0;flex-wrap:wrap;">'
+            f'{_link(p["page"]-1, "← Prev", p["page"] <= 1)}'
+            f'{page_links}'
+            f'{_link(p["page"]+1, "Next →", p["page"] >= p["total_pages"])}'
+            f'</div>')
+
+
+def render_admin(books_data: list, pagination: dict | None = None) -> str:
     """Render the admin management page with book list, edit, and delete."""
+    if pagination is None:
+        pagination = {"page": 1, "page_size": 20, "total": len(books_data),
+                      "total_pages": 1, "search": "", "total_all": len(books_data),
+                      "total_visible": len(books_data), "total_hidden": 0}
 
     # Build table rows
     rows = ""
@@ -1377,25 +1406,31 @@ def render_admin(books_data: list) -> str:
 
     <div class="admin-stats">
       <div class="stat-card">
-        <div class="stat-value">{len(books_data)}</div>
+        <div class="stat-value">{pagination['total_all']}</div>
         <div class="stat-label">Total Books</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{sum(1 for b in books_data if b.get('is_visible', True))}</div>
+        <div class="stat-value">{pagination['total_visible']}</div>
         <div class="stat-label">Visible</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{sum(1 for b in books_data if not b.get('is_visible', True))}</div>
+        <div class="stat-value">{pagination['total_hidden']}</div>
         <div class="stat-label">Hidden</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">{sum(b['page_count'] for b in books_data if b.get('is_visible', True))}</div>
-        <div class="stat-label">Pages (Visible)</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{sum(b['page_count'] for b in books_data)}</div>
-        <div class="stat-label">Pages (All)</div>
-      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+      <form method="GET" action="/admin" style="display:flex; gap:8px; flex:1; min-width:200px;">
+        <input name="search" value="{pagination['search']}" placeholder="Search by title or author…"
+          style="flex:1; padding:8px 12px; border:1px solid var(--border); border-radius:8px;
+                 font-size:14px; font-family:inherit; background:var(--bg); color:var(--fg);" />
+        <button type="submit" style="padding:8px 16px; background:var(--accent); color:white;
+          border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer;">Search</button>
+        {f'<a href="/admin" style="padding:8px 12px; background:var(--bg); border:1px solid var(--border); border-radius:8px; font-size:14px; color:var(--muted); text-decoration:none; display:flex; align-items:center;">✕ Clear</a>' if pagination['search'] else ''}
+      </form>
+      <span style="font-size:13px; color:var(--muted); white-space:nowrap;">
+        {f"Showing {(pagination['page']-1)*pagination['page_size']+1}–{min(pagination['page']*pagination['page_size'], pagination['total'])} of {pagination['total']} books" if pagination['total'] > 0 else "No books found"}
+      </span>
     </div>
 
     <div id="admin-alert" class="admin-alert"></div>
@@ -1423,6 +1458,8 @@ def render_admin(books_data: list) -> str:
         </tbody>
       </table>
     </div>
+
+    {_render_admin_pagination(pagination)}
 
     <!-- Edit Modal -->
     <div id="edit-modal" class="modal-overlay">
@@ -1631,8 +1668,8 @@ def render_admin(books_data: list) -> str:
       if (!btn || btn.disabled) return;
 
       btn.disabled = true;
-      btn.textContent = '⏳ Embedding...';
-      status.textContent = 'Generating vectors...';
+      btn.textContent = '⏳ Starting...';
+      status.textContent = '';
       status.style.color = 'var(--warning)';
 
       fetch('/admin/books/' + bookId + '/embed', {{ method: 'POST' }})
@@ -1640,11 +1677,11 @@ def render_admin(books_data: list) -> str:
           if (!r.ok) return r.json().then(d => {{ throw new Error(d.detail || 'Failed'); }});
           return r.json();
         }})
-        .then(data => {{
+        .then(() => {{
           btn.disabled = false;
           btn.textContent = 'Embed';
-          status.textContent = `✅ Embedded ${{data.embedded}} chunks`;
-          status.style.color = 'var(--success)';
+          status.textContent = '⏳ Running in background — reload this page in a few minutes to see the result';
+          status.style.color = 'var(--warning)';
         }})
         .catch(err => {{
           btn.disabled = false;
