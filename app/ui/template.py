@@ -1602,8 +1602,8 @@ def render_admin(books_data: list) -> str:
       if (!btn || btn.disabled) return;
 
       btn.disabled = true;
-      btn.textContent = '⏳ Summarizing...';
-      status.textContent = 'Running — may take 1-3 minutes depending on book size';
+      btn.textContent = '⏳ Starting...';
+      status.textContent = '';
       status.style.color = 'var(--warning)';
 
       fetch('/admin/books/' + bookId + '/summarize', {{ method: 'POST' }})
@@ -1611,17 +1611,11 @@ def render_admin(books_data: list) -> str:
           if (!r.ok) return r.json().then(d => {{ throw new Error(d.detail || 'Failed'); }});
           return r.json();
         }})
-        .then(data => {{
+        .then(() => {{
           btn.disabled = false;
           btn.textContent = 'Summarize';
-          const today = new Date().toISOString().slice(0, 10);
-          const extras = [];
-          if (data.description_set) extras.push('description set');
-          if (data.category_predicted) extras.push(`category: ${{data.category_predicted}}`);
-          if (data.keywords_set) extras.push('keywords set');
-          const extraText = extras.length ? ` | ${{extras.join(', ')}}` : '';
-          status.textContent = `✅ Done (${{data.sections_summarized}} sections)${{extraText}} — ${{today}}`;
-          status.style.color = 'var(--success)';
+          status.textContent = '⏳ Running in background — reload this page in a few minutes to see the result';
+          status.style.color = 'var(--warning)';
         }})
         .catch(err => {{
           btn.disabled = false;

@@ -49,6 +49,13 @@ jobs:
           path: |
             .
             !antenv/
+            !.git/
+            !.github/
+            !**/__pycache__/
+            !app/evaluation/
+            !tests/
+            !*.md
+            !Dockerfile
 
   deploy:
     runs-on: ubuntu-latest
