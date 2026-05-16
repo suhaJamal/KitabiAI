@@ -1086,6 +1086,13 @@ def render_admin(books_data: list) -> str:
         row_opacity = "1" if is_visible else "0.45"
         visibility_icon = "👁️" if is_visible else "🚫"
         visibility_title = "Click to hide" if is_visible else "Click to show"
+        book_id = book['id']
+        fix_btn = (
+            f'<button onclick="event.stopPropagation(); fixContent({book_id})" '
+            f'class="admin-btn" id="fix-btn-{book_id}" '
+            f'style="background:#fdf4ff; color:#7e22ce; border:1px solid #e9d5ff;">Fix Content</button>'
+            if book.get('needs_fix') else ''
+        )
 
         rows += f"""
         <tr id="book-row-{book['id']}" class="book-main-row" onclick="toggleExpand({book['id']})" style="cursor: pointer; opacity: {row_opacity};">
@@ -1115,9 +1122,11 @@ def render_admin(books_data: list) -> str:
               {f'<div class="expand-item" style="width:100%;"><span class="expand-label">Hidden reason:</span> <span class="expand-value">{hidden_reason}</span></div>' if hidden_reason else ''}
               <div class="expand-item" style="width:100%; display:flex; align-items:center; gap:12px; margin-top:6px; flex-wrap:wrap;">
                 <button onclick="event.stopPropagation(); summarizeBook({book['id']})" class="admin-btn" id="summarize-btn-{book['id']}" style="background:#fef3e7; color:#c76a2d; border:1px solid #fad0a8;">Summarize</button>
+                {fix_btn}
                 <button onclick="event.stopPropagation(); embedBook({book['id']})" class="admin-btn" id="embed-btn-{book['id']}" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">Embed</button>
                 <a href="/books/{book['id']}" target="_blank" class="admin-btn" style="background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; text-decoration:none;">View Page</a>
                 <span id="summarize-status-{book['id']}" style="font-size:12px; color:var(--muted);">{'✅ Last run: ' + book['summary_generated_at'] if book['summary_generated_at'] else 'No summary yet'}</span>
+                <span id="fix-status-{book['id']}" style="font-size:12px; color:var(--muted);"></span>
                 <span id="embed-status-{book['id']}" style="font-size:12px; color:var(--muted);"></span>
               </div>
             </div>
@@ -1646,6 +1655,35 @@ def render_admin(books_data: list) -> str:
         .catch(err => {{
           btn.disabled = false;
           btn.textContent = 'Embed';
+          status.textContent = '❌ ' + err.message;
+          status.style.color = '#dc2626';
+        }});
+    }}
+
+    function fixContent(bookId) {{
+      const btn = document.getElementById('fix-btn-' + bookId);
+      const status = document.getElementById('fix-status-' + bookId);
+      if (!btn || btn.disabled) return;
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Fixing...';
+      status.textContent = 'Assembling content from pages...';
+      status.style.color = 'var(--warning)';
+
+      fetch('/admin/books/' + bookId + '/fix-content', {{ method: 'POST' }})
+        .then(r => {{
+          if (!r.ok) return r.json().then(d => {{ throw new Error(d.detail || 'Failed'); }});
+          return r.json();
+        }})
+        .then(data => {{
+          status.textContent = `✅ Fixed ${{data.fixed}} section${{data.fixed !== 1 ? 's' : ''}}${{data.skipped ? ' (' + data.skipped + ' skipped)' : ''}}`;
+          status.style.color = 'var(--success)';
+          btn.style.display = 'none';
+          setTimeout(() => {{ status.textContent = ''; }}, 5000);
+        }})
+        .catch(err => {{
+          btn.disabled = false;
+          btn.textContent = 'Fix Content';
           status.textContent = '❌ ' + err.message;
           status.style.color = '#dc2626';
         }});
