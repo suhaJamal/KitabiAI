@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from ..models.database import SessionLocal, Book, Section, SectionChunk, Page
 from ..models.database import Author, Category
-from ..services.rag.embedder import Embedder
+from ..services.rag.embedder import Embedder, normalize_arabic
 from ..services.rag.retriever import Retriever
 from ..services.rag.answerer import Answerer
 from ..ui.book_template import render_book_page
@@ -94,13 +94,14 @@ def ask(data: dict):
             book_title = book_title[:-len(suffix)].strip()
             break
 
-    # Embed question
-    question_embedding = _embedder.get_embedding(question)
+    # Embed question — normalize Arabic queries to match normalized embeddings
+    question_to_embed = normalize_arabic(question) if language == 'ar' else question
+    question_embedding = _embedder.get_embedding(question_to_embed)
     if not question_embedding:
         raise HTTPException(status_code=503, detail="Embedding service unavailable")
 
     # Retrieve relevant sections
-    sections = _retriever.find_relevant_sections(question_embedding, book_id, top_k=3)
+    sections = _retriever.find_relevant_sections(question_embedding, book_id, top_k=8)
 
     if not sections:
         return JSONResponse({

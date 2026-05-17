@@ -48,6 +48,9 @@ evaluation/
 # Experiments (local research — not for open-source release)
 experiments/
 
+# Marketing website (local only)
+tests/marketWebsite/
+
 # Temporary files
 *.tmp
 temp/

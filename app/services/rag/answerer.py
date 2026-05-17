@@ -40,6 +40,8 @@ _NO_ANSWER = {
     'en': "I couldn't find enough information in this book to answer your question.",
 }
 
+_MAX_SOURCES = 4  # max unique sections shown in the sources list
+
 
 class Answerer:
 
@@ -70,21 +72,35 @@ class Answerer:
             return {"answer": _NO_ANSWER.get(language, _NO_ANSWER['ar']), "sources": []}
 
         context_parts = []
-        sources = []
+        seen_titles = {}  # title -> best-similarity source entry (for deduplication)
 
         for i, sec in enumerate(sections, 1):
-            # content is now a focused chunk (~400 words) — no truncation needed
             snippet = sec.get("content") or sec.get("summary") or ""
-            if snippet:
-                context_parts.append(f"[{i}] {sec['title']}:\n{snippet}")
-                sources.append({
-                    "section": sec["title"],
-                    "pages": f"{sec['page_start']}-{sec['page_end']}",
-                    "book": sec["book_title"],
-                })
+            if not snippet:
+                continue
+
+            # All chunks feed the LLM context for the best possible answer
+            context_parts.append(f"[{i}] {sec['title']}:\n{snippet}")
+
+            # Deduplicate sources by section title — keep the highest-similarity entry
+            title = sec["title"]
+            if title not in seen_titles or sec.get("similarity", 0) > seen_titles[title]["similarity"]:
+                seen_titles[title] = {
+                    "section":    title,
+                    "pages":      f"{sec['page_start']}-{sec['page_end']}",
+                    "book":       sec["book_title"],
+                    "similarity": sec.get("similarity", 0),
+                }
 
         if not context_parts:
             return {"answer": _NO_ANSWER.get(language, _NO_ANSWER['ar']), "sources": []}
+
+        # Show only top-N unique sections ranked by similarity — strip internal score
+        ranked = sorted(seen_titles.values(), key=lambda x: x["similarity"], reverse=True)
+        sources = [
+            {"section": s["section"], "pages": s["pages"], "book": s["book"]}
+            for s in ranked[:_MAX_SOURCES]
+        ]
 
         context = "\n\n".join(context_parts)
         prompt_template = _PROMPTS.get(language, _PROMPTS['ar'])

@@ -39,15 +39,22 @@ class Retriever:
                         sc.id,
                         sc.chunk_index,
                         sc.content          AS chunk_content,
-                        s.title,
+                        CASE
+                            WHEN sc.chunk_index = -2 THEN
+                                CASE WHEN b.language = 'ar'
+                                    THEN 'معلومات الكتاب'
+                                    ELSE 'Book Information'
+                                END
+                            ELSE s.title
+                        END                 AS title,
                         s.summary,
-                        s.page_start,
-                        s.page_end,
+                        COALESCE(s.page_start, 0) AS page_start,
+                        COALESCE(s.page_end,   0) AS page_end,
                         b.title             AS book_title,
                         b.language,
                         1 - (sc.embedding <=> '{embedding_str}'::vector) AS similarity
                     FROM section_chunks sc
-                    JOIN sections s ON s.id = sc.section_id
+                    LEFT JOIN sections s ON s.id = sc.section_id
                     JOIN books    b ON b.id = sc.book_id
                     WHERE sc.book_id = :book_id
                       AND sc.embedding IS NOT NULL
@@ -61,7 +68,7 @@ class Retriever:
                 {
                     "id":         r.id,
                     "title":      r.title,
-                    "content":    r.chunk_content,   # exact matching passage
+                    "content":    r.chunk_content,
                     "summary":    r.summary,
                     "page_start": r.page_start,
                     "page_end":   r.page_end,
