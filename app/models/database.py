@@ -111,7 +111,7 @@ class SectionChunk(Base):
     __tablename__ = "section_chunks"
 
     id          = Column(Integer, primary_key=True, autoincrement=True)
-    section_id  = Column(Integer, ForeignKey('sections.id', ondelete='CASCADE'), nullable=False)
+    section_id  = Column(Integer, ForeignKey('sections.id', ondelete='CASCADE'), nullable=True)  # nullable for book-level metadata chunks (chunk_index=-2)
     book_id     = Column(Integer, ForeignKey('books.id',    ondelete='CASCADE'), nullable=False)
     chunk_index = Column(Integer, nullable=False)
     content     = Column(Text, nullable=False)
