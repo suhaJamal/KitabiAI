@@ -47,5 +47,6 @@ EXPOSE 8000
 # Set environment variables (defaults, can be overridden at runtime)
 ENV PYTHONUNBUFFERED=1
 
-# Run the application with uvicorn (FastAPI's ASGI server)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run with Gunicorn + UvicornWorker: 4 processes handle concurrent uploads without blocking each other.
+# --timeout 600 prevents worker kill during long Azure DI calls (~2 min per book).
+CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "app.main:app", "--bind", "0.0.0.0:8000", "--timeout", "600"]
