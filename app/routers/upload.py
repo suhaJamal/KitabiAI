@@ -11,6 +11,8 @@ HTTP routes for the upload & analyze flow (unified English & Arabic support).
 """
 
 
+import asyncio
+import functools
 import logging
 import time
 from datetime import datetime
@@ -70,86 +72,20 @@ def home():
     return html_shell(render_home())
 
 
-@router.post("/upload")
-async def upload(
-    file: UploadFile = File(...),
-    book_title: str = Form(...),  # Required
-    author: str = Form(...),
-    author_slug: str = Form(None), #  Optional - for clean URLs
-    enable_seo: bool = Form(False),  # Optional - SEO toggle
-    description: str = Form(None),  # Optional - SEO
-    category: str = Form(None),  # Optional - SEO
-    keywords: str = Form(None),  # Optional - SEO
-    publication_date: str = Form(None),  # Optional - SEO/Cataloging
-    isbn: str = Form(None),  # Optional - SEO/Cataloging
-    book_language: str = Form("arabic"),  # User-selected language: "arabic" or "english"
-    toc_method: str = Form("extract"),  # TOC method: "extract" or "generate"
-    toc_page: str = Form(None),  # Optional - TOC start page number
-    toc_page_end: str = Form(None),  # Optional - TOC end page number
-    page_offset: int = Form(0),  # Optional - Page offset (default: 0)
-    generate_skip_pages: int = Form(0),  # Optional - pages to skip at start (generate path)
-    cover_image: UploadFile = File(None),  # Optional - Book cover image
-    json: int = Query(default=0, ge=0, le=1)
-):
-    """
-    Upload and analyze a PDF (English or Arabic) with user-provided metadata.
-
-    Form fields:
-        file: PDF file to analyze
-        book_title: Book title (required)
-        author: Author name (optional)
-        author_slug: URL-friendly author name (optional, auto-generated if not provided)
-        enable_seo: Enable SEO optimization (optional, default False)
-        description: Brief book description for SEO (optional, max 160 chars)
-        category: Book category/subject (optional)
-        keywords: Comma-separated keywords/tags (optional)
-        publication_date: Publication date (optional)
-        isbn: ISBN number (optional)
-        toc_method: TOC method - "extract" (from TOC page) or "generate" (from headings)
-        toc_page: TOC page number for table-based extraction (optional, used with extract method)
-        page_offset: Page offset between book and PDF page numbers (optional, default: 0)
-
-    Query params:
-        json: If 1, return JSON response. Otherwise, return HTML.
-    """
-    global _last_report, _last_filename, _last_pdf_bytes, _last_language
-    global _last_extracted_text, _last_book_metadata, _last_sections_report, _last_book_id
-
-    # Create and validate metadata object
-    metadata = BookMetadata(
-        title=book_title.strip(),
-        author=author.strip() if author else None,
-        enable_seo=enable_seo,
-        description=description.strip() if description else None,
-        category=category.strip() if category else None,
-        keywords=keywords.strip() if keywords else None,
-        publication_date=publication_date.strip() if publication_date else None,
-        isbn=isbn.strip() if isbn else None
-    )
-    
-    # Convert toc_page / toc_page_end to int if provided
-    toc_page_int = int(toc_page) if toc_page and toc_page.strip() else None
-    toc_page_end_int = int(toc_page_end) if toc_page_end and toc_page_end.strip() else None
-
-    logger.info(f"Upload request - Book: '{metadata.title}', File: {file.filename}")
-
-    # Log TOC method and parameters
-    logger.info(f"TOC method: {toc_method}")
-    if toc_method == "extract" and (toc_page_int  or page_offset):
-        logger.info(f"TOC extraction params - Page: {toc_page_int }, Offset: {page_offset}")
-
-    # Validate PDF signature
-    head = await file.read(5)
-    await file.seek(0)
-    analyzer.validate_signature(head)
-
-    # Read PDF bytes
-    pdf_bytes = await file.read()
-
-    # Language is selected by the user on the upload form — no auto-detection.
-    # language_detector.detect() is kept in language_detector.py and can be re-enabled
-    # by replacing the block below with:
-    #   detected_language, extracted_text, azure_result = language_detector.detect(pdf_bytes)
+def _process_upload_sync(
+    pdf_bytes: bytes,
+    cover_bytes: Optional[bytes],
+    original_filename: str,
+    cover_filename: Optional[str],
+    metadata: BookMetadata,
+    book_language: str,
+    toc_method: str,
+    toc_page_int: Optional[int],
+    toc_page_end_int: Optional[int],
+    page_offset: int,
+    generate_skip_pages: int,
+) -> dict:
+    """All blocking I/O for upload: Azure DI, TOC extraction, DB save, blob storage."""
     detected_language = book_language
     t_azure_start = time.time()
     if detected_language == "arabic":
@@ -157,22 +93,18 @@ async def upload(
     else:
         extracted_text = language_detector._extract_full_with_pymupdf(pdf_bytes)
         azure_result = None
-    logger.info(f"[TIMING] Azure/text extraction: {time.time() - t_azure_start:.1f}s | Language (user-selected): {detected_language}")
+    logger.info(f"[TIMING] Azure/text extraction: {time.time() - t_azure_start:.1f}s | Language: {detected_language}")
 
-    # Analyze PDF with pre-extracted text (for Arabic) to maintain quality
     report = analyzer.analyze(pdf_bytes, extracted_text, detected_language)
 
-    # Process TOC based on selected method
     import fitz
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     num_pages = doc.page_count
 
     if toc_method == "generate":
-        # GENERATE: Build TOC from detected headings throughout the document
         logger.info(f"Generating TOC from headings for {detected_language} PDF")
         from ..services.extraction.toc_generator import TocGenerator
         toc_generator = TocGenerator()
-
         if azure_result:
             content_start_page = generate_skip_pages + 1 if generate_skip_pages > 0 else 1
             sections_report = toc_generator.generate(
@@ -184,18 +116,14 @@ async def upload(
             )
             logger.info(f"Generated TOC with {len(sections_report.sections)} sections from headings")
         else:
-            # No Azure result available (English PDF extracted with PyMuPDF)
-            # Fall back to extraction method
             logger.warning("TOC generation requires Azure result. Falling back to extraction.")
             sections_report = toc_extractor.extract(pdf_bytes, book_title=metadata.title)
             logger.info(f"Fallback extraction result: {len(sections_report.sections)} sections")
     else:
-        # EXTRACT: Use existing TOC extraction logic
         logger.info(f"Extracting TOC for {detected_language} PDF during upload")
         if detected_language == "arabic" and extracted_text:
             from ..services.extraction.arabic_toc_extractor import ArabicTocExtractor
             arabic_extractor = ArabicTocExtractor()
-            # Pass TOC page, Azure result, and page offset to the extractor
             t_toc_start = time.time()
             sections_report = arabic_extractor.extract(
                 extracted_text,
@@ -206,24 +134,17 @@ async def upload(
                 book_title=metadata.title
             )
             logger.info(f"[TIMING] TOC extraction: {time.time() - t_toc_start:.1f}s | {len(sections_report.sections)} sections")
-
-            # Fix page ranges based on actual PDF page count
             for section in sections_report.sections:
                 if section.page_end > num_pages or section.page_end == 9999:
                     section.page_end = num_pages
-
-            # Fill section content using Azure Y-positions (same fix as generate path)
-            # This ensures mid-page headings don't bleed content from above the heading
             if azure_result:
                 from ..services.extraction.toc_generator import TocGenerator
                 toc_generator = TocGenerator()
                 t_fill_start = time.time()
                 toc_generator.fill_content_from_azure(sections_report.sections, azure_result)
                 logger.info(f"[TIMING] fill_content_from_azure: {time.time() - t_fill_start:.1f}s")
-
             logger.info(f"Arabic extraction result: {len(sections_report.sections)} sections")
         else:
-            # For English (or if no cached text), use unified extractor
             sections_report = toc_extractor.extract(pdf_bytes, book_title=metadata.title)
             logger.info(f"English extraction result: {len(sections_report.sections)} sections")
 
@@ -232,66 +153,47 @@ async def upload(
     # Save to database
     t_db_start = time.time()
     db = SessionLocal()
+    existing_book = None
+    book_id = None
     try:
-        # 1. Handle Author (get existing or create new)
         author_obj = None
         if metadata.author:
-            # Check if author exists
             author_obj = db.query(Author).filter(Author.name == metadata.author).first()
-            
             if not author_obj:
-                # Create new author
                 author_slug = create_slug(metadata.author)
-                author_obj = Author(
-                    name=metadata.author,
-                    slug=author_slug
-                )
+                author_obj = Author(name=metadata.author, slug=author_slug)
                 db.add(author_obj)
-                db.flush()  # Get the author ID
+                db.flush()
                 logger.info(f"Created new author: {metadata.author} (ID: {author_obj.id})")
             else:
                 logger.info(f"Using existing author: {metadata.author} (ID: {author_obj.id})")
-        
+
         if not author_obj:
             raise HTTPException(status_code=400, detail="Author is required")
-        
-        # 2. Handle Category (get existing or create new)
+
         category_obj = None
         if metadata.category:
-            # Check if category exists
             category_obj = db.query(Category).filter(Category.name == metadata.category).first()
-            
             if not category_obj:
-                # Create new category
                 category_slug = create_slug(metadata.category)
-                category_obj = Category(
-                    name=metadata.category,
-                    slug=category_slug
-                )
+                category_obj = Category(name=metadata.category, slug=category_slug)
                 db.add(category_obj)
-                db.flush()  # Get the category ID
+                db.flush()
                 logger.info(f"Created new category: {metadata.category} (ID: {category_obj.id})")
             else:
                 logger.info(f"Using existing category: {metadata.category} (ID: {category_obj.id})")
-        
-        # Append TOC method suffix so Manage Books can display it without a DB migration
+
         stored_title = f"{metadata.title}-{toc_method}"
 
-        # 3. Check if book already exists (same stored title + author)
         existing_book = db.query(Book).filter(
             Book.title == stored_title,
             Book.author_id == author_obj.id
         ).first()
 
         if existing_book:
-            # Smart Replacement: Update existing book instead of creating duplicate
             logger.info(f"Book already exists with ID: {existing_book.id} - updating record")
-
-            # Delete old sections
             deleted_count = db.query(Section).filter(Section.book_id == existing_book.id).delete()
             logger.info(f"Deleted {deleted_count} old sections for book ID: {existing_book.id}")
-
-            # Update existing book record with new data
             existing_book.language = "ar" if detected_language == "arabic" else "en"
             existing_book.page_count = report.num_pages
             existing_book.section_count = len(sections_report.sections)
@@ -301,11 +203,9 @@ async def upload(
             existing_book.isbn = metadata.isbn
             existing_book.category_id = category_obj.id if category_obj else None
             existing_book.status = 'published'
-
             book_id = existing_book.id
             logger.info(f"Updated existing book record with ID: {book_id}")
         else:
-            # Create new book record (first upload)
             new_book = Book(
                 title=stored_title,
                 author_id=author_obj.id,
@@ -319,14 +219,11 @@ async def upload(
                 section_count=len(sections_report.sections),
                 status='published'
             )
-
             db.add(new_book)
-            db.flush()  # Get the book ID
-
+            db.flush()
             book_id = new_book.id
             logger.info(f"Created new book with ID: {book_id}")
 
-        # 4. Save new sections (using book_id from either path)
         for idx, section in enumerate(sections_report.sections):
             new_section = Section(
                 book_id=book_id,
@@ -338,25 +235,19 @@ async def upload(
                 order_index=idx
             )
             db.add(new_section)
-
         logger.info(f"Saved {len(sections_report.sections)} new sections to database")
 
-        # 5. Save extracted page content to database
         from ..models.database import Page
-
-        # Delete old pages if updating existing book
         if existing_book:
             deleted_pages = db.query(Page).filter(Page.book_id == book_id).delete()
             logger.info(f"Deleted {deleted_pages} old pages for book ID: {book_id}")
 
-        # Save all pages
         for page in report.pages:
             page_text = page.text or ""
             word_count = len(page_text.split()) if page_text else 0
-
             new_page = Page(
                 book_id=book_id,
-                page_number=page.page,  # PageInfo uses 'page', not 'page_number'
+                page_number=page.page,
                 text=page_text,
                 word_count=word_count,
                 char_count=len(page_text),
@@ -367,38 +258,6 @@ async def upload(
         db.commit()
         logger.info(f"[TIMING] DB save ({len(report.pages)} pages, {len(sections_report.sections)} sections): {time.time() - t_db_start:.1f}s")
 
-        # Store book ID for later use
-        _last_book_id = book_id
-
-        # Save PDF and cover image to Azure Blob Storage
-        from ..services.storage.azure_storage_service import azure_storage
-
-        # Save PDF file
-        t_blob_start = time.time()
-        pdf_url = azure_storage.save_pdf(book_id, pdf_bytes, file.filename)
-        logger.info(f"[TIMING] Blob PDF upload: {time.time() - t_blob_start:.1f}s | url: {pdf_url}")
-
-        # Save cover image if provided
-        cover_url = None
-        if cover_image:
-            cover_bytes = await cover_image.read()
-            t_cover_start = time.time()
-            cover_url = azure_storage.save_cover_image(book_id, cover_bytes, cover_image.filename)
-            logger.info(f"[TIMING] Blob cover upload: {time.time() - t_cover_start:.1f}s")
-
-        # Update database with PDF and cover URLs
-        db2 = SessionLocal()
-        try:
-            book_record = db2.query(Book).filter(Book.id == book_id).first()
-            if book_record:
-                book_record.pdf_url = pdf_url
-                if cover_url:
-                    book_record.cover_image_url = cover_url
-                db2.commit()
-                logger.info(f"Updated book {book_id} with PDF and cover URLs")
-        finally:
-            db2.close()
-        
     except HTTPException:
         db.rollback()
         raise
@@ -409,30 +268,135 @@ async def upload(
     finally:
         db.close()
 
-    # Cache for follow-up exports (including extracted text for BOTH languages)
-    _last_report = report
+    # Save PDF and cover image to Azure Blob Storage
+    from ..services.storage.azure_storage_service import azure_storage
+
+    t_blob_start = time.time()
+    pdf_url = azure_storage.save_pdf(book_id, pdf_bytes, original_filename)
+    logger.info(f"[TIMING] Blob PDF upload: {time.time() - t_blob_start:.1f}s | url: {pdf_url}")
+
+    cover_url = None
+    if cover_bytes:
+        t_cover_start = time.time()
+        cover_url = azure_storage.save_cover_image(book_id, cover_bytes, cover_filename)
+        logger.info(f"[TIMING] Blob cover upload: {time.time() - t_cover_start:.1f}s")
+
+    db2 = SessionLocal()
+    try:
+        book_record = db2.query(Book).filter(Book.id == book_id).first()
+        if book_record:
+            book_record.pdf_url = pdf_url
+            if cover_url:
+                book_record.cover_image_url = cover_url
+            db2.commit()
+            logger.info(f"Updated book {book_id} with PDF and cover URLs")
+    finally:
+        db2.close()
+
+    return {
+        "book_id": book_id,
+        "report": report,
+        "detected_language": detected_language,
+        "extracted_text": extracted_text,
+        "sections_report": sections_report,
+    }
+
+
+@router.post("/upload")
+async def upload(
+    file: UploadFile = File(...),
+    book_title: str = Form(...),
+    author: str = Form(...),
+    author_slug: str = Form(None),
+    enable_seo: bool = Form(False),
+    description: str = Form(None),
+    category: str = Form(None),
+    keywords: str = Form(None),
+    publication_date: str = Form(None),
+    isbn: str = Form(None),
+    book_language: str = Form("arabic"),
+    toc_method: str = Form("extract"),
+    toc_page: str = Form(None),
+    toc_page_end: str = Form(None),
+    page_offset: int = Form(0),
+    generate_skip_pages: int = Form(0),
+    cover_image: UploadFile = File(None),
+    json: int = Query(default=0, ge=0, le=1)
+):
+    global _last_report, _last_filename, _last_pdf_bytes, _last_language
+    global _last_extracted_text, _last_book_metadata, _last_sections_report, _last_book_id
+
+    metadata = BookMetadata(
+        title=book_title.strip(),
+        author=author.strip() if author else None,
+        enable_seo=enable_seo,
+        description=description.strip() if description else None,
+        category=category.strip() if category else None,
+        keywords=keywords.strip() if keywords else None,
+        publication_date=publication_date.strip() if publication_date else None,
+        isbn=isbn.strip() if isbn else None
+    )
+
+    toc_page_int = int(toc_page) if toc_page and toc_page.strip() else None
+    toc_page_end_int = int(toc_page_end) if toc_page_end and toc_page_end.strip() else None
+
+    logger.info(f"Upload request - Book: '{metadata.title}', File: {file.filename}")
+    logger.info(f"TOC method: {toc_method}")
+    if toc_method == "extract" and (toc_page_int or page_offset):
+        logger.info(f"TOC extraction params - Page: {toc_page_int}, Offset: {page_offset}")
+
+    # Async I/O: validate then read all file bytes before entering executor
+    head = await file.read(5)
+    await file.seek(0)
+    analyzer.validate_signature(head)
+
+    pdf_bytes = await file.read()
+    cover_bytes = await cover_image.read() if cover_image else None
+
+    # Run all blocking work (Azure DI, TOC, DB, blobs) in thread-pool so the event loop stays free
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(
+        None,
+        functools.partial(
+            _process_upload_sync,
+            pdf_bytes=pdf_bytes,
+            cover_bytes=cover_bytes,
+            original_filename=file.filename,
+            cover_filename=cover_image.filename if cover_image else None,
+            metadata=metadata,
+            book_language=book_language,
+            toc_method=toc_method,
+            toc_page_int=toc_page_int,
+            toc_page_end_int=toc_page_end_int,
+            page_offset=page_offset,
+            generate_skip_pages=generate_skip_pages,
+        )
+    )
+
+    # Update in-memory cache for follow-up exports
+    _last_book_id = result["book_id"]
+    _last_report = result["report"]
+    _last_language = result["detected_language"]
+    _last_extracted_text = result["extracted_text"]
+    _last_sections_report = result["sections_report"]
     _last_filename = file.filename
     _last_pdf_bytes = pdf_bytes
-    _last_language = detected_language
-    _last_extracted_text = extracted_text  # Cache for both English and Arabic
     _last_book_metadata = metadata
-    _last_sections_report = sections_report  # Cache TOC sections to avoid re-extraction
-    
-    # Return JSON or HTML
+
     if json == 1:
         return JSONResponse({
             "ok": True,
             "message": "Valid PDF uploaded and analyzed.",
             "book_id": _last_book_id,
             "metadata": metadata.model_dump(),
-            "language": detected_language,
-            "classification": report.classification,
-            "num_pages": report.num_pages,
-            "pages": [p.model_dump() for p in report.pages],
+            "language": _last_language,
+            "classification": _last_report.classification,
+            "num_pages": _last_report.num_pages,
+            "pages": [p.model_dump() for p in _last_report.pages],
         })
-    
+
     return HTMLResponse(
-        html_shell(render_report(file.filename, report, detected_language, metadata))
+        html_shell(render_report(file.filename, _last_report, _last_language, metadata))
     )
 
 
