@@ -7,6 +7,7 @@ RAG endpoints:
 """
 
 import logging
+import re
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 
@@ -16,6 +17,11 @@ from ..services.rag.embedder import Embedder, normalize_arabic
 from ..services.rag.retriever import Retriever
 from ..services.rag.answerer import Answerer
 from ..ui.book_template import render_book_page
+
+
+def _detect_lang(text: str) -> str:
+    """Return 'ar' if text contains Arabic characters, else 'en'."""
+    return 'ar' if re.search(r'[؀-ۿ]', text) else 'en'
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -94,8 +100,11 @@ def ask(data: dict):
             book_title = book_title[:-len(suffix)].strip()
             break
 
-    # Embed question — normalize Arabic queries to match normalized embeddings
-    question_to_embed = normalize_arabic(question) if language == 'ar' else question
+    # Detect language of the question (independent of book language)
+    question_lang = _detect_lang(question)
+
+    # Embed question — normalize only Arabic queries to match normalized book embeddings
+    question_to_embed = normalize_arabic(question) if question_lang == 'ar' else question
     question_embedding = _embedder.get_embedding(question_to_embed)
     if not question_embedding:
         raise HTTPException(status_code=503, detail="Embedding service unavailable")
@@ -104,14 +113,16 @@ def ask(data: dict):
     sections = _retriever.find_relevant_sections(question_embedding, book_id, top_k=8)
 
     if not sections:
-        return JSONResponse({
-            "answer": "لم يتم إنشاء الفهرس الذكي لهذا الكتاب بعد. يرجى المحاولة لاحقاً." if language == 'ar'
-                      else "Smart index not yet generated for this book. Please try later.",
-            "sources": []
-        })
+        no_index_msg = (
+            "لم يتم إنشاء الفهرس الذكي لهذا الكتاب بعد. يرجى المحاولة لاحقاً."
+            if question_lang == 'ar'
+            else "Smart index not yet generated for this book. Please try later."
+        )
+        return JSONResponse({"answer": no_index_msg, "sources": []})
 
-    # Generate answer
-    result = _answerer.answer(question, sections, book_title, language)
+    # Generate answer — respond in the language the question was asked in
+    result = _answerer.answer(question, sections, book_title, language,
+                              question_language=question_lang)
     return JSONResponse(result)
 
 

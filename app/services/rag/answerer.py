@@ -31,6 +31,7 @@ _PROMPTS = {
         "Passages:\n{context}\n\n"
         "Question: {question}\n\n"
         "Answer concisely and helpfully in English. "
+        "The passages may be in Arabic — read them and answer in English regardless. "
         "If you can't find the answer in the passages, say so clearly."
     ),
 }
@@ -61,6 +62,7 @@ class Answerer:
         sections: list,
         book_title: str,
         language: str,
+        question_language: str = None,
     ) -> dict:
         """
         Generate an answer with source citations.
@@ -68,8 +70,11 @@ class Answerer:
         Returns:
             { "answer": str, "sources": [{ "section", "pages", "book" }] }
         """
+        # Response language follows the question, not the book
+        response_lang = question_language or language
+
         if not sections:
-            return {"answer": _NO_ANSWER.get(language, _NO_ANSWER['ar']), "sources": []}
+            return {"answer": _NO_ANSWER.get(response_lang, _NO_ANSWER['en']), "sources": []}
 
         context_parts = []
         seen_titles = {}  # title -> best-similarity source entry (for deduplication)
@@ -103,7 +108,7 @@ class Answerer:
         ]
 
         context = "\n\n".join(context_parts)
-        prompt_template = _PROMPTS.get(language, _PROMPTS['ar'])
+        prompt_template = _PROMPTS.get(response_lang, _PROMPTS['en'])
         prompt = prompt_template.format(
             book_title=book_title,
             context=context,
@@ -112,7 +117,7 @@ class Answerer:
 
         answer_text = self._call_llm(prompt)
         return {
-            "answer": answer_text or _NO_ANSWER.get(language, _NO_ANSWER['ar']),
+            "answer": answer_text or _NO_ANSWER.get(response_lang, _NO_ANSWER['en']),
             "sources": sources,
         }
 
