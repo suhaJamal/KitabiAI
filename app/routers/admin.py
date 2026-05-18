@@ -103,7 +103,13 @@ def admin_page(search: str = Query(""), page: int = Query(1, ge=1)):
             "total_hidden": total_hidden,
         }
 
-        return HTMLResponse(html_shell(render_admin(books_data, pagination)))
+        # All books for the re-extract modal dropdown (unaffected by search/pagination)
+        all_books_list = [
+            {"id": b.id, "title": b.title}
+            for b in db.query(Book).order_by(Book.created_at.desc()).all()
+        ]
+
+        return HTMLResponse(html_shell(render_admin(books_data, pagination, all_books_list)))
     finally:
         db.close()
 

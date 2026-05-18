@@ -369,24 +369,62 @@ class LanguageDetector:
         all_text = ""
         pages_to_process = sample_pages if sample_only else len(result.pages)
 
+        # ── Build per-page table index from Azure DI result ───────────────────
+        # Maps page_number -> list of Markdown table strings
+        # Maps page_number -> set of normalised cell texts (for line dedup)
+        page_tables_md: dict   = {}
+        page_cell_texts: dict  = {}
+
+        if not sample_only and hasattr(result, 'tables') and result.tables:
+            for table in result.tables:
+                page_num = (
+                    table.bounding_regions[0].page_number
+                    if table.bounding_regions else 1
+                )
+                row_count = table.row_count
+                col_count = table.column_count
+                grid = [[''] * col_count for _ in range(row_count)]
+                cell_set: set = set()
+
+                for cell in table.cells:
+                    text = (cell.content or '').replace('\n', ' ').strip()
+                    grid[cell.row_index][cell.column_index] = text
+                    if text:
+                        cell_set.add(text.lower())
+
+                if grid:
+                    header = '| ' + ' | '.join(grid[0]) + ' |'
+                    sep    = '| ' + ' | '.join(['---'] * col_count) + ' |'
+                    body   = ['| ' + ' | '.join(row) + ' |' for row in grid[1:]]
+                    md     = '\n'.join([header, sep] + body)
+                    page_tables_md.setdefault(page_num, []).append(md)
+                    page_cell_texts.setdefault(page_num, set()).update(cell_set)
+
+        # ── Build per-page text, skipping lines that belong to tables ─────────
         for page_num, page in enumerate(result.pages, start=1):
-            # Stop after sample_pages if in sample mode
             if sample_only and page_num > pages_to_process:
                 break
 
-            page_text = ""
+            cell_texts = page_cell_texts.get(page_num, set())
+            page_text  = ""
             for line in page.lines:
+                # Omit lines whose content duplicates a table cell so the
+                # Markdown table below becomes the single representation.
+                if line.content.strip().lower() in cell_texts:
+                    continue
                 page_text += line.content + "\n"
 
-            # Add page text
-            all_text += page_text
+            # Append Markdown tables for this page
+            for md_table in page_tables_md.get(page_num, []):
+                page_text += "\n\n" + md_table + "\n"
 
-            # Add form feed character between pages (except after last page)
+            all_text += page_text
             if page_num < pages_to_process:
-                all_text += "\f"  # Form feed: page boundary marker
+                all_text += "\f"
 
         mode = f"sample ({pages_to_process} pages)" if sample_only else f"full ({len(result.pages)} pages)"
-        logger.info(f"Azure extracted {len(all_text)} characters from {mode}")
+        logger.info(f"Azure extracted {len(all_text)} characters from {mode} "
+                    f"({len(page_tables_md)} pages with tables)")
         return all_text, result
 
     def _extract_with_pymupdf(self, pdf_bytes: bytes) -> str:

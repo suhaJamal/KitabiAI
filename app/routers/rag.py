@@ -126,6 +126,91 @@ def ask(data: dict):
     return JSONResponse(result)
 
 
+# ── Admin: re-run Azure DI extraction with table support ──────────────────────
+
+@router.post("/admin/books/{book_id}/reextract")
+def reextract_book(book_id: int):
+    """
+    Download the stored PDF, re-run Azure DI extraction (with Markdown table
+    support), update the pages table, then rebuild all section content.
+    """
+    from ..services.storage.azure_storage_service import azure_storage
+    from ..services.detection.language_detector import LanguageDetector
+
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter(Book.id == book_id).first()
+        if not book:
+            raise HTTPException(status_code=404, detail="Book not found")
+        if not book.pdf_url:
+            raise HTTPException(status_code=400, detail="No PDF stored for this book. Re-upload the book first.")
+
+        # 1. Download PDF from blob storage
+        logger.info(f"Re-extract book {book_id}: downloading PDF from {book.pdf_url}")
+        pdf_bytes = azure_storage.download_pdf(book.pdf_url)
+
+        # 2. Re-run Azure DI (table-aware extraction)
+        detector = LanguageDetector()
+        extracted_text, _ = detector._extract_with_azure(pdf_bytes)
+
+        # 3. Split by page boundaries and update pages table
+        page_texts = extracted_text.split('\f')
+        pages = (
+            db.query(Page)
+            .filter(Page.book_id == book_id)
+            .order_by(Page.page_number)
+            .all()
+        )
+        pages_updated = 0
+        for pg in pages:
+            idx = pg.page_number - 1
+            if idx < len(page_texts):
+                new_text = page_texts[idx].strip()
+                if new_text != (pg.text or '').strip():
+                    pg.text = new_text
+                    pages_updated += 1
+
+        # 4. Rebuild ALL section content from updated pages
+        sections = (
+            db.query(Section)
+            .filter(Section.book_id == book_id)
+            .order_by(Section.order_index)
+            .all()
+        )
+        sections_fixed = 0
+        for section in sections:
+            if section.page_start is None:
+                continue
+            page_end = section.page_end or section.page_start
+            section_pages = [
+                p for p in pages
+                if section.page_start <= p.page_number <= page_end
+            ]
+            text = '\n\n'.join(
+                p.text for p in section_pages if p.text and p.text.strip()
+            )
+            if text:
+                section.content = text
+                sections_fixed += 1
+
+        db.commit()
+        logger.info(f"Re-extract book {book_id}: {pages_updated} pages updated, {sections_fixed} sections rebuilt")
+        return JSONResponse({
+            "ok": True,
+            "pages_updated": pages_updated,
+            "sections_fixed": sections_fixed,
+        })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"reextract failed for book {book_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
 # ── Admin: fix missing section content from pages table ───────────────────────
 
 @router.post("/admin/books/{book_id}/fix-content")

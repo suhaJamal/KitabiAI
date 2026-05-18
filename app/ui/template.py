@@ -1083,12 +1083,17 @@ def _render_admin_pagination(p: dict) -> str:
             f'</div>')
 
 
-def render_admin(books_data: list, pagination: dict | None = None) -> str:
+def render_admin(books_data: list, pagination: dict | None = None, all_books_list: list | None = None) -> str:
     """Render the admin management page with book list, edit, and delete."""
     if pagination is None:
         pagination = {"page": 1, "page_size": 20, "total": len(books_data),
                       "total_pages": 1, "search": "", "total_all": len(books_data),
                       "total_visible": len(books_data), "total_hidden": 0}
+
+    # Build JS array for the re-extract modal dropdown
+    import json as _json
+    _dropdown = all_books_list or [{"id": b["id"], "title": b["title"]} for b in books_data]
+    all_books_json = _json.dumps(_dropdown, ensure_ascii=False)
 
     # Build table rows
     rows = ""
@@ -1116,12 +1121,6 @@ def render_admin(books_data: list, pagination: dict | None = None) -> str:
         visibility_icon = "👁️" if is_visible else "🚫"
         visibility_title = "Click to hide" if is_visible else "Click to show"
         book_id = book['id']
-        fix_btn = (
-            f'<button onclick="event.stopPropagation(); fixContent({book_id})" '
-            f'class="admin-btn" id="fix-btn-{book_id}" '
-            f'style="background:#fdf4ff; color:#7e22ce; border:1px solid #e9d5ff;">Fix Content</button>'
-            if book.get('needs_fix') else ''
-        )
 
         rows += f"""
         <tr id="book-row-{book['id']}" class="book-main-row" onclick="toggleExpand({book['id']})" style="cursor: pointer; opacity: {row_opacity};">
@@ -1151,11 +1150,9 @@ def render_admin(books_data: list, pagination: dict | None = None) -> str:
               {f'<div class="expand-item" style="width:100%;"><span class="expand-label">Hidden reason:</span> <span class="expand-value">{hidden_reason}</span></div>' if hidden_reason else ''}
               <div class="expand-item" style="width:100%; display:flex; align-items:center; gap:12px; margin-top:6px; flex-wrap:wrap;">
                 <button onclick="event.stopPropagation(); summarizeBook({book['id']})" class="admin-btn" id="summarize-btn-{book['id']}" style="background:#fef3e7; color:#c76a2d; border:1px solid #fad0a8;">Summarize</button>
-                {fix_btn}
                 <button onclick="event.stopPropagation(); embedBook({book['id']})" class="admin-btn" id="embed-btn-{book['id']}" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">Embed</button>
                 <a href="/books/{book['id']}" target="_blank" class="admin-btn" style="background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; text-decoration:none;">View Page</a>
                 <span id="summarize-status-{book['id']}" style="font-size:12px; color:var(--muted);">{'✅ Last run: ' + book['summary_generated_at'] if book['summary_generated_at'] else 'No summary yet'}</span>
-                <span id="fix-status-{book['id']}" style="font-size:12px; color:var(--muted);"></span>
                 <span id="embed-status-{book['id']}" style="font-size:12px; color:var(--muted);"></span>
               </div>
             </div>
@@ -1392,9 +1389,38 @@ def render_admin(books_data: list, pagination: dict | None = None) -> str:
       }}
     </style>
 
+    <!-- Re-extract modal -->
+    <div id="reextractOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:500; align-items:center; justify-content:center; padding:24px;">
+      <div style="background:var(--bg); border-radius:16px; width:100%; max-width:480px; box-shadow:0 8px 32px rgba(0,0,0,.2); overflow:hidden;">
+        <div style="padding:20px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+          <h3 style="margin:0; font-size:16px; color:var(--fg);">🔄 Re-extract Book Content</h3>
+          <button onclick="closeReextract()" style="border:none; background:none; font-size:20px; cursor:pointer; color:var(--muted); line-height:1;">×</button>
+        </div>
+        <div style="padding:24px;">
+          <p style="margin:0 0 16px; font-size:13px; color:var(--muted);">Re-runs Azure DI on the stored PDF with table extraction, updates pages, and rebuilds sections. Run <b>Embed</b> afterwards to update the search index.</p>
+          <label style="font-size:13px; font-weight:600; color:var(--fg); display:block; margin-bottom:6px;">Select Book</label>
+          <input id="reextractSearch" type="text" placeholder="Type to search books…"
+            oninput="filterReextractBooks()"
+            style="width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; font-family:inherit; background:var(--bg); color:var(--fg); margin-bottom:6px;" />
+          <select id="reextractSelect" size="6"
+            style="width:100%; border:1px solid var(--border); border-radius:8px; font-size:13px; font-family:inherit; background:var(--bg); color:var(--fg); padding:4px;">
+          </select>
+          <div id="reextractStatus" style="min-height:24px; margin-top:14px; font-size:13px;"></div>
+        </div>
+        <div style="padding:0 24px 20px; display:flex; gap:10px; justify-content:flex-end;">
+          <button onclick="closeReextract()" style="padding:8px 18px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--muted); font-size:13px; cursor:pointer; font-family:inherit;">Cancel</button>
+          <button id="reextractRunBtn" onclick="runReextract()"
+            style="padding:8px 18px; border:none; border-radius:8px; background:#7e22ce; color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;">Run</button>
+        </div>
+      </div>
+    </div>
+
     <div class="admin-nav">
       <h2 style="margin: 0; font-size: 20px;">Manage Books</h2>
       <div style="display: flex; gap: 10px;">
+        <button onclick="openReextract()" style="padding: 8px 16px; background: #fdf4ff; border: 1px solid #e9d5ff; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: #7e22ce; font-family: inherit;">
+          🔄 Re-extract Book
+        </button>
         <a href="/library" target="_blank" style="padding: 8px 16px; background: var(--accent); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: white;">
           📚 Open Library
         </a>
@@ -1691,33 +1717,74 @@ def render_admin(books_data: list, pagination: dict | None = None) -> str:
         }});
     }}
 
-    function fixContent(bookId) {{
-      const btn = document.getElementById('fix-btn-' + bookId);
-      const status = document.getElementById('fix-status-' + bookId);
-      if (!btn || btn.disabled) return;
+    // ── Re-extract modal ─────────────────────────────────────────────────────
+    const ALL_BOOKS = {all_books_json};
+    let filteredBooks = [...ALL_BOOKS];
 
-      btn.disabled = true;
-      btn.textContent = '⏳ Fixing...';
-      status.textContent = 'Assembling content from pages...';
+    function openReextract() {{
+      filteredBooks = [...ALL_BOOKS];
+      renderBookOptions(filteredBooks);
+      document.getElementById('reextractSearch').value = '';
+      document.getElementById('reextractStatus').textContent = '';
+      document.getElementById('reextractRunBtn').disabled = false;
+      document.getElementById('reextractOverlay').style.display = 'flex';
+      document.getElementById('reextractSearch').focus();
+    }}
+
+    function closeReextract() {{
+      document.getElementById('reextractOverlay').style.display = 'none';
+    }}
+
+    function renderBookOptions(books) {{
+      const sel = document.getElementById('reextractSelect');
+      sel.innerHTML = books.map(b =>
+        `<option value="${{b.id}}">#${{b.id}} — ${{b.title}}</option>`
+      ).join('');
+      if (books.length) sel.selectedIndex = 0;
+    }}
+
+    function filterReextractBooks() {{
+      const q = document.getElementById('reextractSearch').value.toLowerCase();
+      filteredBooks = ALL_BOOKS.filter(b =>
+        b.title.toLowerCase().includes(q) || String(b.id).includes(q)
+      );
+      renderBookOptions(filteredBooks);
+    }}
+
+    function runReextract() {{
+      const sel = document.getElementById('reextractSelect');
+      const status = document.getElementById('reextractStatus');
+      const runBtn = document.getElementById('reextractRunBtn');
+      if (!sel.value) {{ status.textContent = 'Please select a book.'; return; }}
+
+      const bookId = parseInt(sel.value);
+      const bookTitle = sel.options[sel.selectedIndex].text;
+      runBtn.disabled = true;
       status.style.color = 'var(--warning)';
+      status.textContent = '⏳ Downloading PDF and running Azure DI — this may take 30–120 seconds…';
 
-      fetch('/admin/books/' + bookId + '/fix-content', {{ method: 'POST' }})
+      fetch('/admin/books/' + bookId + '/reextract', {{ method: 'POST' }})
         .then(r => {{
           if (!r.ok) return r.json().then(d => {{ throw new Error(d.detail || 'Failed'); }});
           return r.json();
         }})
         .then(data => {{
-          status.textContent = `✅ Fixed ${{data.fixed}} section${{data.fixed !== 1 ? 's' : ''}}${{data.skipped ? ' (' + data.skipped + ' skipped)' : ''}}`;
           status.style.color = 'var(--success)';
-          btn.style.display = 'none';
-          setTimeout(() => {{ status.textContent = ''; }}, 5000);
+          status.textContent = `✅ Done — ${{data.pages_updated}} pages updated, ${{data.sections_fixed}} sections rebuilt. Run Embed to update the search index.`;
+          runBtn.disabled = false;
         }})
         .catch(err => {{
-          btn.disabled = false;
-          btn.textContent = 'Fix Content';
-          status.textContent = '❌ ' + err.message;
           status.style.color = '#dc2626';
+          status.textContent = '❌ ' + err.message;
+          runBtn.disabled = false;
         }});
     }}
+
+    document.getElementById('reextractOverlay').addEventListener('click', function(e) {{
+      if (e.target === this) closeReextract();
+    }});
+    document.addEventListener('keydown', function(e) {{
+      if (e.key === 'Escape') closeReextract();
+    }});
     </script>
     """
