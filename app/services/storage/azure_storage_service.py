@@ -206,6 +206,19 @@ class AzureStorageService:
             content_type="application/pdf"
         )
 
+    def download_pdf(self, pdf_url: str) -> bytes:
+        """
+        Download PDF bytes from an Azure Blob Storage URL.
+        Uses BlobClient.from_blob_url with the existing credential to avoid
+        manual URL parsing issues.
+        """
+        from azure.storage.blob import BlobClient
+        blob_client = BlobClient.from_blob_url(
+            pdf_url,
+            credential=self.blob_service_client.credential
+        )
+        return blob_client.download_blob().readall()
+
     def save_cover_image(self, book_id: int, image_bytes: bytes, filename: str = None) -> str:
         """
         Save cover image to Azure Blob Storage.

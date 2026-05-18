@@ -7,6 +7,10 @@ switch to Arabic. Book content (title, description, section text) always
 renders in the book's own language/direction.
 """
 import html as _html_mod
+import re as _re
+
+_BULLET_RE  = _re.compile(r'^[-*]\s+(.+)$')
+_ORDERED_RE = _re.compile(r'^\d+\.\s+(.+)$')
 
 
 def render_book_page(book, sections: list, has_embeddings: bool) -> str:
@@ -62,7 +66,7 @@ def render_book_page(book, sections: list, has_embeddings: bool) -> str:
         if content:
             paragraphs = content.strip().split('\n\n')
             paras_html = ''.join(
-                f'<p>{_esc(p.strip()).replace(chr(10), "<br/>")}</p>'
+                _render_para(p.strip(), content_dir)
                 for p in paragraphs if p.strip()
             )
         else:
@@ -345,6 +349,23 @@ html, body {{
 }}
 .reader-body p {{ font-size: 16px; line-height: 2; color: var(--ink); margin-bottom: 14px; }}
 .reader-body p.no-content {{ color: var(--muted); font-style: italic; }}
+.book-table {{
+  width: 100%; border-collapse: collapse; margin: 16px 0;
+  font-size: 14px; line-height: 1.6;
+}}
+.book-table th, .book-table td {{
+  border: 1px solid var(--border); padding: 8px 12px;
+  color: var(--ink);
+}}
+.book-table th {{
+  background: var(--bg); font-weight: 700; color: var(--accent);
+}}
+.book-table tr:nth-child(even) td {{ background: #fdfaf7; }}
+.book-list {{
+  margin: 12px 0 12px 28px; padding: 0;
+  font-size: 16px; line-height: 2; color: var(--ink);
+}}
+.book-list li {{ margin-bottom: 2px; }}
 
 /* ── Chat ── */
 .chat-container {{ display: flex; flex-direction: column; gap: 12px; }}
@@ -597,3 +618,91 @@ def _esc(text: str) -> str:
             .replace(">", "&gt;")
             .replace('"', "&quot;")
     )
+
+
+def _render_para(para: str, content_dir: str) -> str:
+    """Render a paragraph as HTML. Handles tables, bullet lists, numbered lists, and plain text."""
+    lines = para.split('\n')
+    # Table detection
+    if len(lines) >= 2 and lines[0].startswith('|') and lines[1].startswith('|'):
+        return _md_table_to_html(lines, content_dir)
+    # List / mixed content
+    return _render_segments(lines)
+
+
+def _render_segments(lines: list) -> str:
+    """Split lines into list/paragraph segments and render each as HTML."""
+    segments: list = []
+    current: list  = []
+    current_type   = None  # None, 'ul', or 'ol'
+
+    for line in lines:
+        stripped = line.strip()
+        bullet  = _BULLET_RE.match(stripped)
+        ordered = _ORDERED_RE.match(stripped)
+
+        if bullet:
+            if current_type != 'ul':
+                if current:
+                    segments.append((current_type, current))
+                current, current_type = [], 'ul'
+            current.append(bullet.group(1))
+        elif ordered:
+            if current_type != 'ol':
+                if current:
+                    segments.append((current_type, current))
+                current, current_type = [], 'ol'
+            current.append(ordered.group(1))
+        else:
+            if current_type in ('ul', 'ol'):
+                segments.append((current_type, current))
+                current, current_type = [], None
+            current.append(line)
+
+    if current:
+        segments.append((current_type, current))
+
+    html = ''
+    for seg_type, seg_lines in segments:
+        if seg_type == 'ul':
+            items = ''.join(f'<li>{_esc(l)}</li>' for l in seg_lines)
+            html += f'<ul class="book-list">{items}</ul>'
+        elif seg_type == 'ol':
+            items = ''.join(f'<li>{_esc(l)}</li>' for l in seg_lines)
+            html += f'<ol class="book-list">{items}</ol>'
+        else:
+            text = '\n'.join(seg_lines).strip()
+            if text:
+                html += f'<p>{_esc(text).replace(chr(10), "<br/>")}</p>'
+    return html
+
+
+def _md_table_to_html(lines: list, content_dir: str) -> str:
+    """Convert Markdown table lines to an HTML <table>."""
+    rows = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith('|'):
+            continue
+        # Skip separator rows (e.g. | --- | --- |)
+        inner = stripped.strip('|')
+        if all(c in '- |:' for c in inner):
+            continue
+        cells = [c.strip() for c in stripped.strip('|').split('|')]
+        rows.append(cells)
+
+    if not rows:
+        return ''
+
+    html = f'<table class="book-table" dir="{content_dir}">'
+    html += '<thead><tr>'
+    for cell in rows[0]:
+        html += f'<th>{_esc(cell)}</th>'
+    html += '</tr></thead><tbody>'
+    for row in rows[1:]:
+        html += '<tr>'
+        for cell in row:
+            html += f'<td>{_esc(cell)}</td>'
+        html += '</tr>'
+    html += '</tbody></table>'
+    return html
