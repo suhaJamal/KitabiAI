@@ -542,9 +542,8 @@
             <p data-en="Books" data-ar="كتاب">Books</p>
         </div>
         <div class="stat-card">
-            <h3 id="arabicBooks">-</h3>
-            <p data-en="Arabic Books" data-ar="كتب عربية">Arabic Books</p>
-            <span class="badge" data-en="Available" data-ar="متاح">Available</span>
+            <h3 id="totalSections">-</h3>
+            <p data-en="Sections" data-ar="قسم">Sections</p>
         </div>
         <div class="stat-card">
             <h3 id="totalPages">-</h3>
@@ -609,7 +608,7 @@
                 const data = await fetch(`${API_BASE}/api/stats`).then(r => r.json());
                 if (data.ok) {
                     document.getElementById('totalBooks').textContent = data.stats.books.total;
-                    document.getElementById('arabicBooks').textContent = data.stats.books.arabic;
+                    document.getElementById('totalSections').textContent = (data.stats.sections?.total ?? 0).toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US');
                     const pagesEl = document.getElementById('totalPages');
                     pagesEl.dataset.raw = data.stats.pages.total;
                     pagesEl.textContent = data.stats.pages.total.toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US');
