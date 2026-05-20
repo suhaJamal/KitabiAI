@@ -10,6 +10,7 @@ Entry point for the FastAPI app.
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -34,6 +35,7 @@ _PUBLIC_PREFIXES = (
     "/api/",
     "/health",
     "/version",
+    "/static/",
     "/admin/login",
     "/admin/logout",
 )
@@ -53,6 +55,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
 # Create app
 app = FastAPI(title=settings.APP_NAME)
 app.add_middleware(AuthMiddleware)
+
+# Serve static assets (logo, favicon, etc.)
+_static_path = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(_static_path)), name="static")
 
 # Include routers
 app.include_router(auth_router)

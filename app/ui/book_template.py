@@ -208,6 +208,7 @@ document.getElementById('chatInput').addEventListener('keydown', function(e) {{
 <meta name="description" content="{meta_description}"/>
 {'<meta name="keywords" content="' + meta_keywords + '"/>' if meta_keywords else ''}
 <title>{_esc(display_title)}</title>
+<link rel="icon" type="image/png" href="/static/images/favicon.png">
 <style>
 :root {{
   --bg: #f9f7f4;

@@ -63,6 +63,7 @@ def _login_html(error: bool = False) -> str:
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>KitabiAI — Admin Login</title>
+<link rel="icon" type="image/png" href="/static/images/favicon.png">
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -88,7 +89,7 @@ button:hover{{background:#e88d51}}
 </head>
 <body>
 <div class="card">
-  <div class="logo">📚</div>
+  <div class="logo"><img src="/static/images/logo-kitabiAI.png" alt="KitabiAI" style="height:48px;width:auto;"></div>
   <h1>KitabiAI Admin</h1>
   {error_block}
   <form method="POST" action="/admin/login">
