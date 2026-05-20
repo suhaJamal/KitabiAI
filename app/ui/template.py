@@ -711,6 +711,7 @@ def html_shell(body: str) -> str:
           </div>
           <div class="topnav-links">
             <a href="/admin">Manage Books</a>
+            <a href="/admin/waitlist">Waitlist</a>
             <a href="/library" target="_blank">Library</a>
           </div>
         </nav>
