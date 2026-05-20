@@ -354,6 +354,33 @@ button.loading:hover {
     text-align: center;
     font-style: italic;
 }
+.topnav {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 4px rgba(44,36,21,.06);
+}
+.topnav-logo { display: flex; align-items: center; }
+.topnav-logo img { height: 38px; width: auto; display: block; }
+.topnav-links { display: flex; gap: 12px; align-items: center; }
+.topnav-links a {
+    padding: 7px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--accent);
+    background: var(--bg);
+    transition: background .15s;
+}
+.topnav-links a:hover { background: var(--border); }
 </style>
 <script>
 // Loading state handlers for forms
@@ -678,11 +705,19 @@ def html_shell(body: str) -> str:
         {CSS}
       </head>
       <body>
+        <nav class="topnav">
+          <div class="topnav-logo">
+            <a href="/"><img src="/static/images/logo-kitabiAI.png" alt="KitabiAI"></a>
+          </div>
+          <div class="topnav-links">
+            <a href="/admin">Manage Books</a>
+            <a href="/library" target="_blank">Library</a>
+          </div>
+        </nav>
         <div class="container">
           <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <h1><img src="/static/images/logo-kitabiAI.png" alt="KitabiAI" style="height:36px;width:auto;vertical-align:middle;margin-right:10px;">Book Converter</h1>
-              <a href="/admin" style="padding: 8px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--accent);">Manage Books</a>
+              <h1>Book Converter</h1>
             </div>
             <div class="subtitle">Upload a PDF → we'll detect the language, verify content, and extract TOC automatically.</div>
 
