@@ -672,15 +672,16 @@ def html_shell(body: str) -> str:
     return f"""
     <html>
       <head>
-        <title>Book Converter – Unified</title>
+        <title>KitabiAI – Book Converter</title>
         <meta charset="utf-8">
+        <link rel="icon" type="image/png" href="/static/images/favicon.png">
         {CSS}
       </head>
       <body>
         <div class="container">
           <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <h1>📚 Book Converter – Arabic</h1>
+              <h1><img src="/static/images/logo-kitabiAI.png" alt="KitabiAI" style="height:36px;width:auto;vertical-align:middle;margin-right:10px;">Book Converter</h1>
               <a href="/admin" style="padding: 8px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--accent);">Manage Books</a>
             </div>
             <div class="subtitle">Upload a PDF → we'll detect the language, verify content, and extract TOC automatically.</div>
