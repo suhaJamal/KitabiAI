@@ -355,8 +355,8 @@ button.loading:hover {
     font-style: italic;
 }
 .topnav {
-    background: var(--card);
-    border-bottom: 1px solid var(--border);
+    background: #ffffff;
+    border-bottom: 1px solid #e8d8c8;
     padding: 12px 24px;
     display: flex;
     align-items: center;
@@ -367,7 +367,7 @@ button.loading:hover {
     box-shadow: 0 1px 4px rgba(44,36,21,.06);
 }
 .topnav-logo { display: flex; align-items: center; }
-.topnav-logo img { height: 38px; width: auto; display: block; }
+.topnav-logo img { height: 40px; width: auto; display: block; }
 .topnav-links { display: flex; gap: 12px; align-items: center; }
 .topnav-links a {
     padding: 7px 16px;

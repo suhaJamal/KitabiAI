@@ -77,7 +77,7 @@ class Answerer:
             return {"answer": _NO_ANSWER.get(response_lang, _NO_ANSWER['en']), "sources": []}
 
         context_parts = []
-        seen_titles = {}  # title -> best-similarity source entry (for deduplication)
+        seen_titles = {}  # title -> source entry tracking chunk_count + max_similarity
 
         for i, sec in enumerate(sections, 1):
             snippet = sec.get("content") or sec.get("summary") or ""
@@ -87,21 +87,33 @@ class Answerer:
             # All chunks feed the LLM context for the best possible answer
             context_parts.append(f"[{i}] {sec['title']}:\n{snippet}")
 
-            # Deduplicate sources by section title — keep the highest-similarity entry
+            # Count how many chunks were retrieved per section.
+            # A section with more chunks retrieved is more relevant to the question
+            # than a section with one high-scoring chunk from a related topic.
             title = sec["title"]
-            if title not in seen_titles or sec.get("similarity", 0) > seen_titles[title]["similarity"]:
+            sim   = sec.get("similarity", 0)
+            if title not in seen_titles:
                 seen_titles[title] = {
-                    "section":    title,
-                    "pages":      f"{sec['page_start']}-{sec['page_end']}",
-                    "book":       sec["book_title"],
-                    "similarity": sec.get("similarity", 0),
+                    "section":     title,
+                    "pages":       f"{sec['page_start']}-{sec['page_end']}",
+                    "book":        sec["book_title"],
+                    "similarity":  sim,
+                    "chunk_count": 1,
                 }
+            else:
+                seen_titles[title]["chunk_count"] += 1
+                if sim > seen_titles[title]["similarity"]:
+                    seen_titles[title]["similarity"] = sim
 
         if not context_parts:
             return {"answer": _NO_ANSWER.get(language, _NO_ANSWER['ar']), "sources": []}
 
-        # Show only top-N unique sections ranked by similarity — strip internal score
-        ranked = sorted(seen_titles.values(), key=lambda x: x["similarity"], reverse=True)
+        # Rank by chunk count first (more chunks = more relevant), similarity as tiebreaker
+        ranked = sorted(
+            seen_titles.values(),
+            key=lambda x: (x["chunk_count"], x["similarity"]),
+            reverse=True,
+        )
         sources = [
             {"section": s["section"], "pages": s["pages"], "book": s["book"]}
             for s in ranked[:_MAX_SOURCES]

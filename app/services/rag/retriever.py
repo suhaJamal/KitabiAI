@@ -79,10 +79,6 @@ class Retriever:
                 for r in rows
             ]
 
-            logger.info(
-                f"Retrieved {len(results)} chunks for book {book_id} "
-                f"(top similarity: {results[0]['similarity'] if results else 'n/a'})"
-            )
             return results
 
         except Exception as e:
