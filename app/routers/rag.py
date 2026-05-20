@@ -8,15 +8,16 @@ RAG endpoints:
 
 import logging
 import re
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from ..models.database import SessionLocal, Book, Section, SectionChunk, Page
-from ..models.database import Author, Category
+from ..models.database import Author, Category, ChatRateLimit
 from ..services.rag.embedder import Embedder, normalize_arabic
 from ..services.rag.retriever import Retriever
 from ..services.rag.answerer import Answerer
 from ..ui.book_template import render_book_page
+from ..core.config import settings
 
 
 def _detect_lang(text: str) -> str:
@@ -169,7 +170,7 @@ def book_page(book_id: int):
 # ── Ask endpoint (RAG) ────────────────────────────────────────────────────────
 
 @router.post("/api/ask")
-def ask(data: dict):
+def ask(data: dict, request: Request):
     """
     Answer a question about a specific book using RAG.
 
@@ -183,6 +184,35 @@ def ask(data: dict):
         raise HTTPException(status_code=400, detail="book_id is required")
     if not question:
         raise HTTPException(status_code=400, detail="question is required")
+
+    # Bypass check — cookie set by admin skips rate limiting
+    bypass_key = request.cookies.get("rl_bypass", "")
+    is_bypass = bool(
+        settings.RATE_LIMIT_BYPASS_KEY and
+        bypass_key == settings.RATE_LIMIT_BYPASS_KEY
+    )
+
+    # Client IP — respect X-Forwarded-For from reverse proxy
+    client_ip = (
+        request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        or request.client.host
+    )
+
+    # Rate limit check
+    if not is_bypass:
+        db = SessionLocal()
+        try:
+            rl = db.query(ChatRateLimit).filter_by(ip=client_ip, book_id=book_id).first()
+            if rl and rl.count >= settings.CHAT_QUESTIONS_LIMIT:
+                lang_hint = _detect_lang(question)
+                msg = (
+                    "لقد استنفدت عدد الأسئلة المسموح بها لهذا الكتاب. شكراً لاهتمامك بـ KitabiAI!"
+                    if lang_hint == 'ar'
+                    else "You've reached the question limit for this book. Thank you for trying KitabiAI!"
+                )
+                return JSONResponse({"answer": msg, "sources": [], "limit_reached": True})
+        finally:
+            db.close()
 
     db = SessionLocal()
     try:
@@ -231,6 +261,22 @@ def ask(data: dict):
     # Generate answer — respond in the language the question was asked in
     result = _answerer.answer(question, sections, book_title, language,
                               question_language=question_lang)
+
+    # Increment counter after a successful answer
+    if not is_bypass:
+        db = SessionLocal()
+        try:
+            rl = db.query(ChatRateLimit).filter_by(ip=client_ip, book_id=book_id).first()
+            if rl:
+                rl.count += 1
+            else:
+                rl = ChatRateLimit(ip=client_ip, book_id=book_id, count=1)
+                db.add(rl)
+            db.commit()
+            result["questions_remaining"] = max(0, settings.CHAT_QUESTIONS_LIMIT - rl.count)
+        finally:
+            db.close()
+
     return JSONResponse(result)
 
 

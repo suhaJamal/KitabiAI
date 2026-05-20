@@ -101,6 +101,9 @@ def render_book_page(book, sections: list, has_embeddings: bool) -> str:
       data-ar-placeholder="اكتب سؤالك هنا..." />
     <button id="askBtn" onclick="askQuestion()" data-en="Ask" data-ar="إرسال">Ask</button>
   </div>
+  <div class="chat-quota" id="chatQuota"
+    data-en="Free preview: up to 4 questions per book"
+    data-ar="معاينة مجانية: حتى 4 أسئلة لكل كتاب">Free preview: up to 4 questions per book</div>
 </div>
 """
         chat_script = f"""
@@ -120,7 +123,7 @@ function askQuestion() {{
     body: JSON.stringify({{book_id: BOOK_ID, question: q}})
   }})
   .then(r => r.json())
-  .then(data => {{ hideTypingIndicator(); appendMessage(data.answer, 'bot', data.sources || []); }})
+  .then(data => {{ hideTypingIndicator(); appendMessage(data.answer, 'bot', data.sources || []); updateQuota(data.questions_remaining); }})
   .catch(() => {{
     hideTypingIndicator();
     appendMessage(currentLang === 'ar' ? 'حدث خطأ، حاول مجددًا.' : 'An error occurred, please try again.', 'bot');
@@ -162,6 +165,22 @@ function showTypingIndicator() {{
 function hideTypingIndicator() {{
   var el = document.getElementById('typingIndicator');
   if (el) el.remove();
+}}
+
+function updateQuota(remaining) {{
+  var el = document.getElementById('chatQuota');
+  if (!el || remaining === undefined || remaining === null) return;
+  if (remaining <= 0) {{
+    el.textContent = currentLang === 'ar' ? 'لقد استخدمت جميع أسئلتك لهذا الكتاب' : 'You have used all your questions for this book';
+    el.classList.add('chat-quota-empty');
+    document.getElementById('askBtn').disabled = true;
+    document.getElementById('chatInput').disabled = true;
+  }} else {{
+    el.textContent = currentLang === 'ar'
+      ? remaining + ' من 4 أسئلة متبقية'
+      : remaining + ' of 4 questions remaining';
+    el.classList.remove('chat-quota-empty');
+  }}
 }}
 
 document.getElementById('chatInput').addEventListener('keydown', function(e) {{
@@ -435,6 +454,11 @@ html, body {{
 }}
 .chat-input-row button:hover {{ background: var(--accent-light); }}
 .chat-input-row button:disabled {{ opacity: .6; cursor: default; }}
+.chat-quota {{
+  font-size: 12px; color: var(--muted); text-align: center;
+  padding-top: 6px; opacity: 0.8;
+}}
+.chat-quota-empty {{ color: #dc2626; opacity: 1; font-weight: 600; }}
 .chat-unavailable {{
   font-size: 14px; color: var(--muted); padding: 16px;
   background: #fafafa; border-radius: 10px; border: 1px dashed var(--border);

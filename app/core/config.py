@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "change-me-in-production"
 
+    # Chat rate limiting
+    CHAT_QUESTIONS_LIMIT: int = 4
+    RATE_LIMIT_BYPASS_KEY: Optional[str] = None
+
     # OpenAI (embeddings)
     OPENAI_API_KEY: Optional[str] = None
 
