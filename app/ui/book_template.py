@@ -112,6 +112,7 @@ function askQuestion() {{
   if (!q) return;
   input.value = '';
   appendMessage(q, 'user');
+  showTypingIndicator();
   document.getElementById('askBtn').disabled = true;
   fetch('/api/ask', {{
     method: 'POST',
@@ -119,8 +120,9 @@ function askQuestion() {{
     body: JSON.stringify({{book_id: BOOK_ID, question: q}})
   }})
   .then(r => r.json())
-  .then(data => {{ appendMessage(data.answer, 'bot', data.sources || []); }})
+  .then(data => {{ hideTypingIndicator(); appendMessage(data.answer, 'bot', data.sources || []); }})
   .catch(() => {{
+    hideTypingIndicator();
     appendMessage(currentLang === 'ar' ? 'حدث خطأ، حاول مجددًا.' : 'An error occurred, please try again.', 'bot');
   }})
   .finally(() => {{ document.getElementById('askBtn').disabled = false; }});
@@ -130,7 +132,7 @@ function appendMessage(text, role, sources) {{
   const box = document.getElementById('chatMessages');
   const msg = document.createElement('div');
   msg.className = 'msg msg-' + role;
-  var isArabicMsg = /[؀-ۿ]/.test(text);
+  var isArabicMsg = /^[^a-zA-Z؀-ۿ]*[؀-ۿ]/.test(text);
   msg.dir = isArabicMsg ? 'rtl' : 'ltr';
   msg.style.textAlign = isArabicMsg ? 'right' : 'left';
   msg.textContent = text;
@@ -145,6 +147,21 @@ function appendMessage(text, role, sources) {{
   }}
   box.appendChild(msg);
   box.scrollTop = box.scrollHeight;
+}}
+
+function showTypingIndicator() {{
+  const box = document.getElementById('chatMessages');
+  const el = document.createElement('div');
+  el.className = 'msg msg-bot';
+  el.id = 'typingIndicator';
+  el.innerHTML = '<div class="msg-typing"><span></span><span></span><span></span></div>';
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}}
+
+function hideTypingIndicator() {{
+  var el = document.getElementById('typingIndicator');
+  if (el) el.remove();
 }}
 
 document.getElementById('chatInput').addEventListener('keydown', function(e) {{
@@ -232,19 +249,30 @@ html, body {{
 }}
 .container {{ max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }}
 
+/* ── Top nav ── */
+.book-topnav {{
+  background: #ffffff;
+  border-bottom: 1px solid #e8d8c8;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: 0 1px 4px rgba(44,36,21,.06);
+}}
+.book-topnav-logo {{ display: flex; align-items: center; }}
+.book-topnav-logo img {{ height: 40px; width: auto; display: block; }}
+
 /* ── Language toggle ── */
 .lang-toggle {{
-  position: fixed;
-  top: 16px;
-  inset-inline-end: 16px;
   display: flex;
   gap: 4px;
-  z-index: 300;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 4px;
-  box-shadow: 0 2px 8px rgba(44,36,21,.1);
 }}
 .lang-btn {{
   padding: 4px 12px;
@@ -383,6 +411,17 @@ html, body {{
 .msg[dir="ltr"] {{ text-align: left; }}
 .msg[dir="rtl"] {{ text-align: right; }}
 .msg-sources {{ margin-top: 6px; font-size: 11px; color: var(--muted); border-top: 1px solid rgba(0,0,0,.08); padding-top: 4px; }}
+.msg-typing {{ display: flex; gap: 5px; align-items: center; padding: 6px 4px; }}
+.msg-typing span {{
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}}
+.msg-typing span:nth-child(2) {{ animation-delay: 0.2s; }}
+.msg-typing span:nth-child(3) {{ animation-delay: 0.4s; }}
+@keyframes typing-bounce {{
+  0%, 60%, 100% {{ transform: translateY(0); opacity: 0.35; }}
+  30% {{ transform: translateY(-6px); opacity: 1; }}
+}}
 .chat-input-row {{ display: flex; gap: 8px; }}
 .chat-input-row input {{
   flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px;
@@ -439,11 +478,15 @@ html, body {{
 </head>
 <body>
 
-<!-- Language toggle -->
-<div class="lang-toggle">
-  <button onclick="switchLang('en')" id="btn-en" class="lang-btn active">EN</button>
-  <button onclick="switchLang('ar')" id="btn-ar" class="lang-btn">AR</button>
-</div>
+<nav class="book-topnav">
+  <div class="book-topnav-logo">
+    <a href="/library"><img src="/static/images/logo-kitabiAI.png" alt="KitabiAI"></a>
+  </div>
+  <div class="lang-toggle">
+    <button onclick="switchLang('en')" id="btn-en" class="lang-btn active">EN</button>
+    <button onclick="switchLang('ar')" id="btn-ar" class="lang-btn">AR</button>
+  </div>
+</nav>
 
 <!-- Summary overlay -->
 <div class="summary-overlay" id="summaryOverlay" onclick="handleSummaryClick(event)">

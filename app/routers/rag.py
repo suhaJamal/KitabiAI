@@ -23,6 +23,106 @@ def _detect_lang(text: str) -> str:
     """Return 'ar' if text contains Arabic characters, else 'en'."""
     return 'ar' if re.search(r'[؀-ۿ]', text) else 'en'
 
+
+# Ordered longest-first to avoid partial matches (e.g. "الثاني" inside "الثاني عشر")
+_AR_ORDINALS = [
+    (12, 'الثاني عشر'), (11, 'الحادي عشر'), (10, 'العاشر'),
+    (9, 'التاسع'), (8, 'الثامن'), (7, 'السابع'), (6, 'السادس'),
+    (5, 'الخامس'), (4, 'الرابع'), (3, 'الثالث'), (2, 'الثاني'), (1, 'الأول'),
+]
+_EN_CHAPTER_WORDS = [
+    (12, 'twelve'), (11, 'eleven'), (10, 'ten'),
+    (9, 'nine'), (8, 'eight'), (7, 'seven'), (6, 'six'),
+    (5, 'five'), (4, 'four'), (3, 'three'), (2, 'two'), (1, 'one'),
+    (12, 'twelfth'), (11, 'eleventh'), (10, 'tenth'),
+    (9, 'ninth'), (8, 'eighth'), (7, 'seventh'), (6, 'sixth'),
+    (5, 'fifth'), (4, 'fourth'), (3, 'third'), (2, 'second'), (1, 'first'),
+]
+
+
+def _detect_chapter_number(question: str) -> int | None:
+    """Return chapter number if question explicitly mentions one, else None."""
+    # Arabic: "الفصل السادس"
+    for num, word in _AR_ORDINALS:
+        if re.search(rf'الفصل\s+{re.escape(word)}', question):
+            return num
+
+    # English: "chapter six" / "chapter sixth" / "chapter 6"
+    q_lower = question.lower()
+    for num, word in _EN_CHAPTER_WORDS:
+        if re.search(rf'\bchapter\s+{word}\b', q_lower):
+            return num
+    m = re.search(r'\bchapter\s+(\d{1,2})\b', q_lower)
+    if m:
+        return int(m.group(1))
+
+    # Digit after الفصل: "الفصل 6"
+    m = re.search(r'الفصل\s+(\d{1,2})', question)
+    if m:
+        return int(m.group(1))
+
+    return None
+
+
+def _boost_chapter(sections: list, chapter_num: int) -> list:
+    """Move chunks belonging to the detected chapter to the front of results."""
+    ar_word = next((w for n, w in _AR_ORDINALS if n == chapter_num), '')
+    target, rest = [], []
+    for s in sections:
+        title = s.get('title', '')
+        is_match = (
+            (ar_word and ar_word in title) or
+            re.search(rf'\bchapter\s*{chapter_num}\b', title, re.IGNORECASE) is not None
+        )
+        if is_match:
+            s = dict(s)
+            s['similarity'] = 2.0  # override so answerer's sort keeps this first
+            target.append(s)
+        else:
+            rest.append(s)
+    return target + rest
+
+
+_AR_STOP = frozenset({
+    'في', 'من', 'على', 'إلى', 'هذا', 'هذه', 'التي', 'الذي', 'مع', 'عن',
+    'أن', 'لا', 'ما', 'هو', 'هي', 'إن', 'كان', 'كل', 'قد', 'لم', 'لن',
+    'بين', 'حتى', 'عند', 'بعد', 'قبل', 'حول', 'خلال', 'ذلك', 'هل',
+    'وفي', 'وهو', 'وهي', 'فى', 'بعض', 'حيث', 'هنا', 'هناك', 'عليه',
+})
+_EN_STOP = frozenset({
+    'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'was',
+    'will', 'what', 'from', 'this', 'that', 'with', 'have', 'been', 'more',
+    'when', 'who', 'how', 'tell', 'summarize', 'summarise', 'explain',
+    'describe', 'about', 'please', 'give', 'write', 'list',
+})
+
+
+def _kw_set(text: str) -> set:
+    """Extract significant keywords from text for title matching."""
+    ar = {normalize_arabic(w) for w in re.findall(r'[؀-ۿ]{3,}', text)
+          if w not in _AR_STOP and normalize_arabic(w) not in _AR_STOP}
+    en = {w.lower() for w in re.findall(r'[a-zA-Z]{4,}', text)
+          if w.lower() not in _EN_STOP}
+    return ar | en
+
+
+def _boost_title_keywords(sections: list, question: str) -> list:
+    """Boost sections whose title shares ≥2 significant keywords with the question."""
+    q_kw = _kw_set(question)
+    if len(q_kw) < 2:
+        return sections
+    target, rest = [], []
+    for s in sections:
+        overlap = q_kw & _kw_set(s.get('title', ''))
+        if len(overlap) >= 2:
+            s = dict(s)
+            s['similarity'] = 2.0
+            target.append(s)
+        else:
+            rest.append(s)
+    return target + rest
+
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -111,6 +211,14 @@ def ask(data: dict):
 
     # Retrieve relevant sections
     sections = _retriever.find_relevant_sections(question_embedding, book_id, top_k=8)
+
+    # Boost detected chapter to front so sources reflect the correct chapter
+    chapter_num = _detect_chapter_number(question)
+    if chapter_num:
+        sections = _boost_chapter(sections, chapter_num)
+
+    # Boost sections whose title shares keywords with the question (handles title references)
+    sections = _boost_title_keywords(sections, question)
 
     if not sections:
         no_index_msg = (

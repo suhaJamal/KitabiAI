@@ -56,10 +56,10 @@
             line-height: 1.6;
         }
 
-        /* Header */
+        /* Header — always white regardless of theme */
         header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
+            background: #ffffff;
+            border-bottom: 1px solid #e8d8c8;
             padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
@@ -71,16 +71,10 @@
         }
 
         .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--accent);
             display: flex;
             align-items: center;
-            gap: 0.5rem;
         }
-        .logo-light { display: none; }
-        [data-theme="dark"] .logo-default { display: none; }
-        [data-theme="dark"] .logo-light { display: block; }
+        .logo img { height: 40px; width: auto; display: block; }
 
         .header-actions {
             display: flex;
@@ -105,12 +99,12 @@
         }
 
         .lang-switch {
-            background: var(--bg-primary);
-            border: 2px solid var(--border);
+            background: #fdfaf7;
+            border: 2px solid #e8d8c8;
             padding: 0.5rem 1rem;
             border-radius: 8px;
             cursor: pointer;
-            color: var(--text-primary);
+            color: #3d2b1f;
             transition: all 0.3s;
         }
 
@@ -519,8 +513,7 @@
     <!-- Header -->
     <header>
         <div class="logo">
-            <img src="/static/images/logo-kitabiAI.png" alt="KitabiAI" class="logo-default" style="height:40px;width:auto;">
-            <img src="/static/images/logo-kitabiai-light.png" alt="KitabiAI" class="logo-light" style="height:40px;width:auto;">
+            <img src="/static/images/logo-kitabiAI.png" alt="KitabiAI">
         </div>
         <div class="header-actions">
             <button class="lang-switch" onclick="toggleLanguage()">عربي</button>
