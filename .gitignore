@@ -15,6 +15,9 @@ ENV/
 .env.local
 .env.*.local
 
+# Developer notes (contains secrets like bypass keys)
+CLAUDE.md
+
 # IDEs
 .vscode/
 .idea/

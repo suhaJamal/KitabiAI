@@ -507,6 +507,65 @@
             font-size: 0.85rem;
             padding: 0 0.5rem;
         }
+
+        /* Waitlist */
+        .waitlist-section {
+            background: #f5ede0;
+            border-top: 1px solid #e8d8c8;
+            padding: 3rem 2rem;
+            text-align: center;
+            margin-top: 3rem;
+        }
+        .waitlist-section h2 {
+            color: #1c1410;
+            font-size: 1.6rem;
+            margin-bottom: 0.5rem;
+        }
+        .waitlist-section p {
+            color: #6b5d4d;
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
+        }
+        .waitlist-form {
+            display: flex;
+            gap: 10px;
+            max-width: 520px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .waitlist-form input {
+            flex: 1;
+            min-width: 180px;
+            padding: 0.7rem 1rem;
+            border: 1px solid #d9c9b8;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            background: #fff;
+            color: #1c1410;
+        }
+        .waitlist-form input:focus { border-color: #c76a2d; }
+        .waitlist-form button {
+            padding: 0.7rem 1.4rem;
+            background: #c76a2d;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background .2s;
+        }
+        .waitlist-form button:hover { background: #e88d51; }
+        .waitlist-msg {
+            margin-top: 12px;
+            font-size: 0.9rem;
+            color: #6b5d4d;
+            min-height: 20px;
+        }
     </style>
 </head>
 <body>
@@ -582,6 +641,18 @@
             </div>
         </div>
     </div>
+
+    <!-- Waitlist -->
+    <section class="waitlist-section">
+        <h2 data-en="Stay in the Loop" data-ar="ابق على اطلاع">Stay in the Loop</h2>
+        <p data-en="Get notified about new books and features." data-ar="احصل على إشعارات بالكتب والميزات الجديدة.">Get notified about new books and features.</p>
+        <div class="waitlist-form">
+            <input type="text" id="wlName" data-en-placeholder="Your name (optional)" data-ar-placeholder="اسمك (اختياري)" placeholder="Your name (optional)" />
+            <input type="email" id="wlEmail" data-en-placeholder="Your email address" data-ar-placeholder="بريدك الإلكتروني" placeholder="Your email address" />
+            <button onclick="submitWaitlist()" id="wlBtn" data-en="Notify Me" data-ar="أخبرني">Notify Me</button>
+        </div>
+        <div class="waitlist-msg" id="wlMsg"></div>
+    </section>
 
     <script>
         const API_BASE = window.location.origin;
@@ -822,6 +893,37 @@
         function loadTheme() {
             if (localStorage.getItem('theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
             updateThemeButtonText();
+        }
+
+        async function submitWaitlist() {
+            const email = document.getElementById('wlEmail').value.trim();
+            const name  = document.getElementById('wlName').value.trim();
+            const msg   = document.getElementById('wlMsg');
+            const btn   = document.getElementById('wlBtn');
+            if (!email) {
+                msg.textContent = currentLang === 'ar' ? 'يرجى إدخال بريدك الإلكتروني.' : 'Please enter your email.';
+                return;
+            }
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/waitlist', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name, email, source: 'library' })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    msg.textContent = currentLang === 'ar' ? 'شكراً! سنبقيك على اطلاع.' : 'Thank you! We\'ll keep you posted.';
+                    document.getElementById('wlEmail').value = '';
+                    document.getElementById('wlName').value = '';
+                } else {
+                    msg.textContent = currentLang === 'ar' ? 'بريد إلكتروني غير صالح.' : 'Please enter a valid email.';
+                    btn.disabled = false;
+                }
+            } catch {
+                msg.textContent = currentLang === 'ar' ? 'حدث خطأ. حاول مجدداً.' : 'Something went wrong. Please try again.';
+                btn.disabled = false;
+            }
         }
     </script>
 </body>

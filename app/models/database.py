@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from pgvector.sqlalchemy import Vector
 from datetime import datetime
@@ -133,6 +133,29 @@ class Page(Base):
 
     # Relationship
     book = relationship("Book", backref="pages")
+
+
+class WaitlistEntry(Base):
+    """Email waitlist — people who want to stay updated about KitabiAI."""
+    __tablename__ = "waitlist"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    name       = Column(String(200))
+    email      = Column(String(300), nullable=False, unique=True)
+    source     = Column(String(50))   # 'library' or 'marketing'
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ChatRateLimit(Base):
+    """Tracks how many chatbot questions each IP has asked per book. No reset."""
+    __tablename__ = "chat_rate_limits"
+
+    id      = Column(Integer, primary_key=True, autoincrement=True)
+    ip      = Column(String(45), nullable=False)
+    book_id = Column(Integer, ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
+    count   = Column(Integer, default=0, nullable=False)
+
+    __table_args__ = (UniqueConstraint('ip', 'book_id', name='uq_chat_rate_ip_book'),)
 
 
 def init_db():
