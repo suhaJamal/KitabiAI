@@ -158,6 +158,23 @@ class ChatRateLimit(Base):
     __table_args__ = (UniqueConstraint('ip', 'book_id', name='uq_chat_rate_ip_book'),)
 
 
+class BookFeedback(Base):
+    """User-submitted feedback from a book page."""
+    __tablename__ = "book_feedback"
+
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    book_id       = Column(Integer, ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
+    book_title    = Column(String(500))
+    feedback_type = Column(String(30), nullable=False)  # toc / missing_pages / quality / other
+    message       = Column(Text, nullable=False)
+    name          = Column(String(200))
+    email         = Column(String(300))
+    page_number   = Column(Integer)
+    status        = Column(String(20), default='new')   # new / reviewed / resolved
+    ip            = Column(String(45))
+    created_at    = Column(DateTime, default=datetime.utcnow)
+
+
 def init_db():
     Base.metadata.create_all(engine)
     print("✅ Tables created/updated successfully!")

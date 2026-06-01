@@ -566,9 +566,114 @@
             color: #6b5d4d;
             min-height: 20px;
         }
+        /* ── Welcome popup ── */
+        .welcome-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(28,20,16,.55);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+        }
+        .welcome-overlay.open { display: flex; }
+        .welcome-modal {
+            background: #fff;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 500px;
+            max-height: calc(100vh - 48px);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 12px 40px rgba(28,20,16,.25);
+            overflow: hidden;
+        }
+        .welcome-top {
+            background: linear-gradient(135deg, #c76a2d 0%, #e88d51 100%);
+            padding: 18px 24px;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .welcome-top h2 { font-size: 17px; font-weight: 700; }
+        .welcome-body {
+            padding: 20px 24px 22px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .wp-item { margin-bottom: 14px; }
+        .wp-item:last-of-type { margin-bottom: 0; }
+        .wp-label {
+            font-size: 13px; font-weight: 700;
+            color: #c76a2d; margin-bottom: 3px;
+        }
+        .wp-item p {
+            font-size: 13px; line-height: 1.7;
+            color: #2c2415; margin: 0;
+        }
+        .wp-item a { color: #c76a2d; }
+        .wp-divider {
+            border: none; border-top: 1px solid #e8d8c8;
+            margin: 14px 0;
+        }
+        .wp-actions {
+            display: flex; gap: 10px; margin-top: 16px;
+        }
+        .wp-donate {
+            flex: 1; padding: 10px;
+            background: #c76a2d; color: #fff;
+            border: none; border-radius: 10px;
+            font-size: 14px; font-weight: 600;
+            font-family: inherit; cursor: pointer;
+            text-align: center; text-decoration: none;
+            transition: background .15s;
+        }
+        .wp-donate:hover { background: #e88d51; }
+        .welcome-close {
+            flex: 1; padding: 10px;
+            background: transparent; color: #6b5d4d;
+            border: 1px solid #e8d8c8; border-radius: 10px;
+            font-size: 14px; font-weight: 600;
+            font-family: inherit; cursor: pointer;
+            transition: border-color .15s, color .15s;
+        }
+        .welcome-close:hover { border-color: #c76a2d; color: #c76a2d; }
     </style>
 </head>
 <body>
+    <!-- Welcome popup (shown once per visitor) -->
+    <div class="welcome-overlay" id="welcomeOverlay">
+        <div class="welcome-modal">
+            <div class="welcome-top">
+                <h2 id="wp-title">A Note from KitabiAI</h2>
+            </div>
+            <div class="welcome-body">
+                <div class="wp-item">
+                    <div class="wp-label" id="wp-l1">© Copyright</div>
+                    <p id="wp-p1">We only publish open-source books. If your book is here and you want it removed, <a href="mailto:suha@smartdiversity.ca">contact us</a> and we will remove it immediately.</p>
+                </div>
+                <hr class="wp-divider">
+                <div class="wp-item">
+                    <div class="wp-label" id="wp-l2">⭐ Quality</div>
+                    <p id="wp-p2">Found an issue with a book? Use the Feedback button on any book page to report it.</p>
+                </div>
+                <hr class="wp-divider">
+                <div class="wp-item">
+                    <div class="wp-label" id="wp-l3">✍️ Authors</div>
+                    <p id="wp-p3">Want to publish your book with us? <a href="mailto:suha@smartdiversity.ca?subject=Book%20Submission%20-%20KitabiAI">Send us your PDF</a> and consent to publish.</p>
+                </div>
+                <hr class="wp-divider">
+                <div class="wp-item">
+                    <div class="wp-label" id="wp-l4">❤️ Support us</div>
+                    <p id="wp-p4">Help us add more books and improve quality.</p>
+                </div>
+                <div class="wp-actions">
+                    <a class="wp-donate" id="wp-donate" href="#" target="_blank">Donate</a>
+                    <button class="welcome-close" id="wp-btn" onclick="closeWelcome()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Header -->
     <header>
         <div class="logo">
@@ -669,6 +774,7 @@
             try { applyLanguage(currentLang); } catch(e) { console.error('applyLanguage error:', e); }
             await Promise.all([loadStats(), loadCategories(), loadBooks()]);
             loadTheme();
+            setTimeout(showWelcome, 600);
         });
 
         async function loadStats() {
@@ -872,6 +978,7 @@
                 pagesEl.textContent = Number(pagesEl.dataset.raw).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US');
             updateThemeButtonText();
             if (allBooks.length > 0) { renderBooks(allBooks); renderPagination(totalBooks); }
+            _applyWelcomeLang(lang);
             localStorage.setItem('lang', lang);
         }
 
@@ -893,6 +1000,64 @@
         function loadTheme() {
             if (localStorage.getItem('theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
             updateThemeButtonText();
+        }
+
+        // ── Welcome popup ──────────────────────────────────────────
+        const _WELCOME_KEY = 'kitabiai_welcome_v1';
+
+        function showWelcome() {
+            if (localStorage.getItem(_WELCOME_KEY)) return;
+            const overlay = document.getElementById('welcomeOverlay');
+            overlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            _applyWelcomeLang(currentLang);
+        }
+
+        function closeWelcome() {
+            localStorage.setItem(_WELCOME_KEY, '1');
+            document.getElementById('welcomeOverlay').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        function _applyWelcomeLang(lang) {
+            const isAr = lang === 'ar';
+            const strings = {
+                title: isAr ? 'ملاحظة من كتابي'                               : 'A Note from KitabiAI',
+                l1:    isAr ? '© حقوق النشر'                                   : '© Copyright',
+                p1:    isAr ? 'نحن ننشر كتب مفتوحة المصدر فقط. إذا كان كتابك موجوداً هنا وتريد إزالته، تواصل معنا وسنزيله فوراً.'
+                            : 'We only publish open-source books. If your book is here and you want it removed, contact us and we will remove it immediately.',
+                l2:    isAr ? '⭐ الجودة'                                       : '⭐ Quality',
+                p2:    isAr ? 'وجدت مشكلة في كتاب؟ استخدم زر "الإبلاغ عن مشكلة" في صفحة الكتاب.'
+                            : 'Found an issue with a book? Use the Feedback button on any book page to report it.',
+                l3:    isAr ? '✍️ المؤلفون'                                    : '✍️ Authors',
+                p3:    isAr ? 'تريد نشر كتابك معنا؟ أرسل لنا ملف PDF مع موافقتك على النشر.'
+                            : 'Want to publish your book with us? Send us your PDF and consent to publish.',
+                l4:    isAr ? '❤️ ادعمنا'                                      : '❤️ Support us',
+                p4:    isAr ? 'ساعدنا في إضافة المزيد من الكتب وتحسين الجودة.' : 'Help us add more books and improve quality.',
+                donate: isAr ? 'تبرع' : 'Donate',
+                close:  isAr ? 'إغلاق' : 'Close',
+            };
+            document.getElementById('wp-title').textContent   = strings.title;
+            document.getElementById('wp-l1').textContent      = strings.l1;
+            document.getElementById('wp-l2').textContent      = strings.l2;
+            document.getElementById('wp-l3').textContent      = strings.l3;
+            document.getElementById('wp-l4').textContent      = strings.l4;
+            document.getElementById('wp-p2').textContent      = strings.p2;
+            document.getElementById('wp-p4').textContent      = strings.p4;
+            document.getElementById('wp-donate').textContent  = strings.donate;
+            document.getElementById('wp-btn').textContent     = strings.close;
+            // p1 and p3 have inline links — only update the text nodes
+            const p1 = document.getElementById('wp-p1');
+            if (p1) p1.firstChild.textContent = isAr
+                ? 'نحن ننشر كتب مفتوحة المصدر فقط. إذا كان كتابك موجوداً هنا وتريد إزالته، '
+                : 'We only publish open-source books. If your book is here and you want it removed, ';
+            const p1link = p1 && p1.querySelector('a');
+            if (p1link) { p1link.textContent = isAr ? 'تواصل معنا' : 'contact us'; p1link.nextSibling.textContent = isAr ? ' وسنزيله فوراً.' : ' and we will remove it immediately.'; }
+            const p3 = document.getElementById('wp-p3');
+            if (p3) p3.firstChild.textContent = isAr ? 'تريد نشر كتابك معنا؟ ' : 'Want to publish your book with us? ';
+            const p3link = p3 && p3.querySelector('a');
+            if (p3link) { p3link.textContent = isAr ? 'أرسل لنا ملف PDF' : 'Send us your PDF'; p3link.nextSibling.textContent = isAr ? ' مع موافقتك على النشر.' : ' and consent to publish.'; }
+            document.getElementById('welcomeOverlay').dir = isAr ? 'rtl' : 'ltr';
         }
 
         async function submitWaitlist() {

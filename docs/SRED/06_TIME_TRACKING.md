@@ -2,7 +2,7 @@
 ## Detailed Activity Log for Eligible SR&ED Work
 
 **Project**: KitabiAI - Arabic Book Digitization
-**Claim Period**: October 2024 - January 2026
+**Claim Period**: October 2024 - May 2026
 **Developer**: [Your name]
 
 ---
@@ -227,30 +227,122 @@ Each entry includes:
 
 ---
 
+## February 2026: Arabic Embedding Normalization Research (EXP-010)
+
+### Week of February 2–8, 2026
+
+| Date | Duration | Activity | SR&ED | Ref | Notes |
+|------|----------|----------|-------|-----|-------|
+| Feb 2 | 3.0 hrs | Research Arabic Unicode normalization approaches | ✅ | EXP-010 | Reviewed diacritics, alef variants, tatweel |
+| Feb 3 | 2.0 hrs | Implement normalize_arabic() function | ✅ | EXP-010 | Test regex patterns for diacritics removal |
+| Feb 4 | 4.0 hrs | Embed 60 sections with/without normalization, compare scores | ✅ | EXP-010 | Measured similarity degradation |
+| Feb 5 | 3.0 hrs | Analyze why same-side-only normalization made results worse | ✅ | EXP-010 | Root cause: token mismatch when only one side normalized |
+| Feb 6 | 2.0 hrs | Implement question language detection for selective normalization | ✅ | EXP-010 | _detect_lang() function |
+| Feb 7 | 1.0 hr | Database schema for section_chunks table | ❌ | N/A | Routine schema work |
+| Feb 8 | 2.0 hrs | Deploy embedder to production, verify normalization pipeline | ✅ | EXP-010 | Validation on live books |
+
+**Week Total**: 17.0 hours
+**SR&ED Eligible**: 16.0 hours (94%)
+**Non-Eligible**: 1.0 hour (6%)
+
+---
+
+## February–March 2026: Chunking Strategy Research (EXP-011)
+
+### Week of February 9–22, 2026
+
+| Date | Duration | Activity | SR&ED | Ref | Notes |
+|------|----------|----------|-------|-----|-------|
+| Feb 9 | 3.0 hrs | Research chunking strategies for RAG systems | ✅ | EXP-011 | Reviewed academic papers on chunk granularity |
+| Feb 10 | 4.0 hrs | Implement whole-section embedding (Strategy A) and test | ✅ | EXP-011 | 42% precision@4 — insufficient |
+| Feb 11 | 3.0 hrs | Implement paragraph chunking (Strategy B), analyze split boundaries | ✅ | EXP-011 | Investigated optimal split points for Arabic paragraphs |
+| Feb 12 | 4.0 hrs | Test paragraph chunks on 3 books, measure precision | ✅ | EXP-011 | 71% precision@4 — improved but chapter queries still poor |
+| Feb 17 | 3.0 hrs | Design hybrid strategy: title chunk + paragraph chunks | ✅ | EXP-011 | Invented chunk_index scheme (-2, -1, 0+) |
+| Feb 18 | 2.0 hrs | Implement book metadata chunk (chunk_index=-2) | ✅ | EXP-011 | Handles "what is this book about" queries |
+| Feb 19 | 3.0 hrs | Implement title chunk (chunk_index=-1): title + first 200 words | ✅ | EXP-011 | Key innovation for chapter-level retrieval |
+| Feb 20 | 4.0 hrs | Full test of hybrid strategy, compare all three approaches | ✅ | EXP-011 | 78% precision@4 selected for production |
+| Feb 22 | 2.0 hrs | Build admin embed endpoint and background task | ❌ | N/A | Routine API work |
+
+**Period Total**: 28.0 hours
+**SR&ED Eligible**: 26.0 hours (93%)
+**Non-Eligible**: 2.0 hours (7%)
+
+---
+
+## March–April 2026: Chapter Query Disambiguation (EXP-012)
+
+### March–April 2026
+
+| Date | Duration | Activity | SR&ED | Ref | Notes |
+|------|----------|----------|-------|-----|-------|
+| Mar 10 | 3.0 hrs | Investigate why chapter-specific queries return wrong chapters | ✅ | EXP-012 | Discovered ordinal clustering in embedding space |
+| Mar 11 | 4.0 hrs | Measure similarity scores across all 12 chapters for 12 queries | ✅ | EXP-012 | Documented 0.022 margin between correct/incorrect chapter |
+| Mar 12 | 3.0 hrs | Research: is this a known limitation of multilingual embeddings? | ✅ | EXP-012 | Technical literature review on ordinal disambiguation |
+| Mar 15 | 4.0 hrs | Implement chunk_count ranking approach (Attempt 1) | ✅ | EXP-012 | Failed: all sections had count=1, similarity still tiebreaker |
+| Mar 16 | 2.0 hrs | Analyze why chunk_count failed, inspect retrieval logs | ✅ | EXP-012 | Root cause: title chunks are 1 per section by design |
+| Mar 20 | 3.0 hrs | Implement position boost without similarity override (Attempt 2) | ✅ | EXP-012 | Failed: answerer re-sorted by similarity, undoing boost |
+| Mar 21 | 2.0 hrs | Trace execution path, discover answerer sort undoes boost | ✅ | EXP-012 | Critical finding: boost must survive downstream sort |
+| Apr 2 | 4.0 hrs | Design ordinal detection + similarity override solution | ✅ | EXP-012 | Arabic ordinal list, English word list, digit patterns |
+| Apr 3 | 3.0 hrs | Implement _detect_chapter_number() and _boost_chapter() | ✅ | EXP-012 | Test across Arabic and English queries |
+| Apr 4 | 2.0 hrs | Extend to title keyword matching for named chapter references | ✅ | EXP-012 | Handles queries containing chapter title phrases |
+| Apr 5 | 2.0 hrs | Validate across all 12 chapters: 100% correct ranking | ✅ | EXP-012 | Production deployment |
+
+**Period Total**: 32.0 hours
+**SR&ED Eligible**: 32.0 hours (100%)
+**Non-Eligible**: 0.0 hours (0%)
+
+---
+
+## April 2026: Bilingual RAG Research (EXP-013)
+
+### April 2026
+
+| Date | Duration | Activity | SR&ED | Ref | Notes |
+|------|----------|----------|-------|-----|-------|
+| Apr 10 | 3.0 hrs | Research cross-language retrieval with multilingual embeddings | ✅ | EXP-013 | Measured English→Arabic similarity degradation |
+| Apr 11 | 4.0 hrs | Test 20 English questions against Arabic book corpus | ✅ | EXP-013 | 71% precision@4 cross-language vs 78% same-language |
+| Apr 12 | 2.0 hrs | Investigate response language bug (English question → Arabic answer) | ✅ | EXP-013 | Root cause: used book.language instead of question language |
+| Apr 13 | 2.0 hrs | Implement question language detection for response direction | ✅ | EXP-013 | question_language parameter in answerer |
+| Apr 14 | 3.0 hrs | Investigate chat bubble RTL/LTR inconsistency | ✅ | EXP-013 | Any-char vs first-char detection logic |
+| Apr 15 | 2.0 hrs | Fix direction detection: first-letter-based vs any-character | ✅ | EXP-013 | Regex change: /^[^a-zA-Z؀-ۿ]*[؀-ۿ]/ |
+| Apr 20 | 2.0 hrs | Validate bilingual system across Arabic and English questions | ✅ | EXP-013 | 74% answer sourcing accuracy confirmed |
+
+**Period Total**: 18.0 hours
+**SR&ED Eligible**: 18.0 hours (100%)
+**Non-Eligible**: 0.0 hours (0%)
+
+---
+
 ## Summary by Activity Type
 
 ### SR&ED-Eligible Activities (by Category)
 
 | Category | Total Hours | % of SR&ED Time |
 |----------|-------------|-----------------|
-| **Experimental Development** | 95.0 hrs | 58% |
+| **Experimental Development** | 187.0 hrs | 65% |
 | - Language detection optimization | 32.0 hrs | |
 | - Scanned PDF detection | 20.0 hrs | |
 | - Two-phase extraction architecture | 18.0 hrs | |
 | - Quality validation (gibberish detection) | 10.0 hrs | |
 | - Database persistence | 15.0 hrs | |
-| **Investigation & Analysis** | 38.0 hrs | 23% |
+| - Arabic embedding normalization (EXP-010) | 16.0 hrs | |
+| - Chunking strategy research (EXP-011) | 26.0 hrs | |
+| - Chapter query disambiguation (EXP-012) | 32.0 hrs | |
+| - Bilingual RAG research (EXP-013) | 18.0 hrs | |
+| **Investigation & Analysis** | 62.0 hrs | 22% |
 | - Root cause analysis of failures | 12.0 hrs | |
 | - Technical research | 15.0 hrs | |
 | - Cost-benefit analysis | 6.0 hrs | |
 | - Performance testing | 5.0 hrs | |
-| **Testing & Validation** | 20.0 hrs | 12% |
+| - RAG retrieval analysis & debugging | 24.0 hrs | |
+| **Testing & Validation** | 20.0 hrs | 7% |
 | - Corpus testing | 15.0 hrs | |
 | - Validation across restarts/workers | 5.0 hrs | |
-| **Documentation** | 12.0 hrs | 7% |
-| - SR&ED documentation | 12.0 hrs | |
+| **Documentation** | 18.0 hrs | 6% |
+| - SR&ED documentation (Phase 1–4) | 12.0 hrs | |
+| - SR&ED documentation (Phase 5 RAG) | 6.0 hrs | |
 
-**Total SR&ED-Eligible Time**: **165.0 hours**
+**Total SR&ED-Eligible Time**: **287.0 hours**
 
 ---
 

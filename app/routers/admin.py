@@ -11,11 +11,12 @@ Provides a web-based admin interface to:
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import or_
 
 from ..models.database import SessionLocal, Book, Author, Section, Page, Category
+from ..services.storage.azure_storage_service import azure_storage
 from ..ui.template import html_shell, render_admin
 
 logger = logging.getLogger(__name__)
@@ -134,6 +135,7 @@ def get_book(book_id: int):
             "keywords": book.keywords or "",
             "publication_date": book.publication_date or "",
             "isbn": book.isbn or "",
+            "cover_image_url": book.cover_image_url or "",
         }
     finally:
         db.close()
@@ -197,6 +199,40 @@ async def update_book(book_id: int, data: dict):
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to update book {book_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+@router.post("/books/{book_id}/cover")
+async def upload_cover_image(book_id: int, file: UploadFile = File(...)):
+    """Upload or replace a book's cover image."""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image (JPG, PNG, WebP, etc.)")
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image must be smaller than 5 MB")
+
+    try:
+        url = azure_storage.save_cover_image(book_id, content, file.filename or "cover.jpg")
+    except Exception as e:
+        logger.error(f"Failed to upload cover for book {book_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload image to storage")
+
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter(Book.id == book_id).first()
+        if not book:
+            raise HTTPException(status_code=404, detail="Book not found")
+        book.cover_image_url = url
+        db.commit()
+        logger.info(f"Updated cover image for book {book_id}: {url}")
+        return {"ok": True, "cover_image_url": url}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()

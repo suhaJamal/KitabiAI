@@ -229,6 +229,11 @@ document.getElementById('chatInput').addEventListener('keydown', function(e) {{
         if has_reader else ''
     )
 
+    feedback_btn = (
+        '<button class="feedback-btn" onclick="openFeedback()"'
+        ' data-en="Report an Issue" data-ar="الإبلاغ عن مشكلة">Report an Issue</button>'
+    )
+
     toc_block = (
         f'<div class="section-card">'
         f'<div class="section-heading" data-en="Table of Contents" data-ar="فهرس المحتويات">Table of Contents</div>'
@@ -359,7 +364,7 @@ html, body {{
 /* ── Reader overlay ── */
 .reader-overlay {{
   display: none; position: fixed; inset: 0;
-  background: rgba(44,36,21,.45); z-index: 100;
+  background: rgba(44,36,21,.45); z-index: 300;
   align-items: flex-start; justify-content: center;
   padding: 24px 12px; overflow-y: auto;
 }}
@@ -369,6 +374,7 @@ html, body {{
   width: 100%; max-width: 720px;
   box-shadow: 0 8px 32px rgba(44,36,21,.22);
   overflow: hidden; min-height: 300px;
+  max-height: calc(100vh - 48px);
   display: flex; flex-direction: column; margin: auto;
 }}
 .reader-topbar {{
@@ -475,7 +481,7 @@ html, body {{
 .summary-btn:hover {{ background: var(--accent); color: #fff; }}
 .summary-overlay {{
   display: none; position: fixed; inset: 0;
-  background: rgba(44,36,21,.45); z-index: 200;
+  background: rgba(44,36,21,.45); z-index: 300;
   align-items: center; justify-content: center; padding: 24px 12px;
 }}
 .summary-overlay.open {{ display: flex; }}
@@ -497,6 +503,67 @@ html, body {{
 .summary-body {{
   padding: 20px 24px 28px; font-size: 15px; line-height: 2;
   color: var(--ink); max-height: 60vh; overflow-y: auto;
+}}
+
+/* ── Feedback button ── */
+.feedback-btn {{
+  display: inline-block; margin-top: 10px; margin-left: 8px; padding: 10px 18px;
+  background: transparent; color: var(--muted); border: 1px solid var(--border);
+  border-radius: 10px; font-size: 13px; font-family: inherit; cursor: pointer;
+  transition: border-color .15s, color .15s;
+}}
+.feedback-btn:hover {{ border-color: var(--accent); color: var(--accent); }}
+
+/* ── Feedback overlay ── */
+.feedback-overlay {{
+  display: none; position: fixed; inset: 0;
+  background: rgba(44,36,21,.45); z-index: 300;
+  align-items: center; justify-content: center; padding: 24px 12px;
+}}
+.feedback-overlay.open {{ display: flex; }}
+.feedback-modal {{
+  background: var(--card); border-radius: 16px; width: 100%; max-width: 520px;
+  box-shadow: 0 8px 32px rgba(44,36,21,.22); overflow: hidden;
+}}
+.feedback-header {{
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--bg);
+}}
+.feedback-header h3 {{ font-size: 15px; font-weight: 700; color: var(--ink); }}
+.feedback-close {{
+  padding: 4px 12px; border-radius: 8px;
+  border: 1px solid #fca5a5; background: #fff5f5;
+  color: #dc2626; font-size: 13px; cursor: pointer; font-family: inherit;
+}}
+.feedback-close:hover {{ background: #fee2e2; }}
+.feedback-body {{ padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 14px; }}
+.feedback-body label {{ font-size: 12px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 4px; }}
+.feedback-body select,
+.feedback-body textarea,
+.feedback-body input[type="text"],
+.feedback-body input[type="email"],
+.feedback-body input[type="number"] {{
+  width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: 14px; font-family: inherit;
+  background: var(--bg); color: var(--ink); outline: none;
+}}
+.feedback-body select:focus,
+.feedback-body textarea:focus,
+.feedback-body input:focus {{ border-color: var(--accent); }}
+.feedback-body textarea {{ resize: vertical; min-height: 90px; }}
+.feedback-row-2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
+.feedback-submit {{
+  padding: 10px 20px; background: var(--accent); color: #fff;
+  border: none; border-radius: 10px; font-size: 14px; font-weight: 600;
+  font-family: inherit; cursor: pointer; align-self: flex-end;
+  transition: background .15s;
+}}
+.feedback-submit:hover {{ background: var(--accent-light); }}
+.feedback-submit:disabled {{ opacity: .6; cursor: default; }}
+.feedback-success {{
+  font-size: 14px; color: #4a7c59; background: #f0faf3;
+  border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px;
+  display: none;
 }}
 </style>
 </head>
@@ -521,6 +588,61 @@ html, body {{
         data-en="Close" data-ar="إغلاق">Close</button>
     </div>
     <div class="summary-body" id="summaryBody" dir="{content_dir}"></div>
+  </div>
+</div>
+
+<!-- Feedback overlay -->
+<div class="feedback-overlay" id="feedbackOverlay" onclick="handleFeedbackClick(event)">
+  <div class="feedback-modal">
+    <div class="feedback-header">
+      <h3 data-en="Report an Issue" data-ar="الإبلاغ عن مشكلة">Report an Issue</h3>
+      <button class="feedback-close" onclick="closeFeedback()"
+        data-en="Close" data-ar="إغلاق">Close</button>
+    </div>
+    <div class="feedback-body">
+      <div>
+        <label data-en="Issue Type" data-ar="نوع المشكلة">Issue Type</label>
+        <select id="fb-type">
+          <option value="toc" data-en="Table of Contents Error" data-ar="خطأ في الفهرس">Table of Contents Error</option>
+          <option value="missing_pages" data-en="Missing Pages" data-ar="صفحات مفقودة">Missing Pages</option>
+          <option value="quality" data-en="Content Quality" data-ar="جودة المحتوى">Content Quality</option>
+          <option value="other" data-en="Other" data-ar="أخرى">Other</option>
+        </select>
+      </div>
+      <div>
+        <label data-en="Description (required)" data-ar="الوصف (مطلوب)">Description (required)</label>
+        <textarea id="fb-message" placeholder="Describe the issue…" rows="3"
+          data-en-placeholder="Describe the issue…"
+          data-ar-placeholder="صف المشكلة…"></textarea>
+      </div>
+      <div class="feedback-row-2">
+        <div>
+          <label data-en="Your Name (optional)" data-ar="اسمك (اختياري)">Your Name (optional)</label>
+          <input type="text" id="fb-name"
+            placeholder="Name"
+            data-en-placeholder="Name"
+            data-ar-placeholder="الاسم" />
+        </div>
+        <div>
+          <label data-en="Email (optional)" data-ar="البريد الإلكتروني (اختياري)">Email (optional)</label>
+          <input type="email" id="fb-email"
+            placeholder="email@example.com"
+            data-en-placeholder="email@example.com"
+            data-ar-placeholder="email@example.com" />
+        </div>
+      </div>
+      <div style="max-width:160px;">
+        <label data-en="Page Number (optional)" data-ar="رقم الصفحة (اختياري)">Page Number (optional)</label>
+        <input type="number" id="fb-page" placeholder="e.g. 42" min="1"
+          data-en-placeholder="e.g. 42"
+          data-ar-placeholder="مثال: ٤٢" />
+      </div>
+      <div class="feedback-success" id="fb-success"
+        data-en="Thank you! Your feedback has been received."
+        data-ar="شكرًا! تم استلام ملاحظتك.">Thank you! Your feedback has been received.</div>
+      <button class="feedback-submit" id="fb-submit" onclick="submitFeedback()"
+        data-en="Submit Feedback" data-ar="إرسال الملاحظة">Submit Feedback</button>
+    </div>
   </div>
 </div>
 
@@ -550,7 +672,10 @@ html, body {{
     {category_html}
     {keywords_html}
     {description_html}
-    {browse_btn}
+    <div style="margin-top:18px; display:flex; flex-wrap:wrap; gap:0; align-items:center;">
+      {browse_btn}
+      {feedback_btn}
+    </div>
   </div>
 
   {toc_block}
@@ -581,12 +706,11 @@ function switchLang(lang) {{
     el.textContent = lang === 'ar' ? (el.dataset.ar || el.dataset.en) : el.dataset.en;
   }});
 
-  var chatInput = document.getElementById('chatInput');
-  if (chatInput) {{
-    chatInput.placeholder = lang === 'ar'
-      ? chatInput.dataset.arPlaceholder
-      : chatInput.dataset.enPlaceholder;
-  }}
+  document.querySelectorAll('[data-en-placeholder]').forEach(function(el) {{
+    el.placeholder = lang === 'ar'
+      ? (el.dataset.arPlaceholder || el.dataset.enPlaceholder)
+      : el.dataset.enPlaceholder;
+  }});
 
   document.getElementById('btn-en').classList.toggle('active', lang === 'en');
   document.getElementById('btn-ar').classList.toggle('active', lang === 'ar');
@@ -669,6 +793,64 @@ document.addEventListener('keydown', function(e) {{
   if (e.key === 'ArrowLeft')  navigateReader(currentLang === 'ar' ? -1 : 1);
   if (e.key === 'Escape') closeReader();
 }});
+
+// ── Feedback ──────────────────────────────────────────────────────────────
+function openFeedback() {{
+  document.getElementById('fb-message').value = '';
+  document.getElementById('fb-name').value = '';
+  document.getElementById('fb-email').value = '';
+  document.getElementById('fb-page').value = '';
+  document.getElementById('fb-success').style.display = 'none';
+  document.getElementById('fb-submit').style.display = '';
+  document.getElementById('fb-submit').disabled = false;
+  document.getElementById('feedbackOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}}
+
+function closeFeedback() {{
+  document.getElementById('feedbackOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}}
+
+function handleFeedbackClick(e) {{
+  if (e.target === document.getElementById('feedbackOverlay')) closeFeedback();
+}}
+
+function submitFeedback() {{
+  var msg = document.getElementById('fb-message').value.trim();
+  if (!msg) {{ document.getElementById('fb-message').focus(); return; }}
+  var btn = document.getElementById('fb-submit');
+  btn.disabled = true;
+  btn.textContent = currentLang === 'ar' ? 'جارٍ الإرسال…' : 'Sending…';
+  fetch('/api/feedback', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{
+      book_id: {book.id},
+      feedback_type: document.getElementById('fb-type').value,
+      message: msg,
+      name: document.getElementById('fb-name').value.trim() || null,
+      email: document.getElementById('fb-email').value.trim() || null,
+      page_number: parseInt(document.getElementById('fb-page').value) || null,
+    }})
+  }})
+  .then(r => r.json())
+  .then(d => {{
+    if (d.ok) {{
+      var s = document.getElementById('fb-success');
+      s.textContent = currentLang === 'ar' ? s.dataset.ar : s.dataset.en;
+      s.style.display = 'block';
+      btn.style.display = 'none';
+    }} else {{
+      btn.disabled = false;
+      btn.textContent = currentLang === 'ar' ? 'إرسال الملاحظة' : 'Submit Feedback';
+    }}
+  }})
+  .catch(() => {{
+    btn.disabled = false;
+    btn.textContent = currentLang === 'ar' ? 'إرسال الملاحظة' : 'Submit Feedback';
+  }});
+}}
 
 // ── Initialise ────────────────────────────────────────────────────────────
 switchLang(currentLang);

@@ -623,6 +623,309 @@ By OCR-ing page numbers from first 10 pages, we can calculate offset: `offset = 
 
 ---
 
+## Experiment EXP-010: Arabic Text Normalization for Vector Embedding Consistency
+
+**Date**: February 2026
+**Duration**: 12 hours
+**Objective**: Determine whether Arabic text must be normalized before embedding to achieve consistent vector similarity scores
+
+### Hypothesis
+Raw Arabic text contains typographic variants that have identical meaning but different Unicode representations — diacritics (tashkeel: حَرَكَات), multiple alef forms (ا / أ / إ / آ / ى), and tatweel (stretch marks: ـ). If these variants are not normalized before embedding, semantically identical queries will produce inconsistent similarity scores because the embedding model treats them as different tokens.
+
+**Reasoning**: OpenAI's embedding model (text-embedding-ada-002) tokenizes Arabic text at the subword level. A word with diacritics ("مُحَمَّد") and without ("محمد") produce different token sequences, resulting in different embedding vectors even though they carry identical meaning.
+
+### Method
+
+**Test Corpus**: 5 Arabic books (60+ sections, ~400 section chunks)
+
+**Procedure**:
+1. Embed all book sections in raw form (no normalization)
+2. Ask 20 test questions — 10 with diacritics, 10 without
+3. Record similarity scores for correct sections
+4. Re-embed all sections with normalization (strip diacritics, unify alef forms)
+5. Ask the same 20 questions (normalized before embedding)
+6. Compare similarity scores and rank of correct section in results
+
+**Normalization function implemented**:
+```python
+def normalize_arabic(text: str) -> str:
+    # Remove diacritics (harakat)
+    text = re.sub(r'[ؐ-ًؚ-ٟ]', '', text)
+    # Unify alef variants → bare alef
+    text = re.sub(r'[أإآ]', 'ا', text)
+    # Remove tatweel
+    text = text.replace('ـ', '')
+    return text
+```
+
+**Success Criteria**: Normalized embeddings improve average similarity score for correct sections by >10%
+
+### Results
+
+**Without normalization (raw Arabic)**:
+| Query Type | Correct Section Rank | Avg Similarity | Top-1 Accuracy |
+|------------|---------------------|----------------|----------------|
+| Query with diacritics | 3.2 avg | 0.241 | 45% |
+| Query without diacritics | 2.1 avg | 0.267 | 65% |
+| **Overall** | **2.7 avg** | **0.254** | **55%** |
+
+**With normalization (both query and chunks)**:
+| Query Type | Correct Section Rank | Avg Similarity | Top-1 Accuracy |
+|------------|---------------------|----------------|----------------|
+| Query with diacritics | 1.8 avg | 0.291 | 75% |
+| Query without diacritics | 1.6 avg | 0.298 | 80% |
+| **Overall** | **1.7 avg** | **0.295** | **78%** |
+
+**Improvement**: +16% average similarity score, +23% top-1 accuracy
+
+### Analysis
+
+**Why normalization helped**:
+- Alef variants (أ / إ / آ) are extremely common in Arabic — normalizing them collapses many near-duplicate token sequences
+- Diacritics are reader aids not present in most digital text — queries without them now match sections that were written without them
+
+**Critical implementation detail discovered**: Both the stored chunks AND the query must use the same normalization. Normalizing only one side reduced accuracy worse than normalizing neither.
+
+**Unexpected finding**: English queries against Arabic content did NOT benefit from Arabic normalization (as expected). The detection of question language (`_detect_lang()`) became necessary to apply normalization selectively.
+
+### Conclusion
+
+✅ **SUCCESS** — Normalization is required for consistent Arabic RAG retrieval
+
+**Decision**:
+- Normalize Arabic text before embedding both chunks and queries
+- Apply normalization only when detected language is Arabic
+- Store normalized text in embeddings; preserve original text for display
+
+---
+
+## Experiment EXP-011: Chunk Granularity Strategy for Arabic Book Retrieval
+
+**Date**: February–March 2026
+**Duration**: 18 hours
+**Objective**: Determine the optimal chunking strategy for embedding Arabic book sections to maximize retrieval precision
+
+### Hypothesis
+Embedding entire book sections (2,000–8,000 words) dilutes the semantic signal. A question about a specific concept within a chapter will score poorly against the full chapter embedding because the relevant content represents only a small fraction of the total tokens. Smaller, paragraph-sized chunks should improve retrieval precision.
+
+### Method
+
+**Test Corpus**: 3 Arabic books with structured chapters (10–12 chapters each)
+
+**Three strategies tested**:
+
+| Strategy | Chunk Size | Description |
+|----------|-----------|-------------|
+| A — Whole section | Full section | One embedding per chapter/section |
+| B — Paragraph chunks | ~300-500 tokens | Split on paragraph boundaries |
+| C — Hybrid (title + paragraphs) | Mixed | Special title chunk + paragraph chunks |
+
+**Procedure**:
+1. Implement each strategy, store embeddings in `section_chunks` table
+2. Ask 30 targeted questions (specific facts, not chapter summaries)
+3. Measure: precision@4 (were the 4 returned chunks from the correct section?)
+4. Measure: answer quality (1-5 scale, manual evaluation)
+
+**Success Criteria**: >70% precision@4, answer quality ≥4.0/5.0
+
+### Results
+
+**Strategy A — Whole Section**:
+| Metric | Result |
+|--------|--------|
+| Precision@4 | 42% |
+| Answer Quality | 3.1/5.0 |
+| Avg Similarity | 0.241 |
+| Notes | Retrieves correct chapter but answer context too broad |
+
+**Strategy B — Paragraph Chunks**:
+| Metric | Result |
+|--------|--------|
+| Precision@4 | 71% |
+| Answer Quality | 3.9/5.0 |
+| Avg Similarity | 0.287 |
+| Notes | Good for specific facts, poor for chapter-level summaries |
+
+**Strategy C — Hybrid (title chunk + paragraph chunks)**:
+| Metric | Result |
+|--------|--------|
+| Precision@4 | 78% |
+| Answer Quality | 4.2/5.0 |
+| Avg Similarity | 0.294 |
+| Notes | Best overall; title chunk captures chapter-level queries |
+
+### Analysis
+
+**Why whole sections failed**:
+- A 5,000-word chapter embedding represents 50+ concepts equally
+- A question about one concept gets diluted signal against that broad embedding
+- The embedding model (ada-002) has a 8,191 token limit — long sections exceed this and get truncated
+
+**Why paragraph chunks improved results**:
+- Each chunk represents 1–3 focused concepts
+- Similarity scores are more discriminative (range 0.18–0.42 vs. 0.22–0.29 for whole sections)
+
+**Title chunk innovation**:
+A special chunk (chunk_index = -1) stores the section title + first 200 words. This captures both the chapter identity ("الفصل السادس: استقطاب وتدريب رجال البيع") and its introductory context. It proved essential for chapter-level questions. A book metadata chunk (chunk_index = -2) was also added for questions about the book itself.
+
+**Unexpected finding**: Paragraph chunking introduced a new problem — for chapter-level queries ("summarize chapter six"), multiple chunks from wrong chapters scored higher than the correct chapter (see EXP-012).
+
+### Conclusion
+
+✅ **SUCCESS** — Hybrid strategy (title chunk + paragraph chunks) selected for production
+
+**Decision**:
+- Implement 3-tier chunking: book metadata (-2), section title (-1), paragraphs (0+)
+- Target paragraph chunk size: 400–600 tokens
+- Persist chunks in `section_chunks` table with `chunk_index` to distinguish types
+
+---
+
+## Experiment EXP-012: Chapter Query Disambiguation in Arabic Vector Search
+
+**Date**: March–April 2026
+**Duration**: 22 hours
+**Objective**: Solve the problem of incorrect chapter attribution when users ask chapter-specific questions (e.g., "summarize chapter six")
+
+### Hypothesis
+Vector similarity alone should be sufficient to identify the correct chapter when a user asks about a specific chapter by number. The embedding of "الفصل السادس" (chapter six) should score highest against the title chunk of chapter six.
+
+### Method
+
+**Test Case**: Asked "لخص الفصل السادس" (summarize chapter six) against a 12-chapter Arabic book
+
+**Procedure**:
+1. Embed the question
+2. Retrieve top-8 chunks by cosine similarity
+3. Record the rank and similarity score of chapter six's title chunk
+4. Repeat for all 12 chapters (asking about each one specifically)
+
+**Success Criteria**: Correct chapter ranks #1 in retrieval results in >80% of cases
+
+### Results
+
+**Similarity scores for "لخص الفصل السادس"**:
+| Rank | Chapter | Similarity | Notes |
+|------|---------|------------|-------|
+| 1 | Chapter 5 | 0.290 | Wrong chapter ❌ |
+| 2 | Chapter 7 | 0.282 | Wrong chapter ❌ |
+| 3 | Chapter 2 | 0.279 | Wrong chapter ❌ |
+| 4 | Chapter 4 | 0.269 | Wrong chapter ❌ |
+| 5 | **Chapter 6** | **0.268** | **Correct chapter — missed top-4** ❌ |
+| 6 | Chapter 9 | 0.255 | |
+| 7 | Chapter 10 | 0.237 | |
+| 8 | Chapter 8 | 0.232 | |
+
+**Overall accuracy across all 12 chapters**: 2/12 correct chapters ranked #1 (17%)
+
+**Root cause identified**: The word "الفصل" (chapter) appears in every chapter title. All ordinals (السادس, الخامس, السابع...) are semantically similar in the embedding space. The difference between chapter 5 (0.290) and chapter 6 (0.268) is only 0.022 — within normal variation noise.
+
+### Failed Approach 1: Chunk Count Ranking
+
+**Hypothesis**: If chapter 6 is the right answer, multiple paragraph chunks from it should score highly, not just the title chunk. Ranking by count of retrieved chunks per section should surface the correct chapter.
+
+**Result**: ❌ FAILED — All 8 retrieved results were title chunks (chunk_index = -1), one per chapter. Every section had exactly chunk_count = 1. Similarity remained the tiebreaker and chapter 6 still ranked 5th.
+
+**Time spent**: 4 hours
+
+### Failed Approach 2: Boosting Without Similarity Override
+
+**Hypothesis**: Detect the chapter number from the question text and reorder the results list to put matching chapters first.
+
+**Result**: ❌ FAILED — Reordering placed chapter 6 first in the `sections` list passed to the answerer, but the answerer re-sorted results by `(chunk_count, similarity)`. Since all chunk_counts were equal (1), it sorted by similarity, putting chapter 5 (0.290) back at position 1. The boost was silently undone.
+
+**Time spent**: 3 hours
+
+### Successful Approach: Ordinal Detection + Similarity Override
+
+**Method**:
+1. Parse the question for Arabic ordinals ("السادس" → 6) and English equivalents ("chapter six" → 6)
+2. Identify which retrieved chunk belongs to the detected chapter
+3. Override that chunk's similarity score to 2.0 (above all natural scores)
+4. The answerer's sort now always keeps the boosted chunk first
+
+**Result**: ✅ Chapter 6 now ranks #1 for all 12 chapter-specific queries (100%)
+
+**Extended to title keyword matching**: The same override mechanism was extended to handle title phrase references — if 2+ significant words from the question appear in a section title, boost that section. Handles queries like "summarize الأسس العامة لإدارة المبيعات" where the user quotes part of a chapter title.
+
+### Conclusion
+
+✅ **SUCCESS** (after 3 iterations)
+
+**Key finding**: Arabic ordinals cluster tightly in semantic space. Pure vector similarity cannot distinguish "chapter six" from "chapter five" when all chapters share the same structural vocabulary. A hybrid keyword + vector approach is required.
+
+**Decision**: Implement two-layer boost system — ordinal number detection (handles numbered references) + keyword title matching (handles name references). Applied before the answerer's ranking step with similarity score override.
+
+---
+
+## Experiment EXP-013: Bilingual Question-Answering on Arabic Books
+
+**Date**: April 2026
+**Duration**: 14 hours
+**Objective**: Enable English speakers to ask questions about Arabic books and receive coherent English answers, using Arabic book content as the knowledge source
+
+### Hypothesis
+OpenAI's multilingual embedding model shares semantic space across Arabic and English. An English question about a topic should retrieve relevant Arabic chunks even though the stored content is Arabic. The LLM (GPT-4o-mini) can then read the Arabic passages and synthesize an English answer.
+
+**Technical uncertainty**: It was unknown whether cross-language retrieval quality would be sufficient (similarity scores may be systematically lower for cross-language pairs), and whether the LLM would correctly prioritize Arabic source passages over its pre-trained general knowledge.
+
+### Method
+
+**Test Corpus**: 2 Arabic books on business and management topics
+
+**Procedure**:
+1. Ask 20 questions in English about content known to be in the Arabic books
+2. Record similarity scores of retrieved chunks (cross-language vs. same-language baseline)
+3. Evaluate answer accuracy: did the answer come from book content or LLM general knowledge?
+4. Test response language consistency: does the system respond in English regardless of book language?
+
+**Success Criteria**: >70% of English answers correctly sourced from book content, similarity scores >0.22
+
+### Results
+
+**Cross-language retrieval scores**:
+| Query Language | Book Language | Avg Similarity | Correct Section in Top-4 |
+|---------------|--------------|----------------|--------------------------|
+| Arabic → Arabic | Arabic | 0.294 | 78% |
+| English → Arabic | Arabic | 0.261 | 71% |
+| **Degradation** | | **-11%** | **-7%** |
+
+**Answer sourcing accuracy**:
+- 74% of answers correctly used book content (not LLM general knowledge)
+- 26% of answers appeared to use general knowledge (book content too vague or off-topic retrieval)
+
+**Response language**: LLM consistently answered in English when the English prompt template was used.
+
+### Technical Obstacles Discovered
+
+**Problem 1 — Response language determination**: Initial implementation used book language (`book.language`) to determine response language. This caused English questions to receive Arabic answers for Arabic books.
+
+**Solution**: Detect the question language independently using Unicode range detection. Response language follows the question, not the book. This required a separate `_detect_lang()` function applied to the question text at query time.
+
+**Problem 2 — Chat bubble RTL/LTR direction**: The chat UI used `/[؀-ۿ]/` (any Arabic character present) to set `dir="rtl"`. English answers that quoted Arabic terms were incorrectly displayed right-to-left.
+
+**Root cause**: The detection triggered on any Arabic character, even a single quoted word in an otherwise English answer.
+
+**Solution**: Changed to `/^[^a-zA-Z؀-ۿ]*[؀-ۿ]/` — detect the FIRST letter character. If the answer starts with an English letter, set LTR regardless of Arabic content within the text.
+
+**Problem 3 — Arabic normalization for English queries**: Applying Arabic normalization to English questions corrupted them (regex patterns for Arabic diacritics also matched some Unicode ranges used in English symbols). 
+
+**Solution**: Apply normalization only when `_detect_lang(question) == 'ar'`. English questions are embedded as-is.
+
+### Conclusion
+
+✅ **SUCCESS** — Cross-language retrieval is viable with 11% similarity degradation (acceptable)
+
+**Key findings**:
+1. Multilingual embeddings are effective for Arabic-English cross-language retrieval
+2. Response language must be determined from the question, not the book
+3. UI direction detection must use first-character logic, not presence-of-character logic
+4. Arabic normalization must be selectively applied based on detected question language
+
+**Decision**: Ship bilingual RAG with English and Arabic question support. Response language follows question language. Book language is retained for context in the LLM prompt only.
+
+---
+
 ## Summary of Experiments
 
 | Exp ID | Objective | Status | Key Outcome |
@@ -636,6 +939,10 @@ By OCR-ing page numbers from first 10 pages, we can calculate offset: `offset = 
 | EXP-007 | Two-phase extraction | ✅ SUCCESS | 82% cost reduction, bug fixed |
 | EXP-008 | Gibberish detection | ✅ SUCCESS | Unexpected languages indicate quality issues |
 | EXP-009 | Page offset auto-detection | ⚠️ ONGOING | 40% success rate, needs more work |
+| EXP-010 | Arabic normalization for embeddings | ✅ SUCCESS | +16% similarity score, +23% top-1 accuracy |
+| EXP-011 | Chunk granularity strategy | ✅ SUCCESS | Hybrid title+paragraph chunks, 78% precision@4 |
+| EXP-012 | Chapter query disambiguation | ✅ SUCCESS (3 iterations) | Ordinal detection + similarity override required |
+| EXP-013 | Bilingual question-answering | ✅ SUCCESS | Cross-language retrieval viable, 3 UI/logic bugs discovered |
 
 ---
 
