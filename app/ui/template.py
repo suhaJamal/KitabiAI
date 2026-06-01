@@ -1458,6 +1458,9 @@ def render_admin(books_data: list, pagination: dict | None = None, all_books_lis
         <button onclick="openReextract()" style="padding: 8px 16px; background: #fdf4ff; border: 1px solid #e9d5ff; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: #7e22ce; font-family: inherit;">
           🔄 Re-extract Book
         </button>
+        <a href="/admin/feedback" style="padding: 8px 16px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: #c2410c;">
+          💬 Feedback
+        </a>
         <a href="/library" target="_blank" style="padding: 8px 16px; background: var(--accent); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; color: white;">
           📚 Open Library
         </a>
@@ -1530,6 +1533,25 @@ def render_admin(books_data: list, pagination: dict | None = None, all_books_lis
         <h3>Edit Book</h3>
         <input type="hidden" id="edit-book-id" />
 
+        <label>Cover Image</label>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+          <img id="edit-cover-img" src="" alt="Cover"
+            style="height:72px; width:52px; object-fit:cover; border-radius:6px;
+                   border:1px solid var(--border); display:none;" />
+          <span id="edit-cover-placeholder"
+            style="font-size:12px; color:var(--muted); padding:8px 12px;
+                   background:var(--bg); border:1px dashed var(--border); border-radius:6px;">
+            No cover image
+          </span>
+        </div>
+        <input type="file" id="edit-cover-file" accept="image/*"
+          onchange="onCoverFileSelected(this)"
+          style="margin-bottom:4px;" />
+        <p style="font-size:11px; color:var(--muted); margin:0 0 14px;">
+          JPG, PNG, or WebP · max 5 MB · replaces existing cover
+        </p>
+        <div id="edit-cover-status" style="font-size:12px; margin-bottom:10px; display:none;"></div>
+
         <label>Book Title</label>
         <input type="text" id="edit-title" placeholder="Book title" />
 
@@ -1553,7 +1575,7 @@ def render_admin(books_data: list, pagination: dict | None = None, all_books_lis
 
         <div class="modal-actions">
           <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
-          <button class="btn-save" onclick="saveBook()">Save Changes</button>
+          <button class="btn-save" id="edit-save-btn" onclick="saveBook()">Save Changes</button>
         </div>
       </div>
     </div>
@@ -1628,6 +1650,22 @@ def render_admin(books_data: list, pagination: dict | None = None, all_books_lis
       }}
     }}
 
+    let _pendingCoverFile = null;
+
+    function onCoverFileSelected(input) {{
+      if (!input.files || !input.files[0]) return;
+      _pendingCoverFile = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {{
+        const img = document.getElementById('edit-cover-img');
+        const placeholder = document.getElementById('edit-cover-placeholder');
+        img.src = e.target.result;
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+      }};
+      reader.readAsDataURL(_pendingCoverFile);
+    }}
+
     function openEditModal(bookId) {{
       fetch('/admin/books/' + bookId)
         .then(r => {{
@@ -1635,6 +1673,22 @@ def render_admin(books_data: list, pagination: dict | None = None, all_books_lis
           return r.json();
         }})
         .then(data => {{
+          _pendingCoverFile = null;
+          document.getElementById('edit-cover-file').value = '';
+          document.getElementById('edit-cover-status').style.display = 'none';
+
+          const img = document.getElementById('edit-cover-img');
+          const placeholder = document.getElementById('edit-cover-placeholder');
+          if (data.cover_image_url) {{
+            img.src = data.cover_image_url;
+            img.style.display = 'block';
+            placeholder.style.display = 'none';
+          }} else {{
+            img.src = '';
+            img.style.display = 'none';
+            placeholder.style.display = 'inline';
+          }}
+
           document.getElementById('edit-book-id').value = data.id;
           document.getElementById('edit-title').value = data.title;
           document.getElementById('edit-author').value = data.author;
@@ -1654,8 +1708,45 @@ def render_admin(books_data: list, pagination: dict | None = None, all_books_lis
       document.getElementById('edit-modal').classList.remove('active');
     }}
 
-    function saveBook() {{
+    async function saveBook() {{
       const bookId = document.getElementById('edit-book-id').value;
+      const saveBtn = document.getElementById('edit-save-btn');
+      const coverStatus = document.getElementById('edit-cover-status');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+
+      // Upload cover image first if one was selected
+      if (_pendingCoverFile) {{
+        coverStatus.style.display = 'block';
+        coverStatus.style.color = 'var(--muted)';
+        coverStatus.textContent = 'Uploading cover image...';
+        const formData = new FormData();
+        formData.append('file', _pendingCoverFile);
+        try {{
+          const r = await fetch('/admin/books/' + bookId + '/cover', {{
+            method: 'POST',
+            body: formData
+          }});
+          if (!r.ok) {{
+            const err = await r.json();
+            throw new Error(err.detail || 'Upload failed');
+          }}
+          const result = await r.json();
+          document.getElementById('edit-cover-img').src = result.cover_image_url;
+          coverStatus.style.color = 'var(--success)';
+          coverStatus.textContent = 'Cover image updated.';
+          _pendingCoverFile = null;
+          document.getElementById('edit-cover-file').value = '';
+        }} catch(e) {{
+          coverStatus.style.color = '#dc2626';
+          coverStatus.textContent = 'Cover upload failed: ' + e.message;
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save Changes';
+          return;
+        }}
+      }}
+
+      // Save text metadata
       const data = {{
         title: document.getElementById('edit-title').value,
         author: document.getElementById('edit-author').value,
@@ -1678,11 +1769,14 @@ def render_admin(books_data: list, pagination: dict | None = None, all_books_lis
       .then(result => {{
         closeEditModal();
         showAlert(result.message, 'success');
-        // Reload page to reflect changes
         setTimeout(() => {{ window.location.reload(); }}, 1000);
       }})
       .catch(err => {{
         showAlert('Failed to update book: ' + err.message, 'error');
+      }})
+      .finally(() => {{
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
       }});
     }}
 
@@ -1823,5 +1917,120 @@ def render_admin(books_data: list, pagination: dict | None = None, all_books_lis
     document.addEventListener('keydown', function(e) {{
       if (e.key === 'Escape') closeReextract();
     }});
+    </script>
+    """
+
+
+_FEEDBACK_TYPE_LABELS = {
+    "toc": "TOC Error",
+    "missing_pages": "Missing Pages",
+    "quality": "Content Quality",
+    "other": "Other",
+}
+
+_STATUS_COLORS = {
+    "new":      ("background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;", "New"),
+    "reviewed": ("background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;", "Reviewed"),
+    "resolved": ("background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0;", "Resolved"),
+}
+
+
+def render_admin_feedback(entries: list) -> str:
+    """Render the admin feedback list page."""
+    if not entries:
+        rows = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px;">No feedback yet.</td></tr>'
+    else:
+        rows = ""
+        for e in entries:
+            type_label = _FEEDBACK_TYPE_LABELS.get(e["feedback_type"], e["feedback_type"])
+            status_style, status_label = _STATUS_COLORS.get(e["status"], ("", e["status"]))
+            contact = ""
+            if e["name"] or e["email"]:
+                contact = (e["name"] or "") + ("<br/>" + e["email"] if e["email"] else "")
+            page_str = str(e["page_number"]) if e["page_number"] else "—"
+            book_link = f'<a href="/books/{e["book_id"]}" target="_blank" style="color:var(--accent);text-decoration:none;">{e["book_title"] or "Book #" + str(e["book_id"])}</a>'
+            rows += f"""
+            <tr id="fbrow-{e['id']}">
+              <td style="font-size:12px;color:var(--muted);white-space:nowrap;">{e['created_at']}</td>
+              <td style="font-size:13px;">{book_link}</td>
+              <td><span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg);border:1px solid var(--border);">{type_label}</span></td>
+              <td style="font-size:13px;max-width:280px;">{e['message']}</td>
+              <td style="font-size:12px;color:var(--muted);">{contact or "—"}</td>
+              <td style="font-size:12px;color:var(--muted);">{page_str}</td>
+              <td>
+                <span id="fbstatus-{e['id']}" style="font-size:11px;padding:2px 8px;border-radius:20px;{status_style}">{status_label}</span>
+              </td>
+              <td>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                  <button onclick="setFbStatus({e['id']},'reviewed')" style="padding:3px 8px;font-size:11px;border-radius:6px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;cursor:pointer;font-family:inherit;">Reviewed</button>
+                  <button onclick="setFbStatus({e['id']},'resolved')" style="padding:3px 8px;font-size:11px;border-radius:6px;border:1px solid #bbf7d0;background:#f0fdf4;color:#15803d;cursor:pointer;font-family:inherit;">Resolved</button>
+                </div>
+              </td>
+            </tr>"""
+
+    total = len(entries)
+    new_count = sum(1 for e in entries if e["status"] == "new")
+
+    return f"""
+    <style>
+      .fb-table {{ width:100%; border-collapse:collapse; font-size:13px; }}
+      .fb-table th {{ background:var(--bg); padding:10px 12px; text-align:left; font-size:12px; color:var(--muted); border-bottom:2px solid var(--border); }}
+      .fb-table td {{ padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top; }}
+      .fb-table tr:hover td {{ background:#fdfaf7; }}
+    </style>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h2 style="margin:0;font-size:20px;">User Feedback</h2>
+        <p style="margin:4px 0 0;font-size:13px;color:var(--muted);">{total} total &nbsp;·&nbsp; {new_count} new</p>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <a href="/admin" style="padding:8px 16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;color:var(--accent);">
+          ← Back to Books
+        </a>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="fb-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Book</th>
+            <th>Type</th>
+            <th>Message</th>
+            <th>Contact</th>
+            <th>Page</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>{rows}</tbody>
+      </table>
+    </div>
+
+    <script>
+    function setFbStatus(id, status) {{
+      fetch('/admin/feedback/' + id, {{
+        method: 'PATCH',
+        headers: {{'Content-Type': 'application/json'}},
+        body: JSON.stringify({{status: status}})
+      }})
+      .then(r => r.json())
+      .then(d => {{
+        if (!d.ok) return;
+        var labels = {{new:'New',reviewed:'Reviewed',resolved:'Resolved'}};
+        var styles = {{
+          new: 'background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;',
+          reviewed: 'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;',
+          resolved: 'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;'
+        }};
+        var el = document.getElementById('fbstatus-' + id);
+        if (el) {{
+          el.textContent = labels[d.status] || d.status;
+          el.style.cssText = 'font-size:11px;padding:2px 8px;border-radius:20px;' + (styles[d.status] || '');
+        }}
+      }});
+    }}
     </script>
     """

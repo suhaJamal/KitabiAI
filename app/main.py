@@ -24,6 +24,7 @@ from .routers.summarization import router as summarization_router
 from .routers.rag import router as rag_router
 from .routers.auth import router as auth_router, verify_session_token, SESSION_COOKIE
 from .routers.waitlist import router as waitlist_router
+from .routers.feedback import router as feedback_router
 
 # Setup logging
 logger = setup_logging()
@@ -70,6 +71,7 @@ app.include_router(admin_router)
 app.include_router(summarization_router)
 app.include_router(rag_router)
 app.include_router(waitlist_router)
+app.include_router(feedback_router)
 
 
 # Version endpoint to verify deployment
