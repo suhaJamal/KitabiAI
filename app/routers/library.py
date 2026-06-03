@@ -13,6 +13,7 @@ Endpoints:
 import io
 import logging
 from typing import Optional, List
+from urllib.parse import quote as urlquote
 from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import func, or_
@@ -242,16 +243,19 @@ async def download_book_pdf(book_id: int):
         from ..services.storage.azure_storage_service import azure_storage
         pdf_bytes = azure_storage.download_pdf(book.pdf_url)
 
-        safe_title = "".join(
-            c if c.isalnum() or c in " -_" else "_"
-            for c in (book.title or f"book_{book_id}")
-        ).strip()
-        filename = f"{safe_title}.pdf"
+        title = (book.title or f"book_{book_id}").strip()
+        ascii_fallback = f"book_{book_id}.pdf"
+        utf8_filename = urlquote(f"{title}.pdf", safe="")
 
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={
+                "Content-Disposition": (
+                    f"attachment; filename=\"{ascii_fallback}\"; "
+                    f"filename*=UTF-8''{utf8_filename}"
+                )
+            },
         )
     except HTTPException:
         raise

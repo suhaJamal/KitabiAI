@@ -207,15 +207,19 @@ class AzureStorageService:
         )
 
     def download_pdf(self, pdf_url: str) -> bytes:
-        """
-        Download PDF bytes from an Azure Blob Storage URL.
-        Uses BlobClient.from_blob_url with the existing credential to avoid
-        manual URL parsing issues.
-        """
-        from azure.storage.blob import BlobClient
-        blob_client = BlobClient.from_blob_url(
-            pdf_url,
-            credential=self.blob_service_client.credential
+        """Download PDF bytes from an Azure Blob Storage URL."""
+        from urllib.parse import urlparse, unquote
+        parsed = urlparse(pdf_url)
+        parts = parsed.path.lstrip('/').split('/', 1)
+        container_name = parts[0]
+        blob_name = parts[1]
+        # Stored URLs may be double-encoded; decode until stable to get the raw blob name
+        prev = None
+        while prev != blob_name:
+            prev = blob_name
+            blob_name = unquote(blob_name)
+        blob_client = self.blob_service_client.get_blob_client(
+            container=container_name, blob=blob_name
         )
         return blob_client.download_blob().readall()
 
