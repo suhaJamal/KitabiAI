@@ -926,17 +926,22 @@
             window.scrollTo({ top: document.querySelector('.container').offsetTop - 20, behavior: 'smooth' });
         }
 
+        function cleanTitle(t) {
+            return (t || '').replace(/\s*-\s*(extract|generate|auto)\s*$/i, '').trim();
+        }
+
         function createBookCard(book) {
             const card = document.createElement('div');
             card.className = 'book-card';
             card.onclick = () => window.open(`/books/${book.id}`, '_blank');
+            const title = cleanTitle(book.title);
             const coverImage = book.cover_image_url
-                ? `<img src="${book.cover_image_url}" alt="${book.title}">`
+                ? `<img src="${book.cover_image_url}" alt="${title}">`
                 : `<span class="placeholder">📖</span>`;
             card.innerHTML = `
                 <div class="book-cover">${coverImage}</div>
                 <div class="book-info">
-                    <h3>${book.title}</h3>
+                    <h3>${title}</h3>
                     <div class="book-meta">
                         <span class="author">${book.author.name}</span>
                         ${book.category ? ` • ${book.category.name}` : ''}
