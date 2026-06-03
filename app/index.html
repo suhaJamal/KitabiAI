@@ -637,6 +637,23 @@
             transition: border-color .15s, color .15s;
         }
         .welcome-close:hover { border-color: #c76a2d; color: #c76a2d; }
+
+        /* ── Donate button (header) ── */
+        .donate-header-btn {
+            padding: 6px 14px;
+            background: #c76a2d;
+            color: #fff;
+            border: none;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background .15s;
+            white-space: nowrap;
+        }
+        .donate-header-btn:hover { background: #e88d51; }
+
     </style>
 </head>
 <body>
@@ -667,12 +684,13 @@
                     <p id="wp-p4">Help us add more books and improve quality.</p>
                 </div>
                 <div class="wp-actions">
-                    <a class="wp-donate" id="wp-donate" href="#" target="_blank">Donate</a>
+                    <button class="wp-donate" id="wp-donate" onclick="closeWelcome(); openDonate();">Donate</button>
                     <button class="welcome-close" id="wp-btn" onclick="closeWelcome()">Close</button>
                 </div>
             </div>
         </div>
     </div>
+
 
     <!-- Header -->
     <header>
@@ -680,6 +698,7 @@
             <img src="/static/images/logo-kitabiAI.png" alt="KitabiAI">
         </div>
         <div class="header-actions">
+            <button class="donate-header-btn" onclick="openDonate()">❤️ Donate</button>
             <button class="lang-switch" onclick="toggleLanguage()">عربي</button>
             <button class="theme-toggle" onclick="toggleTheme()" data-en-light="🌙 Dark Mode" data-ar-light="🌙 الوضع الليلي" data-en-dark="☀️ Light Mode" data-ar-dark="☀️ الوضع النهاري">🌙 Dark Mode</button>
         </div>
@@ -1002,6 +1021,17 @@
             updateThemeButtonText();
         }
 
+        // ── Donate modal ────────────────────────────────────────────
+        function openDonate() {
+            var m = document.getElementById('kofiDonateModal');
+            m.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+        function closeDonate() {
+            document.getElementById('kofiDonateModal').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
         // ── Welcome popup ──────────────────────────────────────────
         const _WELCOME_KEY = 'kitabiai_welcome_v1';
 
@@ -1090,6 +1120,25 @@
                 btn.disabled = false;
             }
         }
+    </script>
+
+    <!-- Ko-fi donate modal -->
+    <div id="kofiDonateModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:10000;justify-content:center;align-items:center;" onclick="if(event.target===this)closeDonate()">
+        <div style="background:#fff;border-radius:12px;padding:8px;max-width:480px;width:95%;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <button onclick="closeDonate()" style="position:absolute;top:10px;right:14px;border:none;background:none;font-size:22px;cursor:pointer;color:#555;line-height:1;">✕</button>
+            <iframe src='https://ko-fi.com/kitabiaicom/?hidefeed=true&widget=true&embed=true' style='border:none;width:100%;padding:4px 0;background:#f9f9f9;height:520px;border-radius:8px;display:block;' title='Support KitabiAI on Ko-fi'></iframe>
+        </div>
+    </div>
+
+    <!-- Ko-fi overlay widget (floating button hidden; triggered by our Donate button) -->
+    <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
+    <script>
+        kofiWidgetOverlay.draw('kitabiaicom', {
+            'type': 'floating-chat',
+            'floating-chat.donateButton.text': 'Donate',
+            'floating-chat.donateButton.background-color': '#c76a2d',
+            'floating-chat.donateButton.text-color': '#fff'
+        });
     </script>
 </body>
 </html>

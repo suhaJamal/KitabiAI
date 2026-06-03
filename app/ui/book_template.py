@@ -234,6 +234,12 @@ document.getElementById('chatInput').addEventListener('keydown', function(e) {{
         ' data-en="Report an Issue" data-ar="الإبلاغ عن مشكلة">Report an Issue</button>'
     )
 
+    download_btn = (
+        f'<a class="download-btn" href="/api/books/{book.id}/download-pdf"'
+        f' data-en="⬇ Download PDF" data-ar="⬇ تحميل PDF">⬇ Download PDF</a>'
+        if book.pdf_url else ''
+    )
+
     toc_block = (
         f'<div class="section-card">'
         f'<div class="section-heading" data-en="Table of Contents" data-ar="فهرس المحتويات">Table of Contents</div>'
@@ -334,6 +340,15 @@ html, body {{
   font-size: 14px; font-family: inherit; cursor: pointer; transition: background .15s;
 }}
 .browse-btn:hover {{ background: var(--accent-light); }}
+
+/* Download PDF link */
+.download-btn {{
+  display: inline-block; margin-top: 18px; margin-left: 8px; padding: 10px 18px;
+  background: transparent; color: var(--accent); border: 1px solid var(--accent);
+  border-radius: 10px; font-size: 14px; font-family: inherit; cursor: pointer;
+  text-decoration: none; transition: background .15s, color .15s;
+}}
+.download-btn:hover {{ background: var(--accent); color: #fff; }}
 
 /* ── Section card ── */
 .section-card {{
@@ -674,6 +689,7 @@ html, body {{
     {description_html}
     <div style="margin-top:18px; display:flex; flex-wrap:wrap; gap:0; align-items:center;">
       {browse_btn}
+      {download_btn}
       {feedback_btn}
     </div>
   </div>

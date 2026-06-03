@@ -10,10 +10,11 @@ Endpoints:
 - GET /api/stats - Get library statistics
 """
 
+import io
 import logging
 from typing import Optional, List
 from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import func, or_
 
 from ..models.database import SessionLocal, Book, Author, Category
@@ -223,6 +224,40 @@ async def get_book(book_id: int):
     except Exception as e:
         logger.error(f"Error getting book {book_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get book: {str(e)}")
+    finally:
+        db.close()
+
+
+@router.get("/books/{book_id}/download-pdf")
+async def download_book_pdf(book_id: int):
+    """Stream the original PDF for a book as a file download."""
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter(Book.id == book_id).first()
+        if not book:
+            raise HTTPException(status_code=404, detail="Book not found")
+        if not book.pdf_url:
+            raise HTTPException(status_code=404, detail="PDF not available for this book")
+
+        from ..services.storage.azure_storage_service import azure_storage
+        pdf_bytes = azure_storage.download_pdf(book.pdf_url)
+
+        safe_title = "".join(
+            c if c.isalnum() or c in " -_" else "_"
+            for c in (book.title or f"book_{book_id}")
+        ).strip()
+        filename = f"{safe_title}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading PDF for book {book_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download PDF")
     finally:
         db.close()
 
