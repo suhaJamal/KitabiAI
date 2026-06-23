@@ -10,12 +10,10 @@ Endpoints:
 - GET /api/stats - Get library statistics
 """
 
-import io
 import logging
 from typing import Optional, List
-from urllib.parse import quote as urlquote
 from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import func, or_
 
 from ..models.database import SessionLocal, Book, Author, Category
@@ -241,22 +239,9 @@ async def download_book_pdf(book_id: int):
             raise HTTPException(status_code=404, detail="PDF not available for this book")
 
         from ..services.storage.azure_storage_service import azure_storage
-        pdf_bytes = azure_storage.download_pdf(book.pdf_url)
-
         title = (book.title or f"book_{book_id}").strip()
-        ascii_fallback = f"book_{book_id}.pdf"
-        utf8_filename = urlquote(f"{title}.pdf", safe="")
-
-        return StreamingResponse(
-            io.BytesIO(pdf_bytes),
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": (
-                    f"attachment; filename=\"{ascii_fallback}\"; "
-                    f"filename*=UTF-8''{utf8_filename}"
-                )
-            },
-        )
+        sas_url = azure_storage.get_pdf_sas_url(book.pdf_url, filename=f"{title}.pdf")
+        return RedirectResponse(url=sas_url, status_code=302)
     except HTTPException:
         raise
     except Exception as e:

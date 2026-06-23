@@ -206,18 +206,53 @@ class AzureStorageService:
             content_type="application/pdf"
         )
 
-    def download_pdf(self, pdf_url: str) -> bytes:
-        """Download PDF bytes from an Azure Blob Storage URL."""
+    def _parse_blob_path(self, blob_url: str):
+        """Return (container_name, blob_name) from a stored Azure blob URL, handling double-encoding."""
         from urllib.parse import urlparse, unquote
-        parsed = urlparse(pdf_url)
+        parsed = urlparse(blob_url)
         parts = parsed.path.lstrip('/').split('/', 1)
         container_name = parts[0]
         blob_name = parts[1]
-        # Stored URLs may be double-encoded; decode until stable to get the raw blob name
         prev = None
         while prev != blob_name:
             prev = blob_name
             blob_name = unquote(blob_name)
+        return container_name, blob_name
+
+    def get_pdf_sas_url(self, pdf_url: str, filename: str = None) -> str:
+        """Return a short-lived SAS URL for direct browser download from Azure."""
+        from azure.storage.blob import generate_blob_sas, BlobSasPermissions
+        from datetime import datetime, timedelta, timezone
+        from urllib.parse import quote
+
+        container_name, blob_name = self._parse_blob_path(pdf_url)
+
+        content_disposition = None
+        if filename:
+            safe = quote(filename, safe='')
+            content_disposition = (
+                f"attachment; filename=\"book.pdf\"; filename*=UTF-8''{safe}"
+            )
+
+        sas_token = generate_blob_sas(
+            account_name=self.blob_service_client.account_name,
+            container_name=container_name,
+            blob_name=blob_name,
+            account_key=self.blob_service_client.credential.account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.now(timezone.utc) + timedelta(hours=1),
+            content_disposition=content_disposition,
+            content_type="application/pdf",
+        )
+
+        blob_client = self.blob_service_client.get_blob_client(
+            container=container_name, blob=blob_name
+        )
+        return f"{blob_client.url}?{sas_token}"
+
+    def download_pdf(self, pdf_url: str) -> bytes:
+        """Download PDF bytes from an Azure Blob Storage URL (fallback for server-side use)."""
+        container_name, blob_name = self._parse_blob_path(pdf_url)
         blob_client = self.blob_service_client.get_blob_client(
             container=container_name, blob=blob_name
         )

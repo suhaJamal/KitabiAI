@@ -18,4 +18,7 @@ def setup_logging(log_level: str = "INFO"):
         ]
     )
     
+    # Suppress verbose Azure SDK HTTP request/response logging
+    logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
+
     return logging.getLogger("kitabiai")
