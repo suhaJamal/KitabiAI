@@ -8,6 +8,7 @@ renders in the book's own language/direction.
 """
 import html as _html_mod
 import re as _re
+from ..core.slugify import book_path as _book_path
 
 _BULLET_RE  = _re.compile(r'^[-*]\s+(.+)$')
 _ORDERED_RE = _re.compile(r'^\d+\.\s+(.+)$')
@@ -202,7 +203,7 @@ document.getElementById('chatInput').addEventListener('keydown', function(e) {{
     html_lang        = 'ar' if book_is_ar else 'en'
     html_dir         = 'rtl' if book_is_ar else 'ltr'
     og_locale        = 'ar_AR' if book_is_ar else 'en_US'
-    canonical_url    = f'https://app.kitabiai.com/books/{book.id}'
+    canonical_url    = f'https://app.kitabiai.com/books/{_book_path(book.id, display_title)}'
     og_image         = book.cover_image_url or 'https://app.kitabiai.com/static/images/logo-kitabiAI.png'
 
     author_html = (

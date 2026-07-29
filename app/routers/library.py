@@ -18,6 +18,7 @@ from sqlalchemy import func, or_
 
 from ..models.database import SessionLocal, Book, Author, Category
 from ..models.schemas import BookMetadata
+from ..core.slugify import book_path as _book_path
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["library"])
@@ -97,11 +98,20 @@ async def list_books(
         # Apply pagination
         books = query.limit(limit).offset(offset).all()
 
+        def _display_title(t):
+            t = t or ''
+            for s in ('-extract', '-generate', '-auto'):
+                if t.endswith(s):
+                    return t[:-len(s)].strip()
+            return t
+
         # Format response
         books_list = []
         for book in books:
+            dt = _display_title(book.title)
             books_list.append({
                 "id": book.id,
+                "path": _book_path(book.id, dt),
                 "title": book.title,
                 "title_ar": book.title_ar,
                 "author": {

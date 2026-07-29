@@ -100,11 +100,12 @@ async def health_check():
 @app.get("/sitemap.xml", response_class=Response)
 async def sitemap():
     from .models.database import SessionLocal, Book
+    from .core.slugify import book_path
     BASE_URL = "https://app.kitabiai.com"
     db = SessionLocal()
     try:
         books = (
-            db.query(Book.id, Book.updated_at)
+            db.query(Book.id, Book.title, Book.updated_at)
             .filter((Book.is_visible == True) | (Book.is_visible == None))
             .order_by(Book.id)
             .all()
@@ -119,8 +120,14 @@ async def sitemap():
         for book in books:
             lastmod = book.updated_at.strftime("%Y-%m-%d") if book.updated_at else ""
             lastmod_tag = f"\n    <lastmod>{lastmod}</lastmod>" if lastmod else ""
+            title = book.title or ''
+            for suffix in ('-extract', '-generate', '-auto'):
+                if title.endswith(suffix):
+                    title = title[:-len(suffix)].strip()
+                    break
+            path = book_path(book.id, title)
             urls.append(f"""  <url>
-    <loc>{BASE_URL}/books/{book.id}</loc>{lastmod_tag}
+    <loc>{BASE_URL}/books/{path}</loc>{lastmod_tag}
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>""")
