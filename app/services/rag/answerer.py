@@ -18,16 +18,24 @@ _MODEL = "gpt-4o-mini"
 
 _PROMPTS = {
     'ar': (
-        "أنت مساعد متخصص في الإجابة عن أسئلة الكتب. "
-        "أجب عن السؤال التالي بناءً فقط على المقاطع المستخرجة من كتاب \"{book_title}\".\n\n"
+        "أنت مساعد متخصص في الإجابة عن أسئلة الكتب.\n\n"
+        "معلومات الكتاب:\n"
+        "- العنوان: {book_title}\n"
+        "{author_line}"
+        "\n"
+        "أجب عن السؤال التالي بناءً فقط على معلومات الكتاب والمقاطع المستخرجة أدناه.\n\n"
         "المقاطع:\n{context}\n\n"
         "السؤال: {question}\n\n"
         "أجب باللغة العربية بشكل مختصر ومفيد. "
         "إذا لم تجد الإجابة في المقاطع، قل ذلك بوضوح."
     ),
     'en': (
-        "You are an assistant specialized in answering questions about books. "
-        "Answer the following question based only on the passages extracted from \"{book_title}\".\n\n"
+        "You are an assistant specialized in answering questions about books.\n\n"
+        "Book information:\n"
+        "- Title: {book_title}\n"
+        "{author_line}"
+        "\n"
+        "Answer the following question based only on the book information and passages extracted below.\n\n"
         "Passages:\n{context}\n\n"
         "Question: {question}\n\n"
         "Answer concisely and helpfully in English. "
@@ -63,6 +71,7 @@ class Answerer:
         book_title: str,
         language: str,
         question_language: str = None,
+        book_author: str = '',
     ) -> dict:
         """
         Generate an answer with source citations.
@@ -121,8 +130,16 @@ class Answerer:
 
         context = "\n\n".join(context_parts)
         prompt_template = _PROMPTS.get(response_lang, _PROMPTS['en'])
+        if book_author:
+            author_line = (
+                f"- المؤلف: {book_author}\n" if response_lang == 'ar'
+                else f"- Author: {book_author}\n"
+            )
+        else:
+            author_line = ''
         prompt = prompt_template.format(
             book_title=book_title,
+            author_line=author_line,
             context=context,
             question=question,
         )
