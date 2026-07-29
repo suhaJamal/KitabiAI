@@ -199,6 +199,11 @@ document.getElementById('chatInput').addEventListener('keydown', function(e) {{
     # ── Meta / HTML fragments ─────────────────────────────────────────────────
     meta_description = _esc(description[:200]) if description else _esc(display_title)
     meta_keywords    = _esc(keywords) if keywords else ''
+    html_lang        = 'ar' if book_is_ar else 'en'
+    html_dir         = 'rtl' if book_is_ar else 'ltr'
+    og_locale        = 'ar_AR' if book_is_ar else 'en_US'
+    canonical_url    = f'https://app.kitabiai.com/books/{book.id}'
+    og_image         = book.cover_image_url or 'https://app.kitabiai.com/static/images/logo-kitabiAI.png'
 
     author_html = (
         f'<div class="meta-row">'
@@ -248,13 +253,27 @@ document.getElementById('chatInput').addEventListener('keydown', function(e) {{
     )
 
     return f"""<!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="{html_lang}" dir="{html_dir}">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{_esc(display_title)} — KitabiAI</title>
 <meta name="description" content="{meta_description}"/>
 {'<meta name="keywords" content="' + meta_keywords + '"/>' if meta_keywords else ''}
-<title>{_esc(display_title)}</title>
+<link rel="canonical" href="{canonical_url}"/>
+<!-- Open Graph -->
+<meta property="og:type" content="book"/>
+<meta property="og:site_name" content="KitabiAI"/>
+<meta property="og:locale" content="{og_locale}"/>
+<meta property="og:url" content="{canonical_url}"/>
+<meta property="og:title" content="{_esc(display_title)}"/>
+<meta property="og:description" content="{meta_description}"/>
+<meta property="og:image" content="{_esc(og_image)}"/>
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="{_esc(display_title)}"/>
+<meta name="twitter:description" content="{meta_description}"/>
+<meta name="twitter:image" content="{_esc(og_image)}"/>
 <link rel="icon" type="image/png" href="/static/images/favicon.png">
 <style>
 :root {{

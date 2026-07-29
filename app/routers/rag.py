@@ -220,6 +220,7 @@ def ask(data: dict, request: Request):
         if not book:
             raise HTTPException(status_code=404, detail="Book not found")
         book_title = book.title
+        book_author = book.author.name if book.author else ''
         language = book.language or 'ar'
     finally:
         db.close()
@@ -260,7 +261,7 @@ def ask(data: dict, request: Request):
 
     # Generate answer — respond in the language the question was asked in
     result = _answerer.answer(question, sections, book_title, language,
-                              question_language=question_lang)
+                              question_language=question_lang, book_author=book_author)
 
     # Increment counter after a successful answer
     if not is_bypass:
