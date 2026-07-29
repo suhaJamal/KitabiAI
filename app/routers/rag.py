@@ -9,7 +9,7 @@ RAG endpoints:
 import logging
 import re
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from ..models.database import SessionLocal, Book, Section, SectionChunk, Page
 from ..models.database import Author, Category, ChatRateLimit
@@ -18,6 +18,7 @@ from ..services.rag.retriever import Retriever
 from ..services.rag.answerer import Answerer
 from ..ui.book_template import render_book_page
 from ..core.config import settings
+from ..core.slugify import book_path
 
 
 def _detect_lang(text: str) -> str:
@@ -134,9 +135,14 @@ _answerer = Answerer()
 
 # ── Public book page ──────────────────────────────────────────────────────────
 
-@router.get("/books/{book_id}", response_class=HTMLResponse)
-def book_page(book_id: int):
-    """Render the public book page with content and chat widget."""
+@router.get("/books/{book_id_slug}", response_class=HTMLResponse)
+def book_page(book_id_slug: str):
+    """Render the public book page. Accepts /books/{id} or /books/{id}-{slug}."""
+    m = re.match(r'^(\d+)', book_id_slug)
+    if not m:
+        raise HTTPException(status_code=404, detail="Book not found")
+    book_id = int(m.group(1))
+
     db = SessionLocal()
     try:
         book = (
@@ -147,6 +153,18 @@ def book_page(book_id: int):
         )
         if not book:
             raise HTTPException(status_code=404, detail="Book not found")
+
+        # Strip TOC suffix to get the display title used for the slug
+        display_title = book.title or ''
+        for suffix in ('-extract', '-generate', '-auto'):
+            if display_title.endswith(suffix):
+                display_title = display_title[:-len(suffix)].strip()
+                break
+
+        # Redirect to canonical slug URL with 301 if the path doesn't already match
+        canonical = book_path(book_id, display_title)
+        if book_id_slug != canonical:
+            return RedirectResponse(f"/books/{canonical}", status_code=301)
 
         sections = (
             db.query(Section)
