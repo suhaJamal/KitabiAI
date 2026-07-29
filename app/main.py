@@ -47,7 +47,7 @@ _PUBLIC_PREFIXES = (
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-        if path == "/" or any(path == p or path.startswith(p) for p in _PUBLIC_PREFIXES):
+        if any(path == p or path.startswith(p) for p in _PUBLIC_PREFIXES):
             return await call_next(request)
         token = request.cookies.get(SESSION_COOKIE)
         if not verify_session_token(token):
@@ -141,10 +141,6 @@ async def sitemap():
     finally:
         db.close()
 
-
-@app.get("/")
-async def root():
-    return RedirectResponse("/library", status_code=301)
 
 # Library homepage (index.html)
 @app.get("/library")
