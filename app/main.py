@@ -9,7 +9,7 @@ Entry point for the FastAPI app.
 
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -37,6 +37,7 @@ _PUBLIC_PREFIXES = (
     "/api/",
     "/health",
     "/version",
+    "/sitemap.xml",
     "/static/",
     "/admin/login",
     "/admin/logout",
@@ -94,6 +95,45 @@ async def get_version():
 async def health_check():
     """Health check endpoint for Docker."""
     return {"status": "healthy", "service": "kitabiai"}
+
+# Sitemap for Google Search Console
+@app.get("/sitemap.xml", response_class=Response)
+async def sitemap():
+    from .models.database import SessionLocal, Book
+    BASE_URL = "https://app.kitabiai.com"
+    db = SessionLocal()
+    try:
+        books = (
+            db.query(Book.id, Book.updated_at)
+            .filter((Book.is_visible == True) | (Book.is_visible == None))
+            .order_by(Book.id)
+            .all()
+        )
+        urls = [
+            f"""  <url>
+    <loc>{BASE_URL}/library</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>"""
+        ]
+        for book in books:
+            lastmod = book.updated_at.strftime("%Y-%m-%d") if book.updated_at else ""
+            lastmod_tag = f"\n    <lastmod>{lastmod}</lastmod>" if lastmod else ""
+            urls.append(f"""  <url>
+    <loc>{BASE_URL}/books/{book.id}</loc>{lastmod_tag}
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>""")
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            + "\n".join(urls)
+            + "\n</urlset>"
+        )
+        return Response(content=xml, media_type="application/xml")
+    finally:
+        db.close()
+
 
 # Library homepage (index.html)
 @app.get("/library")
